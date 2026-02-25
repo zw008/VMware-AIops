@@ -54,9 +54,9 @@ class ConnectionManager:
     def disconnect(self, target_name: str) -> None:
         """Disconnect from a specific target."""
         if target_name in self._connections:
-            from pyVmomi import connect as pyvmomi_connect
+            from pyVim.connect import Disconnect
 
-            pyvmomi_connect.Disconnect(self._connections[target_name])
+            Disconnect(self._connections[target_name])
             del self._connections[target_name]
 
     def disconnect_all(self) -> None:
@@ -75,7 +75,7 @@ class ConnectionManager:
     @staticmethod
     def _create_connection(target: TargetConfig) -> ServiceInstance:
         """Create a new pyVmomi connection."""
-        from pyVmomi import connect as pyvmomi_connect
+        from pyVim.connect import Disconnect, SmartConnect
 
         context = None
         if not target.verify_ssl:
@@ -83,14 +83,15 @@ class ConnectionManager:
             context.check_hostname = False
             context.verify_mode = ssl.CERT_NONE
 
-        si = pyvmomi_connect.SmartConnect(
+        si = SmartConnect(
             host=target.host,
             user=target.username,
             pwd=target.password,
             port=target.port,
             sslContext=context,
+            disableSslCertValidation=not target.verify_ssl,
         )
-        atexit.register(pyvmomi_connect.Disconnect, si)
+        atexit.register(Disconnect, si)
         return si
 
 
