@@ -4,6 +4,22 @@ AI-powered VMware vCenter/ESXi monitoring and operations tool.
 
 AI 驱动的 VMware vCenter/ESXi 监控与运维工具。
 
+[![Claude Code Marketplace](https://img.shields.io/badge/Claude_Code-Marketplace-blueviolet)](https://github.com/zw008/VMware-AIops)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+
+### Quick Install for Claude Code / Claude Code 快速安装
+
+```bash
+# Add marketplace / 添加市场
+/plugin marketplace add zw008/VMware-AIops
+
+# Install plugin / 安装插件
+/plugin install vmware-ops
+
+# Use it / 开始使用
+/vmware-ops:vmware-aiops
+```
+
 ---
 
 ## Capabilities Overview / 功能能力总览
@@ -192,10 +208,30 @@ Choose one (or more) of the following: / 选择以下一种（或多种）：
 
 ---
 
-#### Option A: Claude Code / 方式 A：Claude Code
+#### Option A: Claude Code (Marketplace) / 方式 A：Claude Code（市场安装）
+
+**Method 1: Marketplace (recommended) / 方式 1：市场安装（推荐）**
+
+In Claude Code, run: / 在 Claude Code 中执行：
+```
+/plugin marketplace add zw008/VMware-AIops
+/plugin install vmware-ops
+```
+
+Then use: / 然后使用：
+```
+/vmware-ops:vmware-aiops
+> 192.168.1.100 是 ESXi 主机，用户名 root
+```
+
+**Method 2: Local install / 方式 2：本地安装**
 
 ```bash
-# Register and enable the plugin / 注册并启用插件
+# Clone and symlink / 克隆并链接
+git clone https://github.com/zw008/VMware-AIops.git
+ln -sf $(pwd)/VMware-AIops ~/.claude/plugins/marketplaces/vmware-aiops
+
+# Register marketplace / 注册市场
 python3 -c "
 import json, pathlib
 f = pathlib.Path.home() / '.claude/plugins/known_marketplaces.json'
@@ -205,27 +241,26 @@ d['vmware-aiops'] = {
     'installLocation': str(pathlib.Path.home() / '.claude/plugins/marketplaces/vmware-aiops')
 }
 f.write_text(json.dumps(d, indent=2))
-print('Marketplace registered.')
 "
 
+# Enable plugin / 启用插件
 python3 -c "
 import json, pathlib
 f = pathlib.Path.home() / '.claude/settings.json'
 d = json.loads(f.read_text()) if f.exists() else {}
 d.setdefault('enabledPlugins', {})['vmware-ops@vmware-aiops'] = True
 f.write_text(json.dumps(d, indent=2))
-print('Plugin enabled.')
 "
-
-# Symlink the plugin source / 创建插件源链接
-ln -sf $(pwd) ~/.claude/plugins/marketplaces/vmware-aiops
 ```
 
-Restart Claude Code, then / 重启 Claude Code，然后：
+Restart Claude Code, then: / 重启 Claude Code，然后：
 ```
-You: /vmware-ops:vmware-aiops
-You: "192.168.1.100 是 ESXi 主机，用户名 root"
+/vmware-ops:vmware-aiops
 ```
+
+**Submit to Official Marketplace / 提交到官方市场**
+
+This plugin can also be submitted to the [Anthropic official plugin directory](https://clau.de/plugin-directory-submission) for public discovery. / 本插件也可提交到 [Anthropic 官方插件目录](https://clau.de/plugin-directory-submission) 供公开发现。
 
 ---
 
@@ -547,22 +582,31 @@ See `config.example.yaml` for all options. / 完整选项见 `config.example.yam
 
 ```
 VMware-AIops/
-├── vmware_aiops/          # Python backend / Python 后端
-│   ├── config.py          # YAML + .env config / 配置管理
-│   ├── connection.py      # Multi-target pyVmomi connections / 多目标连接管理
-│   ├── cli.py             # Typer CLI with double confirmation / CLI（双重确认）
-│   ├── ops/               # Operations / 运维操作
-│   │   ├── inventory.py   # VMs, hosts, datastores, clusters / 资源清单
-│   │   ├── health.py      # Alarms, events, sensors / 健康检查
-│   │   └── vm_lifecycle.py # VM CRUD, snapshots, clone, migrate / VM 生命周期
-│   ├── scanner/           # Log scanning daemon / 日志扫描守护进程
-│   └── notify/            # Notifications (JSONL + webhook) / 通知
-├── skill/                 # Claude Code skill / Claude Code 技能
+├── .claude-plugin/                # Claude Code marketplace manifest / 市场清单
+│   └── marketplace.json           # Marketplace registration / 市场注册文件
+├── plugins/                       # Claude Code plugin / 插件
+│   └── vmware-ops/
+│       ├── .claude-plugin/
+│       │   └── plugin.json        # Plugin manifest / 插件清单
+│       └── skills/
+│           └── vmware-aiops/
+│               └── SKILL.md       # Skill instructions / 技能指令
+├── vmware_aiops/                  # Python backend / Python 后端
+│   ├── config.py                  # YAML + .env config / 配置管理
+│   ├── connection.py              # Multi-target pyVmomi / 多目标连接管理
+│   ├── cli.py                     # Typer CLI (double confirm) / CLI（双重确认）
+│   ├── ops/                       # Operations / 运维操作
+│   │   ├── inventory.py           # VMs, hosts, datastores, clusters / 资源清单
+│   │   ├── health.py              # Alarms, events, sensors / 健康检查
+│   │   └── vm_lifecycle.py        # VM CRUD, snapshots, clone, migrate / VM 生命周期
+│   ├── scanner/                   # Log scanning daemon / 日志扫描守护进程
+│   └── notify/                    # Notifications (JSONL + webhook) / 通知
+├── skill/                         # Standalone skill file / 独立技能文件
 │   └── SKILL.md
-├── gemini-extension/      # Gemini CLI extension / Gemini CLI 扩展
+├── gemini-extension/              # Gemini CLI extension / Gemini CLI 扩展
 │   ├── gemini-extension.json
 │   └── GEMINI.md
-├── codex-skill/           # Codex + Aider + Continue / 多平台共用
+├── codex-skill/                   # Codex + Aider + Continue / 多平台共用
 │   ├── SKILL.md
 │   └── AGENTS.md
 ├── config.example.yaml

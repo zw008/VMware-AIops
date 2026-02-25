@@ -1,19 +1,33 @@
 {
   "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
   "name": "vmware-aiops",
-  "description": "VMware vCenter/ESXi AI-powered monitoring and operations tool",
+  "description": "VMware vCenter/ESXi AI-powered monitoring and operations toolkit. Manage VMware infrastructure via natural language. / VMware vCenter/ESXi AI 运维工具包，用自然语言管理 VMware 基础设施。",
   "owner": {
     "name": "zw008",
-    "email": ""
+    "url": "https://github.com/zw008"
   },
   "plugins": [
     {
       "name": "vmware-ops",
-      "description": "VMware vCenter/ESXi 运维工具：自然语言管理虚拟机、查询清单、检查告警、扫描日志、VM 增删改查。命令：/vmware-ops:vmware-aiops",
-      "version": "0.1.0",
+      "description": "VMware vCenter/ESXi AI operations: inventory queries, health/alarm monitoring, VM lifecycle (create/delete/power/snapshot/clone/migrate), scheduled log scanning, webhook notifications. Invoke with: /vmware-ops:vmware-aiops / VMware AI 运维：资源清单、健康告警、VM 增删改查、快照克隆迁移、定时扫描、通知推送。命令：/vmware-ops:vmware-aiops",
+      "version": "0.2.0",
       "source": "./plugins/vmware-ops",
       "category": "automation",
-      "homepage": "https://github.com/zw008/VMware-AIops"
+      "homepage": "https://github.com/zw008/VMware-AIops",
+      "author": {
+        "name": "zw008"
+      },
+      "keywords": [
+        "vmware",
+        "vsphere",
+        "esxi",
+        "vcenter",
+        "pyvmomi",
+        "infrastructure",
+        "monitoring",
+        "automation",
+        "aiops"
+      ]
     }
   ]
 }
