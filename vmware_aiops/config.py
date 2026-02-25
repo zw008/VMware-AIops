@@ -12,9 +12,14 @@ from pathlib import Path
 from typing import Literal
 
 import yaml
+from dotenv import load_dotenv
 
 CONFIG_DIR = Path.home() / ".vmware-aiops"
 CONFIG_FILE = CONFIG_DIR / "config.yaml"
+ENV_FILE = CONFIG_DIR / ".env"
+
+# Load passwords from .env file (if exists) before any config access
+load_dotenv(ENV_FILE)
 
 
 @dataclass(frozen=True)
