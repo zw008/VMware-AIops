@@ -50,6 +50,13 @@ def _get_connection(target: str | None, config_path: Path | None = None):
     return mgr.connect(target), cfg
 
 
+def _double_confirm(action: str, vm_name: str) -> None:
+    """Require two confirmations for destructive operations."""
+    console.print(f"[bold yellow]⚠️  即将执行: {action} VM '{vm_name}'[/]")
+    typer.confirm(f"第 1 次确认: 确定要{action} '{vm_name}'?", abort=True)
+    typer.confirm(f"第 2 次确认: 再次确认{action} '{vm_name}'，此操作不可撤销?", abort=True)
+
+
 # ─── Inventory ────────────────────────────────────────────────────────────────
 
 
@@ -250,6 +257,8 @@ def vm_power_off(
     config: ConfigOption = None,
 ) -> None:
     """Power off a VM (graceful shutdown or force)."""
+    _double_confirm("关机", name)
+
     from vmware_aiops.ops.vm_lifecycle import power_off_vm
 
     si, _ = _get_connection(target, config)
@@ -297,7 +306,7 @@ def vm_delete(
 ) -> None:
     """Delete a VM (destructive!)."""
     if not confirm:
-        typer.confirm(f"Delete VM '{name}'? This cannot be undone", abort=True)
+        _double_confirm("删除", name)
 
     from vmware_aiops.ops.vm_lifecycle import delete_vm
 
@@ -315,6 +324,13 @@ def vm_reconfigure(
     config: ConfigOption = None,
 ) -> None:
     """Reconfigure VM CPU/memory."""
+    changes = []
+    if cpu is not None:
+        changes.append(f"CPU→{cpu}")
+    if memory is not None:
+        changes.append(f"内存→{memory}MB")
+    _double_confirm(f"调整配置({', '.join(changes)})", name)
+
     from vmware_aiops.ops.vm_lifecycle import reconfigure_vm
 
     si, _ = _get_connection(target, config)
