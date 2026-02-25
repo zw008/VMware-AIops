@@ -1,0 +1,19 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "vmware-aiops",
+  "description": "VMware vCenter/ESXi AI-powered monitoring and operations tool",
+  "owner": {
+    "name": "zw008",
+    "email": ""
+  },
+  "plugins": [
+    {
+      "name": "vmware-ops",
+      "description": "VMware vCenter/ESXi 运维工具：自然语言管理虚拟机、查询清单、检查告警、扫描日志、VM 增删改查。命令：/vmware-ops:vmware-aiops",
+      "version": "0.1.0",
+      "source": "./plugins/vmware-ops",
+      "category": "automation",
+      "homepage": "https://github.com/zw008/VMware-AIops"
+    }
+  ]
+}
