@@ -225,28 +225,173 @@ vmware-aiops vm power-on my-vm --target home-esxi
 
 ---
 
-## Local Models / 本地模型
+## Chinese Cloud Models / 国内模型推荐
 
-For users who prefer local models over cloud APIs: / 如果你更喜欢本地模型而非云端 API：
+For users in China who prefer domestic cloud APIs or have limited access to overseas services: / 国内用户推荐使用国产云端 API，无需翻墙：
 
-| Tool / 工具 | Install / 安装 | Purpose / 用途 |
-|------|--------|---------|
-| **Ollama** | `brew install ollama` | Local model server / 本地模型服务器 |
-| **Qwen 2.5 Coder** | `ollama pull qwen2.5-coder:32b` | Best local coding model / 最佳本地编程模型 |
-| **CodeLlama** | `ollama pull codellama:34b` | Meta's coding model / Meta 编程模型 |
-| **DeepSeek Coder** | `ollama pull deepseek-coder-v2` | DeepSeek coding model / 深度求索编程模型 |
+### DeepSeek（深度求索）
 
-Use with Aider or Continue CLI: / 配合 Aider 或 Continue CLI 使用：
+Cost-effective, strong coding capability. / 性价比高，编程能力强。
+
 ```bash
+# Install Aider / 安装 Aider
+pip install aider-chat
+
+# Set DeepSeek API key (get from https://platform.deepseek.com)
+# 设置 DeepSeek API 密钥（从 https://platform.deepseek.com 获取）
+export DEEPSEEK_API_KEY="your-key"
+
+# Run / 运行
+aider --conventions codex-skill/AGENTS.md \
+  --model deepseek/deepseek-coder
+```
+
+Or configure in `~/.aider.conf.yml` for persistent settings / 或写入配置文件持久化：
+```yaml
+model: deepseek/deepseek-coder
+conventions: codex-skill/AGENTS.md
+```
+
+### Qwen（通义千问）
+
+Alibaba Cloud's coding model, free tier available. / 阿里云编程模型，有免费额度。
+
+```bash
+# Set DashScope API key (get from https://dashscope.console.aliyun.com)
+# 设置灵积 API 密钥（从 https://dashscope.console.aliyun.com 获取）
+export DASHSCOPE_API_KEY="your-key"
+
+# Use with Aider / 配合 Aider 使用
+aider --conventions codex-skill/AGENTS.md \
+  --model qwen/qwen-coder-plus
+```
+
+Or via OpenAI-compatible endpoint / 或通过 OpenAI 兼容接口：
+```bash
+export OPENAI_API_BASE="https://dashscope.aliyuncs.com/compatible-mode/v1"
+export OPENAI_API_KEY="your-dashscope-key"
+
+aider --conventions codex-skill/AGENTS.md \
+  --model qwen-coder-plus-latest
+```
+
+### Doubao（豆包 / 字节跳动）
+
+```bash
+export OPENAI_API_BASE="https://ark.cn-beijing.volces.com/api/v3"
+export OPENAI_API_KEY="your-ark-key"
+
+aider --conventions codex-skill/AGENTS.md \
+  --model your-doubao-endpoint-id
+```
+
+### With Continue CLI / 配合 Continue CLI 使用
+
+Configure `~/.continue/config.yaml` / 配置文件：
+
+```yaml
+# DeepSeek
+models:
+  - name: deepseek-coder
+    provider: openai-compatible
+    apiBase: https://api.deepseek.com/v1
+    apiKey: your-deepseek-key
+    model: deepseek-coder
+
+# Qwen / 通义千问
+models:
+  - name: qwen-coder
+    provider: openai-compatible
+    apiBase: https://dashscope.aliyuncs.com/compatible-mode/v1
+    apiKey: your-dashscope-key
+    model: qwen-coder-plus-latest
+```
+
+### Architecture / 架构原理
+
+```
+用户 → AI CLI 工具 (Aider / Continue) → 云端模型 (DeepSeek / Qwen / 豆包)
+  │                                           ↓
+  │                                    读取 AGENTS.md 指令
+  │                                           ↓
+  └──────────────────────────────→ vmware-aiops CLI ──→ ESXi / vCenter
+```
+
+The AI model reads `AGENTS.md` instructions to understand how to use `vmware-aiops` CLI, then generates and executes commands on your behalf. / AI 模型读取 `AGENTS.md` 指令，了解如何使用 `vmware-aiops` CLI，然后代你生成并执行命令。
+
+---
+
+## Local Models / 本地模型（Aider + Ollama 推荐方案）
+
+For users who prefer running models locally — no cloud API, no internet, full privacy. **Aider + Ollama + local Qwen/DeepSeek** is a great combination for Chinese users. / 如果你更喜欢本地运行模型 — 无需云端 API，无需联网，完全隐私。**Aider + Ollama + 本地 Qwen/DeepSeek** 是国内用户的最佳组合。
+
+### Step 1: Install Ollama / 安装 Ollama
+
+```bash
+# macOS
+brew install ollama
+
+# Linux
+curl -fsSL https://ollama.com/install.sh | sh
+```
+
+### Step 2: Pull a model / 下载模型
+
+| Model / 模型 | Command / 命令 | Size / 大小 | Note / 说明 |
+|------|--------|---------|---------|
+| **Qwen 2.5 Coder 32B** | `ollama pull qwen2.5-coder:32b` | ~20GB | Best local coding model / 最佳本地编程模型 |
+| **Qwen 2.5 Coder 7B** | `ollama pull qwen2.5-coder:7b` | ~4.5GB | Low-memory option / 低内存选择 |
+| **DeepSeek Coder V2** | `ollama pull deepseek-coder-v2` | ~8.9GB | Strong reasoning / 推理能力强 |
+| **CodeLlama 34B** | `ollama pull codellama:34b` | ~19GB | Meta's coding model / Meta 编程模型 |
+
+> **Hardware note / 硬件要求**: 32B models need ~20GB VRAM (or 32GB RAM for CPU). 7B models work on 8GB RAM. / 32B 模型需要约 20GB 显存（或 32GB 内存用 CPU 跑）。7B 模型 8GB 内存即可。
+
+### Step 3: Run with Aider / 用 Aider 运行
+
+```bash
+# Install Aider / 安装 Aider
+pip install aider-chat
+
 # Start Ollama server / 启动 Ollama 服务
 ollama serve
 
-# Use with Aider / 配合 Aider 使用
-aider --conventions codex-skill/AGENTS.md --model ollama/qwen2.5-coder:32b
+# Aider + local Qwen (recommended / 推荐)
+aider --conventions codex-skill/AGENTS.md \
+  --model ollama/qwen2.5-coder:32b
 
-# Use with Continue CLI / 配合 Continue CLI 使用
-cn
+# Aider + local DeepSeek
+aider --conventions codex-skill/AGENTS.md \
+  --model ollama/deepseek-coder-v2
+
+# Smaller model for low-memory machines / 低内存机器用小模型
+aider --conventions codex-skill/AGENTS.md \
+  --model ollama/qwen2.5-coder:7b
 ```
+
+### Persistent config / 持久化配置
+
+Create `~/.aider.conf.yml` to avoid typing flags every time / 创建配置文件避免每次输入参数：
+
+```yaml
+# Local Qwen model / 本地通义千问模型
+model: ollama/qwen2.5-coder:32b
+conventions: codex-skill/AGENTS.md
+
+# Or DeepSeek / 或深度求索
+# model: ollama/deepseek-coder-v2
+```
+
+### Architecture / 本地模型架构
+
+```
+用户 → Aider CLI → Ollama (localhost:11434) → Qwen / DeepSeek 本地模型
+  │                                                    ↓
+  │                                          读取 AGENTS.md 指令
+  │                                                    ↓
+  └──────────────────────────────→ vmware-aiops CLI ──→ ESXi / vCenter
+```
+
+> **Tip / 提示**: Local models are fully offline — perfect for air-gapped environments or strict data compliance. / 本地模型完全离线运行 — 适合隔离网络或严格数据合规环境。
 
 ## CLI Usage / CLI 使用
 
