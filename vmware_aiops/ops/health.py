@@ -63,7 +63,7 @@ def get_active_alarms(si: ServiceInstance) -> list[dict]:
                 "entity_name": alarm_state.entity.name,
                 "entity_type": type(alarm_state.entity).__name__,
                 "time": str(alarm_state.time),
-                "acknowledged": alarm_state.acknowledged if hasattr(alarm_state, "acknowledged") else False,
+                "acknowledged": getattr(alarm_state, "acknowledged", False),
             })
 
     _collect_alarms(content.rootFolder)

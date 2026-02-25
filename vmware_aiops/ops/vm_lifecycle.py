@@ -146,7 +146,10 @@ def power_off_vm(si: ServiceInstance, vm_name: str, force: bool = False) -> str:
             time.sleep(2)
             if vm.runtime.powerState == vim.VirtualMachine.PowerState.poweredOff:
                 return f"VM '{vm_name}' gracefully shut down."
-        return f"VM '{vm_name}' shutdown initiated but still running after 120s. Use --force if needed."
+        return (
+            f"VM '{vm_name}' shutdown initiated but still running "
+            f"after 120s. Use --force if needed."
+        )
     except vim.fault.ToolsUnavailable:
         return (
             f"VMware Tools not running on '{vm_name}'. "
@@ -268,7 +271,10 @@ def create_vm(
 
     task = vm_folder.CreateVM_Task(config=config_spec, pool=resource_pool)
     _wait_for_task(task)
-    return f"VM '{vm_name}' created successfully (CPU: {cpu}, Mem: {memory_mb}MB, Disk: {disk_gb}GB)."
+    return (
+        f"VM '{vm_name}' created successfully "
+        f"(CPU: {cpu}, Mem: {memory_mb}MB, Disk: {disk_gb}GB)."
+    )
 
 
 def delete_vm(si: ServiceInstance, vm_name: str) -> str:

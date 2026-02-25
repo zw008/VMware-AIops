@@ -33,7 +33,7 @@ class TargetConfig:
         env_key = f"VMWARE_{self.name.upper().replace('-', '_')}_PASSWORD"
         pw = os.environ.get(env_key, "")
         if not pw:
-            raise EnvironmentError(
+            raise OSError(
                 f"Password not found. Set environment variable: {env_key}"
             )
         return pw

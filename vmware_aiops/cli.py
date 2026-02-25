@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+import signal
 from pathlib import Path
-from typing import Annotated, Optional
+from typing import Annotated
 
 import typer
 from rich.console import Console
 from rich.table import Table
+
+from vmware_aiops.config import CONFIG_DIR
 
 app = typer.Typer(
     name="vmware-aiops",
@@ -30,10 +33,10 @@ app.add_typer(scan_app, name="scan")
 app.add_typer(daemon_app, name="daemon")
 
 TargetOption = Annotated[
-    Optional[str], typer.Option("--target", "-t", help="Target name from config")
+    str | None, typer.Option("--target", "-t", help="Target name from config")
 ]
 ConfigOption = Annotated[
-    Optional[Path], typer.Option("--config", "-c", help="Config file path")
+    Path | None, typer.Option("--config", "-c", help="Config file path")
 ]
 
 
@@ -306,8 +309,8 @@ def vm_delete(
 @vm_app.command("reconfigure")
 def vm_reconfigure(
     name: str,
-    cpu: Annotated[Optional[int], typer.Option(help="New CPU count")] = None,
-    memory: Annotated[Optional[int], typer.Option(help="New memory in MB")] = None,
+    cpu: Annotated[int | None, typer.Option(help="New CPU count")] = None,
+    memory: Annotated[int | None, typer.Option(help="New memory in MB")] = None,
     target: TargetOption = None,
     config: ConfigOption = None,
 ) -> None:
@@ -463,6 +466,28 @@ def daemon_status() -> None:
         console.print(f"[green]Daemon running (PID: {pid})[/]")
     else:
         console.print("[yellow]Daemon not running.[/]")
+
+
+@daemon_app.command("stop")
+def daemon_stop() -> None:
+    """Stop the scanner daemon."""
+    import os as _os
+
+    pid_file = CONFIG_DIR / "daemon.pid"
+    if not pid_file.exists():
+        console.print("[yellow]Daemon not running.[/]")
+        return
+
+    pid = int(pid_file.read_text().strip())
+    try:
+        _os.kill(pid, signal.SIGTERM)
+        console.print(f"[green]Daemon (PID: {pid}) stopped.[/]")
+    except ProcessLookupError:
+        console.print(f"[yellow]Daemon process (PID: {pid}) not found. Cleaning up.[/]")
+    except OSError as e:
+        console.print(f"[red]Failed to stop daemon: {e}[/]")
+        return
+    pid_file.unlink(missing_ok=True)
 
 
 if __name__ == "__main__":

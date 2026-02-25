@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import signal
 import sys
 from pathlib import Path
@@ -95,7 +96,7 @@ def start_scheduler(config_path: Path | None = None) -> None:
 
     # Write PID file
     PID_FILE.parent.mkdir(parents=True, exist_ok=True)
-    PID_FILE.write_text(str(sys.modules["os"].getpid()))
+    PID_FILE.write_text(str(os.getpid()))
 
     scheduler = BlockingScheduler()
     scheduler.add_job(
@@ -105,10 +106,10 @@ def start_scheduler(config_path: Path | None = None) -> None:
         id="vmware_scan",
         name="VMware AIops Scanner",
         max_instances=1,
-        next_run_time=None,  # Don't run immediately; let first interval pass
+        next_run_time=None,  # Scheduler interval starts after manual first run below
     )
 
-    # Run once immediately on start
+    # Run first scan immediately, then scheduler takes over
     logger.info(
         "Scanner starting. Interval: %dm. Targets: %s",
         config.scanner.interval_minutes,

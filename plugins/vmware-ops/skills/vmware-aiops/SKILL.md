@@ -347,26 +347,24 @@ vmware-aiops inventory clusters [--target prod-vcenter]
 
 # Health
 vmware-aiops health alarms [--target prod-vcenter]
-vmware-aiops health hardware [--target prod-vcenter]
-vmware-aiops health services [--host esxi-01]
+vmware-aiops health events [--hours 24] [--severity warning] [--target prod-vcenter]
 
 # VM operations
 vmware-aiops vm info <vm-name> [--target prod-vcenter]
 vmware-aiops vm power-on <vm-name>
 vmware-aiops vm power-off <vm-name> [--force]
-vmware-aiops vm create --name <name> --cpu <n> --memory <mb> --disk <gb>
+vmware-aiops vm create <name> [--cpu <n>] [--memory <mb>] [--disk <gb>]
 vmware-aiops vm delete <vm-name> [--confirm]
-vmware-aiops vm snapshot create <vm-name> --name <snap-name>
-vmware-aiops vm snapshot list <vm-name>
-vmware-aiops vm snapshot revert <vm-name> --name <snap-name>
-vmware-aiops vm reconfigure <vm-name> --cpu <n> --memory <mb>
+vmware-aiops vm reconfigure <vm-name> [--cpu <n>] [--memory <mb>]
+vmware-aiops vm snapshot-create <vm-name> --name <snap-name>
+vmware-aiops vm snapshot-list <vm-name>
+vmware-aiops vm snapshot-revert <vm-name> --name <snap-name>
+vmware-aiops vm snapshot-delete <vm-name> --name <snap-name>
 vmware-aiops vm clone <vm-name> --new-name <name>
 vmware-aiops vm migrate <vm-name> --to-host <host>
 
-# Logs & Scanning
+# Scanning
 vmware-aiops scan now [--target prod-vcenter]
-vmware-aiops scan logs --hours 24 [--severity warning]
-vmware-aiops scan events --hours 24
 
 # Daemon
 vmware-aiops daemon start

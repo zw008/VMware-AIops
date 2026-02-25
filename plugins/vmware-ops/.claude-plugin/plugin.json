@@ -1,5 +1,6 @@
 {
   "name": "vmware-ops",
+  "version": "0.1.0",
   "description": "VMware vCenter/ESXi AI 运维：清单查询、告警检查、日志扫描、VM 生命周期管理",
   "author": {
     "name": "zw008"

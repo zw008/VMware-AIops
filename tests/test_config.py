@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from vmware_aiops.config import AppConfig, TargetConfig, load_config
+from vmware_aiops.config import TargetConfig, load_config
 
 
 @pytest.fixture()
@@ -100,7 +100,7 @@ def test_password_missing_env(sample_config_file: Path) -> None:
     cfg = load_config(sample_config_file)
     target = cfg.get_target("test-vc")
     os.environ.pop("VMWARE_TEST_VC_PASSWORD", None)
-    with pytest.raises(EnvironmentError, match="VMWARE_TEST_VC_PASSWORD"):
+    with pytest.raises(OSError, match="VMWARE_TEST_VC_PASSWORD"):
         _ = target.password
 
 

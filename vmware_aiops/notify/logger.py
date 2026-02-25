@@ -12,7 +12,7 @@ class ScanLogger:
     """Writes scan issues to a structured log file (JSON Lines format)."""
 
     def __init__(self, log_file: str) -> None:
-        self._path = Path(log_file)
+        self._path = Path(log_file).expanduser()
         self._path.parent.mkdir(parents=True, exist_ok=True)
         self._logger = logging.getLogger("vmware-aiops.scan")
 
