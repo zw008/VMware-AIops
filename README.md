@@ -4,28 +4,134 @@ AI-powered VMware vCenter/ESXi monitoring and operations tool.
 
 AI 驱动的 VMware vCenter/ESXi 监控与运维工具。
 
-Supports multiple AI coding CLI tools / 支持多种 AI 编程 CLI 工具:
+---
 
-| Platform / 平台 | Status / 状态 | Instructions File / 指令文件 |
-|---------|--------|----------|
-| **Claude Code** | ✅ Native Skill / 原生技能 | `skill/SKILL.md` |
-| **Gemini CLI** | ✅ Extension / 扩展 | `gemini-extension/GEMINI.md` |
-| **OpenAI Codex CLI** | ✅ Skill + AGENTS.md | `codex-skill/AGENTS.md` |
-| **Aider** | ✅ Conventions / 约定文件 | `codex-skill/AGENTS.md` (as conventions) |
-| **Continue CLI** | ✅ Rules / 规则文件 | `codex-skill/AGENTS.md` (as rules) |
-| **Python CLI** | ✅ Standalone / 独立运行 | N/A |
+## Capabilities Overview / 功能能力总览
 
-## Features / 功能特性
+### Architecture / 架构
 
-- **Multi-target / 多目标**: Connect to multiple vCenter Servers and standalone ESXi hosts / 连接多个 vCenter 和独立 ESXi 主机
-- **Inventory / 资源清单**: List VMs, hosts, datastores, clusters, networks / 列出虚拟机、主机、存储、集群、网络
-- **Health checks / 健康检查**: Active alarms, recent events, hardware sensor status / 活跃告警、近期事件、硬件传感器状态
-- **VM lifecycle / 虚拟机生命周期**: Create, delete, power on/off, reset, suspend, reconfigure / 创建、删除、开关机、重置、挂起、调整配置
-- **Snapshots / 快照**: Create, list, revert, delete / 创建、列出、恢复、删除
-- **Clone & Migrate / 克隆与迁移**: VM cloning and vMotion / 虚拟机克隆和 vMotion 迁移
-- **Double confirmation / 双重确认**: Destructive operations (power-off, delete, reconfigure) require two confirmations / 危险操作（关机、删除、调整配置）需要两次确认
-- **Scheduled scanning / 定时扫描**: APScheduler daemon scans logs and alarms at configurable intervals / APScheduler 守护进程按配置间隔扫描日志和告警
-- **Notifications / 通知**: Structured JSON log files + generic webhook (Slack, Discord, etc.) / 结构化 JSON 日志 + 通用 Webhook（Slack、Discord 等）
+```
+用户 (自然语言 / Natural Language)
+  ↓
+AI CLI 工具 (Claude Code / Gemini / Codex / Aider / Continue)
+  ↓ 读取 AGENTS.md / SKILL.md 指令
+  ↓
+vmware-aiops CLI
+  ↓ pyVmomi (vSphere SOAP API)
+  ↓
+vCenter Server ──→ ESXi 集群 ──→ VM
+    或 / or
+ESXi 独立主机 ──→ VM
+```
+
+### 1. Inventory / 资源清单
+
+| Feature / 功能 | vCenter | ESXi | Details / 说明 |
+|------|:-------:|:----:|------|
+| List VMs / 列出虚拟机 | ✅ | ✅ | Name, power state, CPU, memory, guest OS, IP / 名称、电源状态、CPU、内存、操作系统、IP |
+| List Hosts / 列出主机 | ✅ | ⚠️ Self only / 仅自身 | CPU cores, memory, ESXi version, VM count, uptime / CPU 核数、内存、版本、VM 数、在线时间 |
+| List Datastores / 列出数据存储 | ✅ | ✅ | Capacity, free/used, type (VMFS/NFS), usage % / 容量、已用/可用、类型、使用率 |
+| List Clusters / 列出集群 | ✅ | ❌ | Host count, DRS/HA status / 主机数、DRS/HA 状态 |
+| List Networks / 列出网络 | ✅ | ✅ | Network name, associated VM count / 网络名、关联 VM 数 |
+
+### 2. Health & Monitoring / 健康监控
+
+| Feature / 功能 | vCenter | ESXi | Details / 说明 |
+|------|:-------:|:----:|------|
+| Active Alarms / 活跃告警 | ✅ | ✅ | Severity, alarm name, entity, timestamp / 严重级别、告警名、实体、时间 |
+| Event/Log Query / 事件日志查询 | ✅ | ✅ | Filter by time range (--hours), severity level; 50+ event types / 按时间、严重级别过滤，识别 50+ 事件类型 |
+| Hardware Sensors / 硬件传感器 | ✅ | ✅ | Temperature, voltage, fan status / 温度、电压、风扇状态 |
+| Host Services / 主机服务状态 | ✅ | ✅ | hostd, vpxa, etc. running/stopped / 服务运行/停止状态 |
+
+**Monitored Event Types / 监控的事件类型**:
+
+| Category / 分类 | Events / 事件 |
+|------|------|
+| VM Failures / VM 故障 | `VmFailedToPowerOnEvent`, `VmDiskFailedEvent`, `VmFailoverFailed` |
+| Host Issues / 主机问题 | `HostConnectionLostEvent`, `HostShutdownEvent`, `HostIpChangedEvent` |
+| Storage / 存储 | `DatastoreCapacityIncreasedEvent`, `NASDatastoreEvent`, SCSI high latency / SCSI 高延迟 |
+| HA/DRS | `DasHostFailedEvent`, `DrsVmMigratedEvent`, `DrsSoftRuleViolationEvent` |
+| Auth / 认证 | `UserLoginSessionEvent`, `BadUsernameSessionEvent` |
+
+### 3. VM Lifecycle / 虚拟机生命周期
+
+| Operation / 操作 | Command / 命令 | Confirmation / 确认 | vCenter | ESXi |
+|------|------|:--------:|:-------:|:----:|
+| Power On / 开机 | `vm power-on <name>` | — | ✅ | ✅ |
+| Graceful Shutdown / 优雅关机 | `vm power-off <name>` | Double / 双重 | ✅ | ✅ |
+| Force Power Off / 强制关机 | `vm power-off <name> --force` | Double / 双重 | ✅ | ✅ |
+| Reset / 重置 | `vm reset <name>` | — | ✅ | ✅ |
+| Suspend / 挂起 | `vm suspend <name>` | — | ✅ | ✅ |
+| VM Info / 详情 | `vm info <name>` | — | ✅ | ✅ |
+| Create VM / 创建 | `vm create <name> --cpu --memory --disk` | — | ✅ | ✅ |
+| Delete VM / 删除 | `vm delete <name>` | Double / 双重 | ✅ | ✅ |
+| Reconfigure / 调整配置 | `vm reconfigure <name> --cpu --memory` | Double / 双重 | ✅ | ✅ |
+| Create Snapshot / 创建快照 | `vm snapshot-create <name> --name <snap>` | — | ✅ | ✅ |
+| List Snapshots / 列出快照 | `vm snapshot-list <name>` | — | ✅ | ✅ |
+| Revert Snapshot / 恢复快照 | `vm snapshot-revert <name> --name <snap>` | — | ✅ | ✅ |
+| Delete Snapshot / 删除快照 | `vm snapshot-delete <name> --name <snap>` | — | ✅ | ✅ |
+| Clone VM / 克隆 | `vm clone <name> --new-name <new>` | — | ✅ | ✅ |
+| vMotion / 迁移 | `vm migrate <name> --to-host <host>` | — | ✅ | ❌ |
+
+### 4. Scheduled Scanning & Notifications / 定时扫描与通知
+
+| Feature / 功能 | Details / 说明 |
+|------|------|
+| Daemon / 守护进程 | APScheduler-based, configurable interval (default 15 min) / 基于 APScheduler，可配置间隔（默认 15 分钟） |
+| Multi-target Scan / 多目标扫描 | Sequentially scan all configured vCenter/ESXi targets / 依次扫描所有配置的 vCenter/ESXi 目标 |
+| Scan Content / 扫描内容 | Alarms + Events + Host logs (hostd, vmkernel, vpxd) / 告警 + 事件 + 主机日志 |
+| Log Analysis / 日志分析 | Regex pattern matching: error, fail, critical, panic, timeout, corrupt / 正则匹配关键词 |
+| Structured Log / 结构化日志 | JSONL output to `~/.vmware-aiops/scan.log` |
+| Webhook / 通知推送 | Slack, Discord, or any HTTP endpoint / 支持 Slack、Discord 或任意 HTTP 端点 |
+| Daemon Management / 进程管理 | `daemon start/stop/status`, PID file, graceful shutdown / PID 文件管理，优雅关闭 |
+
+### 5. Safety Features / 安全特性
+
+| Feature / 功能 | Details / 说明 |
+|------|------|
+| **Double Confirmation / 双重确认** | Power-off, delete, reconfigure require 2 sequential confirmations / 关机、删除、调整配置需连续两次确认 |
+| **Password Protection / 密码保护** | `.env` file loading, never in command line or shell history / 通过 `.env` 加载密码，不会出现在命令行或 shell 历史 |
+| **SSL Self-signed Support / 自签名证书** | `disableSslCertValidation` for ESXi 8.0 self-signed certs / 适配 ESXi 8.0 自签名证书 |
+| **Task Waiting / 任务等待** | All async operations wait for completion and report result / 所有异步操作等待完成并报告结果 |
+| **State Validation / 状态校验** | Pre-operation checks (VM exists, power state correct) / 操作前检查 VM 是否存在、电源状态是否正确 |
+
+### 6. vCenter vs ESXi Comparison / vCenter 与 ESXi 能力对比
+
+| Capability / 能力 | vCenter | ESXi Standalone / ESXi 独立 |
+|------|:-------:|:----:|
+| Full cluster inventory / 完整集群清单 | ✅ | ❌ Single host only / 仅单主机 |
+| DRS/HA management / DRS/HA 管理 | ✅ | ❌ |
+| vMotion migration / vMotion 迁移 | ✅ | ❌ |
+| Cross-host clone / 跨主机克隆 | ✅ | ❌ |
+| All VM lifecycle ops / 所有 VM 生命周期操作 | ✅ | ✅ |
+| Alarms & events / 告警与事件 | ✅ | ✅ |
+| Hardware sensors / 硬件传感器 | ✅ | ✅ |
+| Host services / 主机服务 | ✅ | ✅ |
+| Snapshots / 快照 | ✅ | ✅ |
+| Scheduled scanning / 定时扫描 | ✅ | ✅ |
+
+---
+
+## Supported AI Platforms / 支持的 AI 平台
+
+| Platform / 平台 | Status / 状态 | Config File / 配置文件 | AI Model / AI 模型 |
+|---------|--------|----------|----------|
+| **Claude Code** | ✅ Native Skill / 原生技能 | `skill/SKILL.md` | Anthropic Claude |
+| **Gemini CLI** | ✅ Extension / 扩展 | `gemini-extension/GEMINI.md` | Google Gemini |
+| **OpenAI Codex CLI** | ✅ Skill + AGENTS.md | `codex-skill/AGENTS.md` | OpenAI GPT |
+| **Aider** | ✅ Conventions / 约定文件 | `codex-skill/AGENTS.md` | Any (cloud + local) / 任意 |
+| **Continue CLI** | ✅ Rules / 规则文件 | `codex-skill/AGENTS.md` | Any (cloud + local) / 任意 |
+| **Python CLI** | ✅ Standalone / 独立运行 | N/A | N/A |
+
+### Platform Comparison / 平台对比
+
+| Feature / 功能 | Claude Code | Gemini CLI | Codex CLI | Aider | Continue |
+|---------|-------------|------------|-----------|-------|----------|
+| Cloud AI / 云端 AI | Anthropic | Google | OpenAI | Any / 任意 | Any / 任意 |
+| Local models / 本地模型 | — | — | — | Ollama | Ollama |
+| Skill system / 技能系统 | SKILL.md | Extension | SKILL.md | — | Rules |
+| MCP support / MCP 支持 | Native / 原生 | Native / 原生 | Via Skills | Third-party / 第三方 | Native / 原生 |
+| Free tier / 免费额度 | — | 60 req/min | — | Self-hosted / 自托管 | Self-hosted / 自托管 |
 
 ---
 
@@ -72,6 +178,13 @@ chmod 600 ~/.vmware-aiops/.env
 ```
 
 > **Security note / 安全提示**: Prefer `.env` file over command-line `export` to avoid passwords appearing in shell history. / 推荐使用 `.env` 文件而非命令行 `export`，避免密码出现在 shell 历史记录中。
+
+Password environment variable naming convention / 密码环境变量命名规则:
+```
+VMWARE_{TARGET_NAME_UPPER}_PASSWORD
+# Example: target "home-esxi" → VMWARE_HOME_ESXI_PASSWORD
+# Example: target "prod-vcenter" → VMWARE_PROD_VCENTER_PASSWORD
+```
 
 ### Step 3: Connect Your AI Tool / 连接你的 AI 工具
 
@@ -225,28 +338,25 @@ vmware-aiops vm power-on my-vm --target home-esxi
 
 ---
 
-## Chinese Cloud Models / 国内模型推荐
+## Chinese Cloud Models / 国内云端模型
 
-For users in China who prefer domestic cloud APIs or have limited access to overseas services: / 国内用户推荐使用国产云端 API，无需翻墙：
+For users in China who prefer domestic cloud APIs or have limited access to overseas services. / 国内用户推荐使用国产云端 API，无需翻墙。
 
 ### DeepSeek（深度求索）
 
 Cost-effective, strong coding capability. / 性价比高，编程能力强。
 
 ```bash
-# Install Aider / 安装 Aider
-pip install aider-chat
-
 # Set DeepSeek API key (get from https://platform.deepseek.com)
 # 设置 DeepSeek API 密钥（从 https://platform.deepseek.com 获取）
 export DEEPSEEK_API_KEY="your-key"
 
-# Run / 运行
+# Run with Aider / 配合 Aider 运行
 aider --conventions codex-skill/AGENTS.md \
   --model deepseek/deepseek-coder
 ```
 
-Or configure in `~/.aider.conf.yml` for persistent settings / 或写入配置文件持久化：
+Persistent config `~/.aider.conf.yml` / 持久化配置：
 ```yaml
 model: deepseek/deepseek-coder
 conventions: codex-skill/AGENTS.md
@@ -261,7 +371,6 @@ Alibaba Cloud's coding model, free tier available. / 阿里云编程模型，有
 # 设置灵积 API 密钥（从 https://dashscope.console.aliyun.com 获取）
 export DASHSCOPE_API_KEY="your-key"
 
-# Use with Aider / 配合 Aider 使用
 aider --conventions codex-skill/AGENTS.md \
   --model qwen/qwen-coder-plus
 ```
@@ -285,7 +394,7 @@ aider --conventions codex-skill/AGENTS.md \
   --model your-doubao-endpoint-id
 ```
 
-### With Continue CLI / 配合 Continue CLI 使用
+### With Continue CLI / 配合 Continue CLI
 
 Configure `~/.continue/config.yaml` / 配置文件：
 
@@ -307,23 +416,13 @@ models:
     model: qwen-coder-plus-latest
 ```
 
-### Architecture / 架构原理
-
-```
-用户 → AI CLI 工具 (Aider / Continue) → 云端模型 (DeepSeek / Qwen / 豆包)
-  │                                           ↓
-  │                                    读取 AGENTS.md 指令
-  │                                           ↓
-  └──────────────────────────────→ vmware-aiops CLI ──→ ESXi / vCenter
-```
-
-The AI model reads `AGENTS.md` instructions to understand how to use `vmware-aiops` CLI, then generates and executes commands on your behalf. / AI 模型读取 `AGENTS.md` 指令，了解如何使用 `vmware-aiops` CLI，然后代你生成并执行命令。
-
 ---
 
-## Local Models / 本地模型（Aider + Ollama 推荐方案）
+## Local Models / 本地模型（Aider + Ollama）
 
-For users who prefer running models locally — no cloud API, no internet, full privacy. **Aider + Ollama + local Qwen/DeepSeek** is a great combination for Chinese users. / 如果你更喜欢本地运行模型 — 无需云端 API，无需联网，完全隐私。**Aider + Ollama + 本地 Qwen/DeepSeek** 是国内用户的最佳组合。
+For fully offline operation — no cloud API, no internet, full privacy. / 完全离线运行 — 无需云端 API，无需联网，完全隐私。
+
+**Aider + Ollama + local Qwen/DeepSeek** is ideal for Chinese users or air-gapped environments. / **Aider + Ollama + 本地 Qwen/DeepSeek** 是国内用户或隔离网络的最佳方案。
 
 ### Step 1: Install Ollama / 安装 Ollama
 
@@ -339,20 +438,17 @@ curl -fsSL https://ollama.com/install.sh | sh
 
 | Model / 模型 | Command / 命令 | Size / 大小 | Note / 说明 |
 |------|--------|---------|---------|
-| **Qwen 2.5 Coder 32B** | `ollama pull qwen2.5-coder:32b` | ~20GB | Best local coding model / 最佳本地编程模型 |
-| **Qwen 2.5 Coder 7B** | `ollama pull qwen2.5-coder:7b` | ~4.5GB | Low-memory option / 低内存选择 |
+| **Qwen 2.5 Coder 32B** | `ollama pull qwen2.5-coder:32b` | ~20GB | Best local coding / 最佳本地编程模型 |
+| **Qwen 2.5 Coder 7B** | `ollama pull qwen2.5-coder:7b` | ~4.5GB | Low-memory / 低内存选择 |
 | **DeepSeek Coder V2** | `ollama pull deepseek-coder-v2` | ~8.9GB | Strong reasoning / 推理能力强 |
-| **CodeLlama 34B** | `ollama pull codellama:34b` | ~19GB | Meta's coding model / Meta 编程模型 |
+| **CodeLlama 34B** | `ollama pull codellama:34b` | ~19GB | Meta coding model |
 
-> **Hardware note / 硬件要求**: 32B models need ~20GB VRAM (or 32GB RAM for CPU). 7B models work on 8GB RAM. / 32B 模型需要约 20GB 显存（或 32GB 内存用 CPU 跑）。7B 模型 8GB 内存即可。
+> **Hardware / 硬件要求**: 32B → ~20GB VRAM (or 32GB RAM for CPU). 7B → 8GB RAM. / 32B 模型需 20GB 显存（或 32GB 内存 CPU 跑）。7B 模型 8GB 内存即可。
 
 ### Step 3: Run with Aider / 用 Aider 运行
 
 ```bash
-# Install Aider / 安装 Aider
 pip install aider-chat
-
-# Start Ollama server / 启动 Ollama 服务
 ollama serve
 
 # Aider + local Qwen (recommended / 推荐)
@@ -363,25 +459,18 @@ aider --conventions codex-skill/AGENTS.md \
 aider --conventions codex-skill/AGENTS.md \
   --model ollama/deepseek-coder-v2
 
-# Smaller model for low-memory machines / 低内存机器用小模型
+# Low-memory option / 低内存选择
 aider --conventions codex-skill/AGENTS.md \
   --model ollama/qwen2.5-coder:7b
 ```
 
-### Persistent config / 持久化配置
-
-Create `~/.aider.conf.yml` to avoid typing flags every time / 创建配置文件避免每次输入参数：
-
+Persistent config `~/.aider.conf.yml` / 持久化配置：
 ```yaml
-# Local Qwen model / 本地通义千问模型
 model: ollama/qwen2.5-coder:32b
 conventions: codex-skill/AGENTS.md
-
-# Or DeepSeek / 或深度求索
-# model: ollama/deepseek-coder-v2
 ```
 
-### Architecture / 本地模型架构
+### Local Architecture / 本地架构
 
 ```
 用户 → Aider CLI → Ollama (localhost:11434) → Qwen / DeepSeek 本地模型
@@ -391,9 +480,11 @@ conventions: codex-skill/AGENTS.md
   └──────────────────────────────→ vmware-aiops CLI ──→ ESXi / vCenter
 ```
 
-> **Tip / 提示**: Local models are fully offline — perfect for air-gapped environments or strict data compliance. / 本地模型完全离线运行 — 适合隔离网络或严格数据合规环境。
+> **Tip**: Local models are fully offline — perfect for air-gapped environments or strict data compliance. / 本地模型完全离线 — 适合隔离网络或严格数据合规环境。
 
-## CLI Usage / CLI 使用
+---
+
+## CLI Reference / CLI 命令参考
 
 ```bash
 # Inventory / 资源清单
@@ -417,6 +508,7 @@ vmware-aiops vm reconfigure my-vm --cpu 4 --memory 8192        # Reconfigure (2x
 vmware-aiops vm snapshot-create my-vm --name "before-upgrade"  # Create snapshot / 创建快照
 vmware-aiops vm snapshot-list my-vm                            # List snapshots / 列出快照
 vmware-aiops vm snapshot-revert my-vm --name "before-upgrade"  # Revert snapshot / 恢复快照
+vmware-aiops vm snapshot-delete my-vm --name "before-upgrade"  # Delete snapshot / 删除快照
 vmware-aiops vm clone my-vm --new-name my-vm-clone             # Clone VM / 克隆虚拟机
 vmware-aiops vm migrate my-vm --to-host esxi-02                # vMotion / 迁移虚拟机
 
@@ -424,10 +516,12 @@ vmware-aiops vm migrate my-vm --to-host esxi-02                # vMotion / 迁�
 vmware-aiops scan now              # One-time scan / 一次性扫描
 
 # Daemon / 守护进程
-vmware-aiops daemon start          # Start scanner daemon / 启动扫描守护进程
-vmware-aiops daemon status         # Check daemon status / 查看守护进程状态
+vmware-aiops daemon start          # Start scanner / 启动扫描守护进程
+vmware-aiops daemon status         # Check status / 查看状态
 vmware-aiops daemon stop           # Stop daemon / 停止守护进程
 ```
+
+---
 
 ## Configuration / 配置说明
 
@@ -438,60 +532,56 @@ See `config.example.yaml` for all options. / 完整选项见 `config.example.yam
 | targets | name | — | Friendly name / 目标名称 |
 | targets | host | — | vCenter/ESXi hostname or IP / 主机名或 IP |
 | targets | type | vcenter | `vcenter` or `esxi` / 类型 |
+| targets | port | 443 | Connection port / 连接端口 |
 | targets | verify_ssl | false | SSL certificate verification / SSL 证书验证 |
 | scanner | interval_minutes | 15 | Scan frequency / 扫描频率（分钟） |
-| scanner | severity_threshold | warning | Min severity / 最低严重级别: critical/warning/info |
+| scanner | severity_threshold | warning | Min severity: critical/warning/info / 最低严重级别 |
 | scanner | lookback_hours | 1 | How far back to scan / 回溯扫描时长（小时） |
+| scanner | log_types | [vpxd, hostd, vmkernel] | Log sources / 日志源 |
 | notify | log_file | ~/.vmware-aiops/scan.log | JSONL log output / 日志输出路径 |
-| notify | webhook_url | — | Webhook endpoint / Webhook 地址 |
+| notify | webhook_url | — | Webhook endpoint (Slack, Discord, etc.) / Webhook 地址 |
 
-## Architecture / 架构
+---
+
+## Project Structure / 项目结构
 
 ```
 VMware-AIops/
 ├── vmware_aiops/          # Python backend / Python 后端
 │   ├── config.py          # YAML + .env config / 配置管理
-│   ├── connection.py      # Multi-target pyVmomi / 多目标连接管理
-│   ├── cli.py             # Typer CLI (double confirm) / CLI（双重确认）
+│   ├── connection.py      # Multi-target pyVmomi connections / 多目标连接管理
+│   ├── cli.py             # Typer CLI with double confirmation / CLI（双重确认）
 │   ├── ops/               # Operations / 运维操作
-│   │   ├── inventory.py   # VMs, hosts, datastores / 资源清单
-│   │   ├── health.py      # Alarms, events / 健康检查
-│   │   └── vm_lifecycle.py # VM CRUD / 虚拟机生命周期
-│   ├── scanner/           # Log scanning / 日志扫描
-│   └── notify/            # Notifications / 通知
+│   │   ├── inventory.py   # VMs, hosts, datastores, clusters / 资源清单
+│   │   ├── health.py      # Alarms, events, sensors / 健康检查
+│   │   └── vm_lifecycle.py # VM CRUD, snapshots, clone, migrate / VM 生命周期
+│   ├── scanner/           # Log scanning daemon / 日志扫描守护进程
+│   └── notify/            # Notifications (JSONL + webhook) / 通知
 ├── skill/                 # Claude Code skill / Claude Code 技能
 │   └── SKILL.md
 ├── gemini-extension/      # Gemini CLI extension / Gemini CLI 扩展
 │   ├── gemini-extension.json
 │   └── GEMINI.md
-├── codex-skill/           # Codex CLI skill + AGENTS.md / Codex CLI 技能
+├── codex-skill/           # Codex + Aider + Continue / 多平台共用
 │   ├── SKILL.md
-│   └── AGENTS.md          # Also works for Aider & Continue / 同时适用于 Aider 和 Continue
+│   └── AGENTS.md
 ├── config.example.yaml
 └── pyproject.toml
 ```
-
-## Platform Comparison / 平台对比
-
-| Feature / 功能 | Claude Code | Gemini CLI | Codex CLI | Aider | Continue |
-|---------|-------------|------------|-----------|-------|----------|
-| Cloud AI / 云端 AI | Anthropic | Google | OpenAI | Any / 任意 | Any / 任意 |
-| Local models / 本地模型 | — | — | — | Ollama | Ollama |
-| Skill system / 技能系统 | SKILL.md | Extension | SKILL.md | — | Rules |
-| MCP support / MCP 支持 | Native / 原生 | Native / 原生 | Via Skills | Third-party / 第三方 | Native / 原生 |
-| Free tier / 免费额度 | — | 60 req/min | — | Self-hosted / 自托管 | Self-hosted / 自托管 |
 
 ## API Coverage / API 覆盖
 
 Built on **pyVmomi** (vSphere Web Services API / SOAP). / 基于 **pyVmomi**（vSphere SOAP API）构建。
 
-- `vim.VirtualMachine` — VM lifecycle / 虚拟机生命周期
-- `vim.HostSystem` — ESXi host management / 主机管理
-- `vim.Datastore` — Storage / 存储
-- `vim.ClusterComputeResource` — Cluster (DRS, HA) / 集群
-- `vim.Network` — Networking / 网络
-- `vim.alarm.AlarmManager` — Alarms / 告警
-- `vim.event.EventManager` — Events/logs / 事件与日志
+| API Object | Usage / 用途 |
+|------------|------|
+| `vim.VirtualMachine` | VM lifecycle, snapshots, clone, migrate / 虚拟机生命周期、快照、克隆、迁移 |
+| `vim.HostSystem` | ESXi host info, sensors, services / 主机信息、传感器、服务 |
+| `vim.Datastore` | Storage capacity, type, accessibility / 存储容量、类型 |
+| `vim.ClusterComputeResource` | Cluster, DRS, HA / 集群、DRS、HA |
+| `vim.Network` | Network listing / 网络列表 |
+| `vim.alarm.AlarmManager` | Active alarm monitoring / 活跃告警监控 |
+| `vim.event.EventManager` | Event/log queries / 事件日志查询 |
 
 ## License / 许可证
 
