@@ -52,11 +52,29 @@ print('Plugin enabled.')
 
 Then restart Claude Code.
 
-Then use natural language directly:
+After restart, the Skill will first ask which environment you want to manage:
+
 ```
-"Show me all VMs on prod-vcenter"
-"Check if there are any active alarms"
-"Take a snapshot of prod-db before the upgrade"
+You: "I want to check the VMware environment"
+
+Claude: "Which environment do you want to manage?
+  1. vCenter Server (e.g. vcenter-prod.example.com)
+  2. Standalone ESXi host (e.g. 192.168.1.100)
+  Please provide the target name from your config, or the host address."
+
+You: "prod-vcenter"
+
+Claude: "Connected to prod-vcenter. What would you like to do?"
+```
+
+Example commands after connecting:
+```
+"Show me all VMs"
+"Are there any active alarms?"
+"Take a snapshot of prod-db called before-upgrade"
+"Power off test-vm gracefully"
+"How much free space is left on the datastores?"
+"Scan the last 24 hours of logs for errors"
 ```
 
 ### Option B: Python CLI + Daemon
