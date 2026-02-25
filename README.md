@@ -21,31 +21,36 @@ Two modes of operation:
 
 ### Option A: Claude Code Skill (Natural Language Ops)
 
-**Step 1** — Clone the marketplace repository:
-
 ```bash
-git clone https://github.com/zw008/VMware-AIops.git ~/.claude/plugins/marketplaces/vmware-aiops
-```
+# Step 1: Clone the marketplace repository
+git clone https://github.com/zw008/VMware-AIops.git \
+  ~/.claude/plugins/marketplaces/vmware-aiops
 
-**Step 2** — Register the marketplace. Edit `~/.claude/plugins/known_marketplaces.json`, add:
-
-```json
-"vmware-aiops": {
-  "source": {
-    "source": "github",
-    "repo": "zw008/VMware-AIops"
-  },
-  "installLocation": "~/.claude/plugins/marketplaces/vmware-aiops"
+# Step 2: Register the marketplace
+python3 -c "
+import json, pathlib
+f = pathlib.Path.home() / '.claude/plugins/known_marketplaces.json'
+d = json.loads(f.read_text()) if f.exists() else {}
+d['vmware-aiops'] = {
+    'source': {'source': 'github', 'repo': 'zw008/VMware-AIops'},
+    'installLocation': str(pathlib.Path.home() / '.claude/plugins/marketplaces/vmware-aiops')
 }
+f.write_text(json.dumps(d, indent=2))
+print('Marketplace registered.')
+"
+
+# Step 3: Enable the plugin
+python3 -c "
+import json, pathlib
+f = pathlib.Path.home() / '.claude/settings.json'
+d = json.loads(f.read_text()) if f.exists() else {}
+d.setdefault('enabledPlugins', {})['vmware-ops@vmware-aiops'] = True
+f.write_text(json.dumps(d, indent=2))
+print('Plugin enabled.')
+"
 ```
 
-**Step 3** — Enable the plugin. Edit `~/.claude/settings.json`, add to `enabledPlugins`:
-
-```json
-"vmware-ops@vmware-aiops": true
-```
-
-**Step 4** — Restart Claude Code
+Then restart Claude Code.
 
 Then use natural language directly:
 ```
