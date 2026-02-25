@@ -17,15 +17,51 @@ Two modes of operation:
 - **Scheduled scanning**: APScheduler daemon scans logs and alarms at configurable intervals
 - **Notifications**: Structured JSON log files + generic webhook (Slack, Discord, etc.)
 
-## Quick Start
+## Installation
 
-### 1. Install
+### Option A: Claude Code Skill (Natural Language Ops)
+
+In Claude Code, run:
+
+```
+/install-plugin zw008/VMware-AIops
+```
+
+Or manually:
+
+1. Edit `~/.claude/plugins/known_marketplaces.json`, add:
+   ```json
+   "vmware-aiops": {
+     "source": {
+       "source": "github",
+       "repo": "zw008/VMware-AIops"
+     }
+   }
+   ```
+2. Edit `~/.claude/settings.json`, add to `enabledPlugins`:
+   ```json
+   "vmware-ops@vmware-aiops": true
+   ```
+3. Restart Claude Code
+
+Then use natural language directly:
+```
+"Show me all VMs on prod-vcenter"
+"Check if there are any active alarms"
+"Take a snapshot of prod-db before the upgrade"
+```
+
+### Option B: Python CLI + Daemon
 
 ```bash
+git clone https://github.com/zw008/VMware-AIops.git
+cd VMware-AIops
+python3 -m venv .venv
+source .venv/bin/activate
 pip install -e .
 ```
 
-### 2. Configure
+### Configure (Required for Both)
 
 ```bash
 mkdir -p ~/.vmware-aiops
@@ -39,7 +75,7 @@ export VMWARE_PROD_VCENTER_PASSWORD="your-password"
 export VMWARE_LAB_ESXI_PASSWORD="your-password"
 ```
 
-### 3. Use
+## CLI Usage
 
 ```bash
 # Inventory
@@ -72,19 +108,6 @@ vmware-aiops scan now
 # Start scanner daemon
 vmware-aiops daemon start
 vmware-aiops daemon status
-```
-
-### 4. Claude Code Skill
-
-Install the skill in Claude Code to use natural language:
-
-```
-"Show me all VMs on prod-vcenter"
-"Check if there are any active alarms"
-"Create a VM named test-web with 4 CPUs and 8GB RAM"
-"Take a snapshot of prod-db before the upgrade"
-"Migrate web-server to esxi-03"
-"Scan the last 24 hours of logs for errors"
 ```
 
 ## Configuration
