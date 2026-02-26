@@ -152,6 +152,7 @@ ESXi 独立主机 ──→ VM
 | **Continue CLI** | ✅ 规则文件 | `codex-skill/AGENTS.md` | 任意（云端 + 本地） |
 | **Trae IDE** | ✅ Rules | `trae-rules/project_rules.md` | Claude/DeepSeek/GPT-4o/Doubao |
 | **Kimi Code CLI** | ✅ Skill | `kimi-skill/SKILL.md` | Moonshot Kimi |
+| **MCP Server** | ✅ MCP 协议 | `mcp_server/` | 任意 MCP 客户端 |
 | **Python CLI** | ✅ 独立运行 | N/A | N/A |
 
 ---
@@ -258,6 +259,43 @@ Trae IDE 的 Builder Mode 会在启动时自动读取 `.trae/rules/` 下的 Mark
 mkdir -p ~/.kimi/skills/vmware-aiops
 cp kimi-skill/SKILL.md ~/.kimi/skills/vmware-aiops/SKILL.md
 ```
+
+#### MCP 服务器（Smithery / Glama / Claude Desktop）
+
+MCP 服务器通过 [Model Context Protocol](https://modelcontextprotocol.io) 将 VMware 操作暴露为工具，兼容所有 MCP 客户端（Claude Desktop、Cursor 等）。
+
+```bash
+# 直接运行
+python -m mcp_server
+
+# 或通过安装的入口点
+vmware-aiops-mcp
+
+# 指定配置路径
+VMWARE_AIOPS_CONFIG=/path/to/config.yaml python -m mcp_server
+```
+
+**Claude Desktop 配置** (`claude_desktop_config.json`)：
+```json
+{
+  "mcpServers": {
+    "vmware-aiops": {
+      "command": "python",
+      "args": ["-m", "mcp_server"],
+      "env": {
+        "VMWARE_AIOPS_CONFIG": "/path/to/config.yaml"
+      }
+    }
+  }
+}
+```
+
+**通过 Smithery 安装**：
+```bash
+npx -y @smithery/cli install @zw008/VMware-AIops --client claude
+```
+
+---
 
 #### 独立 CLI（无需 AI）
 
@@ -367,6 +405,10 @@ VMware-AIops/
 ├── codex-skill/AGENTS.md          # Codex / Aider / Continue
 ├── trae-rules/project_rules.md    # Trae IDE 规则
 ├── kimi-skill/SKILL.md            # Kimi Code CLI 技能
+├── mcp_server/                    # MCP 服务器
+│   ├── server.py                  # MCP 工具定义
+│   └── __main__.py                # 入口
+├── smithery.yaml                  # Smithery 市场配置
 ├── config.example.yaml
 └── pyproject.toml
 ```

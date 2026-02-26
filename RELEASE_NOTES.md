@@ -28,6 +28,15 @@ vmware-aiops ops alerts|metrics|recommendations|capacity [--target <name>]
 vmware-aiops vks clusters|health|scale|nodes
 ```
 
+- **MCP Server / MCP 服务器**: Added `mcp_server/` package wrapping VMware operations as MCP tools (list VMs/hosts/datastores/clusters, alarms, events, VM power on/off, VM info). Enables registration on Smithery, Glama, and MCP Server Registry.
+  新增 MCP 服务器，将 VMware 操作封装为 MCP 工具，支持注册到 Smithery、Glama 和 MCP Server Registry。
+
+- **Smithery Integration / Smithery 集成**: Added `smithery.yaml` for one-click install via `npx @smithery/cli install`.
+  新增 Smithery 配置文件，支持一键安装。
+
+- **Marketplace Publishing / 市场发布**: Prepared for PyPI (`pip install vmware-aiops`), SkillsMP (skills.sh), Smithery, Glama, and MCP Server Registry.
+  准备发布到 PyPI、SkillsMP、Smithery、Glama 和 MCP Server Registry。
+
 ### Files Updated / 更新文件
 
 - All skill files updated with vSAN, Aria Operations, and VKS sections:
@@ -37,6 +46,16 @@ vmware-aiops vks clusters|health|scale|nodes
 - `README.md` — Added capabilities sections 6-8 (vSAN, Aria Ops, VKS) and CLI commands
 - `README-CN.md` — Same updates in Chinese
 - `plugins/vmware-ops/.claude-plugin/plugin.json` — Version 0.3.0 → 0.4.0
+- `.claude-plugin/marketplace.json` — Version 0.2.0 → 0.4.0
+- `pyproject.toml` — Version 0.1.0 → 0.4.0, added `mcp[cli]` dependency and `vmware-aiops-mcp` entry point
+- `README.md` / `README-CN.md` — Added MCP server section, updated platform table and project structure
+
+### Files Added / 新增文件
+
+- `mcp_server/__init__.py`
+- `mcp_server/server.py` — FastMCP server exposing 9 VMware tools
+- `mcp_server/__main__.py` — `python -m mcp_server` entry point
+- `smithery.yaml` — Smithery marketplace configuration
 
 ### API References / API 参考
 

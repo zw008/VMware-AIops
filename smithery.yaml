@@ -1,0 +1,15 @@
+startCommand:
+  type: stdio
+  configSchema:
+    type: object
+    properties:
+      config_path:
+        type: string
+        description: "Path to vmware-aiops config.yaml (default: ~/.vmware-aiops/config.yaml)"
+    required: []
+  commandFunction: |
+    (config) => ({
+      command: "python",
+      args: ["-m", "mcp_server"],
+      env: config.config_path ? { VMWARE_AIOPS_CONFIG: config.config_path } : {}
+    })

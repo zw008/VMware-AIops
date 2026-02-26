@@ -184,6 +184,7 @@ ESXi 独立主机 ──→ VM
 | **Continue CLI** | ✅ Rules / 规则文件 | `codex-skill/AGENTS.md` | Any (cloud + local) / 任意 |
 | **Trae IDE** | ✅ Rules / 规则文件 | `trae-rules/project_rules.md` | Claude/DeepSeek/GPT-4o/Doubao |
 | **Kimi Code CLI** | ✅ Skill | `kimi-skill/SKILL.md` | Moonshot Kimi |
+| **MCP Server** | ✅ MCP Protocol | `mcp_server/` | Any MCP client |
 | **Python CLI** | ✅ Standalone / 独立运行 | N/A | N/A |
 
 ### Platform Comparison / 平台对比
@@ -432,7 +433,46 @@ cp kimi-skill/SKILL.md ~/.kimi/skills/vmware-aiops/SKILL.md
 
 ---
 
-#### Option H: Standalone CLI (no AI) / 方式 H：独立 CLI（无需 AI）
+#### Option H: MCP Server (Smithery / Glama / Claude Desktop) / 方式 H：MCP 服务器
+
+The MCP server exposes VMware operations as tools via the [Model Context Protocol](https://modelcontextprotocol.io). Works with any MCP-compatible client (Claude Desktop, Cursor, etc.).
+
+MCP 服务器通过 Model Context Protocol 将 VMware 操作暴露为工具，兼容所有 MCP 客户端。
+
+```bash
+# Run directly / 直接运行
+python -m mcp_server
+
+# Or via the installed entry point / 或通过安装的入口点
+vmware-aiops-mcp
+
+# With a custom config path / 指定配置路径
+VMWARE_AIOPS_CONFIG=/path/to/config.yaml python -m mcp_server
+```
+
+**Claude Desktop config / Claude Desktop 配置** (`claude_desktop_config.json`):
+```json
+{
+  "mcpServers": {
+    "vmware-aiops": {
+      "command": "python",
+      "args": ["-m", "mcp_server"],
+      "env": {
+        "VMWARE_AIOPS_CONFIG": "/path/to/config.yaml"
+      }
+    }
+  }
+}
+```
+
+**Install via Smithery / 通过 Smithery 安装**:
+```bash
+npx -y @smithery/cli install @zw008/VMware-AIops --client claude
+```
+
+---
+
+#### Option I: Standalone CLI (no AI) / 方式 I：独立 CLI（无需 AI）
 
 ```bash
 # Already installed in Step 1 / 在第 1 步已安装
@@ -703,6 +743,10 @@ VMware-AIops/
 │   └── project_rules.md
 ├── kimi-skill/                    # Kimi Code CLI skill / Kimi Code CLI 技能
 │   └── SKILL.md
+├── mcp_server/                    # MCP server wrapper / MCP 服务器
+│   ├── server.py                  # FastMCP server with tools / MCP 工具定义
+│   └── __main__.py                # Entry point / 入口
+├── smithery.yaml                  # Smithery marketplace config / Smithery 市场配置
 ├── RELEASE_NOTES.md               # Release history / 版本发布历史
 ├── config.example.yaml
 └── pyproject.toml
