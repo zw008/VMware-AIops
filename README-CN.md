@@ -198,16 +198,29 @@ cp config.example.yaml ~/.vmware-aiops/config.yaml
 通过 `.env` 文件设置密码（推荐）：
 
 ```bash
-cat > ~/.vmware-aiops/.env << 'EOF'
-VMWARE_PROD_VCENTER_PASSWORD=your-password
-VMWARE_LAB_ESXI_PASSWORD=your-password
-EOF
+# 使用模板创建 .env 文件
+cp .env.example ~/.vmware-aiops/.env
+
+# 编辑并填入真实密码
+# 然后锁定文件权限（仅所有者可读写）
 chmod 600 ~/.vmware-aiops/.env
 ```
 
+> **安全提示**：推荐使用 `.env` 文件而非命令行 `export`，避免密码出现在 shell 历史记录中。`.env` 文件必须设置 `chmod 600`（仅所有者可读写）。
+
 密码环境变量命名规则：`VMWARE_{目标名大写}_PASSWORD`
+- 连字符替换为下划线，全大写
 - 目标 `home-esxi` → `VMWARE_HOME_ESXI_PASSWORD`
 - 目标 `prod-vcenter` → `VMWARE_PROD_VCENTER_PASSWORD`
+
+### 安全最佳实践
+
+- **绝不**在脚本或配置文件中硬编码密码
+- **绝不**通过命令行参数传递密码（`ps` 命令可见）
+- **绝不**在输出或日志中显示密码
+- **始终**使用 `~/.vmware-aiops/.env` 并设置 `chmod 600`
+- **始终**使用 `ConnectionManager.from_config()` 建立连接
+- 密码在模块导入时自动从 `.env` 加载，无需手动 `export`
 
 ### 第 3 步：连接 AI 工具
 

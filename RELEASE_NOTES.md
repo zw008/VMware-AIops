@@ -2,6 +2,39 @@
 
 ---
 
+## v0.4.1 — 2026-02-26
+
+### Improvements / 改进
+
+- **Secure credential management / 安全凭据管理**: Added `.env.example` template with naming convention (`VMWARE_{TARGET_NAME}_PASSWORD`) and `chmod 600` instructions. Users can now `cp .env.example ~/.vmware-aiops/.env` for quick setup.
+  新增 `.env.example` 凭据模板，包含命名规则和 `chmod 600` 说明，用户可快速复制使用。
+
+- **First-run configuration guide / 首次配置引导**: SKILL.md now includes a 3-step setup guide (check config.yaml → check .env → verify connection) for new users.
+  SKILL.md 新增 3 步配置引导流程，帮助新用户快速上手。
+
+- **Credential security rules / 凭据安全规则**: Added explicit NEVER/ALWAYS rules to SKILL.md — never hardcode passwords, never display passwords in output, always use `ConnectionManager.from_config()`.
+  SKILL.md 新增明确的安全规则——禁止硬编码密码、禁止在输出中显示密码、始终使用 `ConnectionManager.from_config()`。
+
+- **Output sanitization / 输出脱敏**: Connection info displays only host, username, and type — passwords are never shown in any output or logs.
+  连接信息仅显示主机、用户名和类型，密码永远不会出现在任何输出或日志中。
+
+- **Security best practices in README / README 安全最佳实践**: Added security best practices section to both English and Chinese READMEs.
+  中英文 README 均新增安全最佳实践章节。
+
+### Files Added / 新增文件
+
+- `.env.example` — Credential template with naming convention and security instructions
+
+### Files Updated / 更新文件
+
+- `config.example.yaml` — Added `.env` setup guidance comments
+- `skill/SKILL.md` — Rewritten with first-run guide, credential security rules, output sanitization
+- `plugins/vmware-ops/skills/vmware-aiops/SKILL.md` — Synced with `skill/SKILL.md`
+- `README.md` — Updated password setup to use `.env.example`, added security best practices
+- `README-CN.md` — Same updates in Chinese
+
+---
+
 ## v0.4.0 — 2026-02-26
 
 ### New Features / 新功能
