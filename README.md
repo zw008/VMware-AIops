@@ -1,8 +1,8 @@
 # VMware AIops
 
-AI-powered VMware vCenter/ESXi monitoring and operations tool.
+English | [中文](README-CN.md)
 
-AI 驱动的 VMware vCenter/ESXi 监控与运维工具。
+AI-powered VMware vCenter/ESXi monitoring and operations tool.
 
 [![Claude Code Marketplace](https://img.shields.io/badge/Claude_Code-Marketplace-blueviolet)](https://github.com/zw008/VMware-AIops)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
@@ -29,8 +29,8 @@ AI 驱动的 VMware vCenter/ESXi 监控与运维工具。
 ```
 用户 (自然语言 / Natural Language)
   ↓
-AI CLI 工具 (Claude Code / Gemini / Codex / Aider / Continue)
-  ↓ 读取 AGENTS.md / SKILL.md 指令
+AI CLI 工具 (Claude Code / Gemini / Codex / Aider / Continue / Trae / Kimi)
+  ↓ 读取 SKILL.md / AGENTS.md / rules 指令
   ↓
 vmware-aiops CLI
   ↓ pyVmomi (vSphere SOAP API)
@@ -39,6 +39,17 @@ vCenter Server ──→ ESXi 集群 ──→ VM
     或 / or
 ESXi 独立主机 ──→ VM
 ```
+
+### Version Compatibility / 版本兼容性
+
+| vSphere Version | Support | Notes |
+|----------------|---------|-------|
+| 8.0 / 8.0U1-U3 | ✅ Full | `CreateSnapshot_Task` deprecated → use `CreateSnapshotEx_Task` |
+| 7.0 / 7.0U1-U3 | ✅ Full | All APIs supported |
+| 6.7 | ✅ Compatible | Backward-compatible, tested |
+| 6.5 | ✅ Compatible | Backward-compatible, tested |
+
+> pyVmomi auto-negotiates the API version during SOAP handshake — no manual configuration needed. The same codebase manages both 7.0 and 8.0 environments seamlessly.
 
 ### 1. Inventory / 资源清单
 
@@ -137,17 +148,19 @@ ESXi 独立主机 ──→ VM
 | **OpenAI Codex CLI** | ✅ Skill + AGENTS.md | `codex-skill/AGENTS.md` | OpenAI GPT |
 | **Aider** | ✅ Conventions / 约定文件 | `codex-skill/AGENTS.md` | Any (cloud + local) / 任意 |
 | **Continue CLI** | ✅ Rules / 规则文件 | `codex-skill/AGENTS.md` | Any (cloud + local) / 任意 |
+| **Trae IDE** | ✅ Rules / 规则文件 | `trae-rules/project_rules.md` | Claude/DeepSeek/GPT-4o/Doubao |
+| **Kimi Code CLI** | ✅ Skill | `kimi-skill/SKILL.md` | Moonshot Kimi |
 | **Python CLI** | ✅ Standalone / 独立运行 | N/A | N/A |
 
 ### Platform Comparison / 平台对比
 
-| Feature / 功能 | Claude Code | Gemini CLI | Codex CLI | Aider | Continue |
-|---------|-------------|------------|-----------|-------|----------|
-| Cloud AI / 云端 AI | Anthropic | Google | OpenAI | Any / 任意 | Any / 任意 |
-| Local models / 本地模型 | — | — | — | Ollama | Ollama |
-| Skill system / 技能系统 | SKILL.md | Extension | SKILL.md | — | Rules |
-| MCP support / MCP 支持 | Native / 原生 | Native / 原生 | Via Skills | Third-party / 第三方 | Native / 原生 |
-| Free tier / 免费额度 | — | 60 req/min | — | Self-hosted / 自托管 | Self-hosted / 自托管 |
+| Feature / 功能 | Claude Code | Gemini CLI | Codex CLI | Aider | Continue | Trae IDE | Kimi CLI |
+|---------|-------------|------------|-----------|-------|----------|----------|----------|
+| Cloud AI / 云端 AI | Anthropic | Google | OpenAI | Any / 任意 | Any / 任意 | Multi / 多选 | Moonshot |
+| Local models / 本地模型 | — | — | — | Ollama | Ollama | — | — |
+| Skill system / 技能系统 | SKILL.md | Extension | SKILL.md | — | Rules | Rules | SKILL.md |
+| MCP support / MCP 支持 | Native / 原生 | Native / 原生 | Via Skills | Third-party / 第三方 | Native / 原生 | — | — |
+| Free tier / 免费额度 | — | 60 req/min | — | Self-hosted / 自托管 | Self-hosted / 自托管 | — | — |
 
 ---
 
@@ -360,7 +373,32 @@ cn
 
 ---
 
-#### Option F: Standalone CLI (no AI) / 方式 F：独立 CLI（无需 AI）
+#### Option F: Trae IDE / 方式 F：Trae IDE
+
+Copy the rules file to your project's `.trae/rules/` directory: / 将规则文件复制到项目的 `.trae/rules/` 目录：
+
+```bash
+mkdir -p .trae/rules
+cp trae-rules/project_rules.md .trae/rules/project_rules.md
+```
+
+Trae IDE's Builder Mode reads `.trae/rules/` Markdown files at startup. / Trae IDE 的 Builder Mode 会在启动时自动读取规则文件。
+
+> **Note**: You can also install Claude Code extension in Trae IDE and use `.claude/skills/` format directly. / 也可以在 Trae IDE 中安装 Claude Code 扩展，直接使用 `.claude/skills/` 格式。
+
+---
+
+#### Option G: Kimi Code CLI / 方式 G：Kimi Code CLI
+
+```bash
+# Copy skill file to Kimi skills directory / 复制技能文件到 Kimi 技能目录
+mkdir -p ~/.kimi/skills/vmware-aiops
+cp kimi-skill/SKILL.md ~/.kimi/skills/vmware-aiops/SKILL.md
+```
+
+---
+
+#### Option H: Standalone CLI (no AI) / 方式 H：独立 CLI（无需 AI）
 
 ```bash
 # Already installed in Step 1 / 在第 1 步已安装
@@ -609,6 +647,11 @@ VMware-AIops/
 ├── codex-skill/                   # Codex + Aider + Continue / 多平台共用
 │   ├── SKILL.md
 │   └── AGENTS.md
+├── trae-rules/                    # Trae IDE rules / Trae IDE 规则
+│   └── project_rules.md
+├── kimi-skill/                    # Kimi Code CLI skill / Kimi Code CLI 技能
+│   └── SKILL.md
+├── RELEASE_NOTES.md               # Release history / 版本发布历史
 ├── config.example.yaml
 └── pyproject.toml
 ```
@@ -626,6 +669,12 @@ Built on **pyVmomi** (vSphere Web Services API / SOAP). / 基于 **pyVmomi**（v
 | `vim.Network` | Network listing / 网络列表 |
 | `vim.alarm.AlarmManager` | Active alarm monitoring / 活跃告警监控 |
 | `vim.event.EventManager` | Event/log queries / 事件日志查询 |
+
+## Troubleshooting & Contributing / 问题反馈与贡献
+
+If you encounter any errors or issues, please send the error message, logs, or screenshots to **zhouwei008@gmail.com**. Contributions are welcome — feel free to join us in maintaining and improving this project!
+
+如果遇到任何报错或问题，请将错误信息、日志或截图发送至 **zhouwei008@gmail.com**。欢迎加入我们，一起维护和改进这个项目！
 
 ## License / 许可证
 

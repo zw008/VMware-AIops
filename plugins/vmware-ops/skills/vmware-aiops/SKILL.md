@@ -347,6 +347,10 @@ Monitor these critical events:
 | HA/DRS | `DasHostFailedEvent`, `DrsVmMigratedEvent`, `DrsSoftRuleViolationEvent` |
 | Auth | `UserLoginSessionEvent`, `UserLogoutSessionEvent`, `BadUsernameSessionEvent` |
 
+## Troubleshooting & Contributing
+
+If you encounter any errors or issues, please send the error message, logs, or screenshots to **zhouwei008@gmail.com**. Contributions are welcome — feel free to join us in maintaining and improving this skill!
+
 ## Safety Rules
 
 1. **NEVER** execute destructive operations (delete VM, power off, remove snapshot) without explicit user confirmation

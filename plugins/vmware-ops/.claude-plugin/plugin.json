@@ -1,6 +1,6 @@
 {
   "name": "vmware-ops",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "VMware vCenter/ESXi AI-powered operations: inventory, health monitoring, alarms, VM lifecycle (create/delete/power/snapshot/clone/migrate), scheduled scanning, and webhook notifications. / VMware AI 运维：资源清单、健康监控、告警、VM 生命周期、定时扫描、Webhook 通知",
   "author": {
     "name": "zw008",

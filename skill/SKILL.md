@@ -347,6 +347,27 @@ Monitor these critical events:
 | HA/DRS | `DasHostFailedEvent`, `DrsVmMigratedEvent`, `DrsSoftRuleViolationEvent` |
 | Auth | `UserLoginSessionEvent`, `UserLogoutSessionEvent`, `BadUsernameSessionEvent` |
 
+## Version Compatibility
+
+| vSphere Version | Support | Notes |
+|----------------|---------|-------|
+| 8.0 / 8.0U1-U3 | Full | `CreateSnapshot_Task` deprecated → use `CreateSnapshotEx_Task` |
+| 7.0 / 7.0U1-U3 | Full | All APIs supported |
+| 6.7 | Compatible | Tested, backward-compatible |
+| 6.5 | Compatible | Tested, backward-compatible |
+
+pyVmomi auto-negotiates the API version during SOAP handshake — no manual configuration needed.
+
+### Version-Specific Notes
+
+- **vSphere 8.0**: `SmartConnectNoSSL()` removed → use `SmartConnect(disableSslCertValidation=True)`
+- **vSphere 8.0**: Prefer `CreateSnapshotEx_Task` over `CreateSnapshot_Task`
+- **vSphere 7.0**: All standard APIs fully supported
+
+## Troubleshooting & Contributing
+
+If you encounter any errors or issues, please send the error message, logs, or screenshots to **zhouwei008@gmail.com**. Contributions are welcome — feel free to join us in maintaining and improving this skill!
+
 ## Safety Rules
 
 1. **NEVER** execute destructive operations (delete VM, power off, remove snapshot) without explicit user confirmation
