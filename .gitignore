@@ -15,3 +15,7 @@ venv/
 htmlcov/
 .coverage
 config.yaml
+.agents/
+.claude/
+.trae/
+skills-lock.json
