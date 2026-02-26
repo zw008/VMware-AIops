@@ -4,8 +4,17 @@
 
 AI 驱动的 VMware vCenter/ESXi 监控与运维工具。
 
+[![Skills.sh](https://img.shields.io/badge/Skills.sh-Install-blue)](https://skills.sh/zw008/VMware-AIops)
 [![Claude Code Marketplace](https://img.shields.io/badge/Claude_Code-Marketplace-blueviolet)](https://github.com/zw008/VMware-AIops)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+
+### 快速安装（推荐）
+
+支持 Claude Code、Cursor、Codex、Gemini CLI、Trae 等 30+ AI 工具：
+
+```bash
+npx skills add zw008/VMware-AIops
+```
 
 ### Claude Code 快速安装
 
