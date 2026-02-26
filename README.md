@@ -243,21 +243,31 @@ cp config.example.yaml ~/.vmware-aiops/config.yaml
 
 Set passwords via `.env` file (recommended) / 通过 `.env` 文件设置密码（推荐）:
 ```bash
-cat > ~/.vmware-aiops/.env << 'EOF'
-VMWARE_PROD_VCENTER_PASSWORD=your-password
-VMWARE_LAB_ESXI_PASSWORD=your-password
-EOF
+# Use the template / 使用模板
+cp .env.example ~/.vmware-aiops/.env
+
+# Edit and fill in your passwords / 编辑并填入密码
+# Then lock permissions / 然后锁定权限
 chmod 600 ~/.vmware-aiops/.env
 ```
 
-> **Security note / 安全提示**: Prefer `.env` file over command-line `export` to avoid passwords appearing in shell history. / 推荐使用 `.env` 文件而非命令行 `export`，避免密码出现在 shell 历史记录中。
+> **Security note / 安全提示**: Prefer `.env` file over command-line `export` to avoid passwords appearing in shell history. The `.env` file should have `chmod 600` (owner-only read/write). / 推荐使用 `.env` 文件而非命令行 `export`，避免密码出现在 shell 历史记录中。`.env` 文件应设置 `chmod 600`（仅所有者可读写）。
 
 Password environment variable naming convention / 密码环境变量命名规则:
 ```
 VMWARE_{TARGET_NAME_UPPER}_PASSWORD
+# Replace hyphens with underscores, UPPERCASE / 连字符替换为下划线，全大写
 # Example: target "home-esxi" → VMWARE_HOME_ESXI_PASSWORD
 # Example: target "prod-vcenter" → VMWARE_PROD_VCENTER_PASSWORD
 ```
+
+### Security Best Practices / 安全最佳实践
+
+- **NEVER** hardcode passwords in scripts or config files / **绝不**在脚本或配置文件中硬编码密码
+- **NEVER** pass passwords as command-line arguments (visible in `ps`) / **绝不**通过命令行参数传递密码
+- **ALWAYS** use `~/.vmware-aiops/.env` with `chmod 600` / **始终**使用 `.env` 文件并设置 `chmod 600`
+- **ALWAYS** use `ConnectionManager.from_config()` for connections / **始终**使用 `ConnectionManager.from_config()` 建立连接
+- Passwords are loaded automatically from `.env` at module import time / 密码在模块导入时自动从 `.env` 加载
 
 ### Step 3: Connect Your AI Tool / 连接你的 AI 工具
 

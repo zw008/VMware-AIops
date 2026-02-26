@@ -1,5 +1,10 @@
 # VMware AIops Configuration
 # Copy to ~/.vmware-aiops/config.yaml and edit
+#
+# Passwords: copy .env.example to ~/.vmware-aiops/.env and fill in passwords
+#   cp .env.example ~/.vmware-aiops/.env
+#   chmod 600 ~/.vmware-aiops/.env
+# See .env.example for naming convention details
 
 targets:
   # vCenter Server
