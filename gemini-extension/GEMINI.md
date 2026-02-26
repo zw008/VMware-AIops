@@ -324,6 +324,57 @@ def wait_for_task(task):
     raise Exception(f"Task failed: {task.info.error.msg}")
 ```
 
+### 5. vSAN Management (pyVmomi 8u3+ includes vSAN SDK)
+
+> vSAN SDK is merged into pyVmomi since vSphere 8.0 Update 3.
+
+```python
+# vSAN health
+vsan_health = content.vsan.VsanVcClusterHealthSystem
+health = vsan_health.VsanQueryVcClusterHealthSummary(cluster=cluster_ref, fetchFromCache=False)
+
+# vSAN capacity
+vsan_space = content.vsan.VsanSpaceReportSystem
+report = vsan_space.VsanQuerySpaceUsage(cluster=cluster_ref)
+
+# vSAN performance
+vsan_perf = content.vsan.VsanPerformanceManager
+spec = vim.cluster.VsanPerfQuerySpec(
+    entityRefId="cluster-domclient:*",
+    startTime=datetime.now() - timedelta(hours=1), endTime=datetime.now(),
+    labels=["iopsRead", "iopsWrite", "latencyAvgRead", "latencyAvgWrite"]
+)
+metrics = vsan_perf.VsanPerfQueryPerf(querySpecs=[spec], cluster=cluster_ref)
+```
+
+### 6. Aria Operations / VCF Operations (REST API)
+
+> REST API at `/suite-api/` for metrics, anomaly detection, capacity planning, intelligent alerts.
+
+```python
+# Auth
+resp = requests.post(f"https://{host}/suite-api/api/auth/token/acquire",
+    json={"username": "admin", "password": "xxx", "authSource": "local"})
+headers = {"Authorization": f"vRealizeOpsToken {resp.json()['token']}"}
+
+# Alerts: GET /suite-api/api/alerts?alertCriticality=CRITICAL&status=ACTIVE
+# Metrics: POST /suite-api/api/resources/{id}/stats/query
+# Recommendations: GET /suite-api/api/recommendations
+# Capacity: GET /suite-api/api/resources/{id}/stats?statKey=summary|capacity_remaining_percentage
+```
+
+### 7. vSphere Kubernetes Service (VKS)
+
+> Tanzu Kubernetes clusters on vSphere. Kubernetes-native API via kubectl.
+
+```python
+# List: kubectl --kubeconfig <kc> -n <ns> get clusters -o json
+# Health: kubectl --kubeconfig <kc> -n <ns> get cluster <name> -o json
+#   → status.conditions: InfrastructureReady, ControlPlaneAvailable, WorkersAvailable
+# Scale: kubectl --kubeconfig <kc> -n <ns> patch machinedeployment <md>
+#   -p '{"spec":{"replicas":N}}' --type=merge
+```
+
 ## Key Event Types for Log Scanning
 
 Monitor these critical events:

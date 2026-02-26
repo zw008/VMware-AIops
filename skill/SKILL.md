@@ -334,6 +334,216 @@ def wait_for_task(task):
     raise Exception(f"Task failed: {task.info.error.msg}")
 ```
 
+### 5. vSAN Management (pyVmomi 8u3+ includes vSAN SDK)
+
+> vSAN SDK is merged into pyVmomi since vSphere 8.0 Update 3. `pip install pyvmomi` (8.0.3+) includes vSAN capabilities. For older versions, install the standalone vSAN Management SDK.
+
+**vSAN cluster health check:**
+```python
+import vsanmgmtObjects
+from pyVmomi import vim, vmodl
+
+# Get vSAN cluster config system
+vsan_cluster_system = content.vsan.VsanVcClusterHealthSystem
+
+# Run health check on a cluster
+health = vsan_cluster_system.VsanQueryVcClusterHealthSummary(
+    cluster=cluster_ref,
+    fetchFromCache=False
+)
+print(f"Overall Health: {health.overallHealth}")
+for group in health.groups:
+    print(f"  {group.groupName}: {group.groupHealth}")
+    for test in group.groupTests:
+        print(f"    {test.testName}: {test.testHealth}")
+```
+
+**vSAN capacity monitoring:**
+```python
+vsan_space_system = content.vsan.VsanSpaceReportSystem
+
+space_report = vsan_space_system.VsanQuerySpaceUsage(cluster=cluster_ref)
+print(f"Total Capacity: {space_report.totalCapacityB / (1024**4):.1f} TB")
+print(f"Free Capacity:  {space_report.freeCapacityB / (1024**4):.1f} TB")
+print(f"Used: {(space_report.totalCapacityB - space_report.freeCapacityB) / space_report.totalCapacityB * 100:.1f}%")
+```
+
+**vSAN disk group listing:**
+```python
+vsan_disk_system = content.vsan.VsanVcDiskManagementSystem
+
+for host in cluster_ref.host:
+    disk_mappings = vsan_disk_system.QueryDiskMappings(host)
+    for mapping in disk_mappings:
+        cache = mapping.ssd
+        capacity_disks = mapping.nonSsd
+        print(f"Host: {host.name}")
+        print(f"  Cache SSD: {cache.displayName} ({cache.capacity.block * cache.capacity.blockSize / (1024**3):.0f} GB)")
+        for disk in capacity_disks:
+            print(f"  Capacity: {disk.displayName} ({disk.capacity.block * disk.capacity.blockSize / (1024**3):.0f} GB)")
+```
+
+**vSAN performance metrics:**
+```python
+vsan_perf_system = content.vsan.VsanPerformanceManager
+
+# Query cluster-level IOPS
+perf_spec = vim.cluster.VsanPerfQuerySpec(
+    entityRefId=f"cluster-domclient:*",
+    startTime=datetime.now() - timedelta(hours=1),
+    endTime=datetime.now(),
+    labels=["iopsRead", "iopsWrite", "latencyAvgRead", "latencyAvgWrite"]
+)
+metrics = vsan_perf_system.VsanPerfQueryPerf(
+    querySpecs=[perf_spec], cluster=cluster_ref
+)
+for metric in metrics:
+    print(f"Entity: {metric.entityRefId}")
+    for value in metric.value:
+        print(f"  {value.metricId.label}: {value.values}")
+```
+
+### 6. Aria Operations / VCF Operations (REST API)
+
+> Aria Operations (rebranded as VCF Operations in VCF 9.0) provides historical metrics, ML-based anomaly detection, capacity planning, and intelligent alerting. This is a REST API separate from pyVmomi.
+
+**Connection setup:**
+```python
+import requests
+
+class AriaOpsClient:
+    def __init__(self, host, username, password):
+        self.base_url = f"https://{host}/suite-api/api"
+        self.session = requests.Session()
+        self.session.verify = False
+        # Authenticate
+        resp = self.session.post(f"{self.base_url}/auth/token/acquire", json={
+            "username": username,
+            "password": password,
+            "authSource": "local"
+        })
+        token = resp.json()["token"]
+        self.session.headers.update({
+            "Authorization": f"vRealizeOpsToken {token}",
+            "Accept": "application/json"
+        })
+```
+
+**Query resources (enriched inventory):**
+```python
+    def get_resources(self, resource_kind="VirtualMachine", adapter_kind="VMWARE"):
+        resp = self.session.get(f"{self.base_url}/resources", params={
+            "resourceKind": resource_kind,
+            "adapterKind": adapter_kind,
+            "pageSize": 1000
+        })
+        for r in resp.json().get("resourceList", []):
+            print(f"{r['resourceKey']['name']} | Health: {r.get('resourceHealth', 'N/A')} | "
+                  f"Status: {r.get('resourceStatusStates', [{}])[0].get('resourceStatus', 'N/A')}")
+```
+
+**Get performance metrics (time-series):**
+```python
+    def get_metrics(self, resource_id, stat_keys, hours=24):
+        """stat_keys example: ['cpu|usage_average', 'mem|usage_average', 'diskspace|used']"""
+        begin = int((datetime.now() - timedelta(hours=hours)).timestamp() * 1000)
+        end = int(datetime.now().timestamp() * 1000)
+        resp = self.session.post(f"{self.base_url}/resources/{resource_id}/stats/query", json={
+            "statKey": stat_keys,
+            "begin": begin,
+            "end": end,
+            "rollUpType": "AVG",
+            "intervalType": "HOURS",
+            "intervalQuantifier": 1
+        })
+        for stat in resp.json().get("values", []):
+            key = stat["statKey"]["key"]
+            data = stat.get("data", [])
+            if data:
+                latest = data[-1]
+                print(f"  {key}: {latest:.2f}")
+```
+
+**Get intelligent alerts (with root cause):**
+```python
+    def get_alerts(self, severity="CRITICAL", active_only=True):
+        params = {"alertCriticality": severity, "status": "ACTIVE" if active_only else "ALL"}
+        resp = self.session.get(f"{self.base_url}/alerts", params=params)
+        for alert in resp.json().get("alerts", []):
+            print(f"[{alert['alertCriticality']}] {alert['alertDefinitionName']}")
+            print(f"  Resource: {alert['resourceId']}")
+            print(f"  Time: {alert['startTimeUTC']}")
+            print(f"  Impact: {alert.get('alertImpact', 'N/A')}")
+            # Root cause and recommendations
+            if "recommendations" in alert:
+                for rec in alert["recommendations"]:
+                    print(f"  Recommendation: {rec['description']}")
+```
+
+**Get right-sizing recommendations:**
+```python
+    def get_recommendations(self, resource_id=None):
+        params = {}
+        if resource_id:
+            params["resourceId"] = resource_id
+        resp = self.session.get(f"{self.base_url}/recommendations", params=params)
+        for rec in resp.json().get("recommendations", []):
+            print(f"Action: {rec['action']} | Target: {rec['targetResourceId']}")
+            print(f"  Description: {rec['description']}")
+```
+
+**Capacity planning:**
+```python
+    def get_capacity(self, resource_id):
+        """Get capacity remaining and time-to-exhaustion for a cluster/datastore"""
+        resp = self.session.get(f"{self.base_url}/resources/{resource_id}/stats", params={
+            "statKey": ["summary|capacity_remaining_percentage",
+                        "summary|time_remaining_capacity"]
+        })
+        for stat in resp.json().get("values", []):
+            print(f"  {stat['statKey']['key']}: {stat['data'][-1]:.1f}")
+```
+
+### 7. vSphere Kubernetes Service (VKS)
+
+> VKS manages Tanzu Kubernetes clusters on vSphere. Uses Kubernetes-native REST API via kubectl/kubeconfig.
+
+**List all clusters:**
+```python
+import subprocess, json
+
+def list_vks_clusters(kubeconfig_path, namespace="default"):
+    result = subprocess.run(["kubectl", "--kubeconfig", kubeconfig_path,
+        "-n", namespace, "get", "clusters", "-o", "json"],
+        capture_output=True, text=True)
+    data = json.loads(result.stdout)
+    for cluster in data.get("items", []):
+        name = cluster["metadata"]["name"]
+        phase = cluster.get("status", {}).get("phase", "Unknown")
+        print(f"{name} | Phase: {phase}")
+```
+
+**Check cluster health:**
+```python
+def get_cluster_health(kubeconfig_path, cluster_name, namespace="default"):
+    result = subprocess.run(["kubectl", "--kubeconfig", kubeconfig_path,
+        "-n", namespace, "get", "cluster", cluster_name, "-o", "json"],
+        capture_output=True, text=True)
+    status = json.loads(result.stdout).get("status", {})
+    for cond in status.get("conditions", []):
+        ready = "✅" if cond["status"] == "True" else "❌"
+        print(f"  {ready} {cond['type']}: {cond.get('message', '')}")
+```
+
+**Scale worker nodes:**
+```python
+def scale_workers(kubeconfig_path, md_name, replicas, namespace="default"):
+    patch = json.dumps({"spec": {"replicas": replicas}})
+    subprocess.run(["kubectl", "--kubeconfig", kubeconfig_path,
+        "-n", namespace, "patch", "machinedeployment", md_name,
+        "-p", patch, "--type=merge"])
+```
+
 ## Key Event Types for Log Scanning
 
 Monitor these critical events:
@@ -403,6 +613,24 @@ vmware-aiops vm snapshot-revert <vm-name> --name <snap-name>
 vmware-aiops vm snapshot-delete <vm-name> --name <snap-name>
 vmware-aiops vm clone <vm-name> --new-name <name>
 vmware-aiops vm migrate <vm-name> --to-host <host>
+
+# vSAN
+vmware-aiops vsan health [--target prod-vcenter]
+vmware-aiops vsan capacity [--target prod-vcenter]
+vmware-aiops vsan disks [--target prod-vcenter]
+vmware-aiops vsan performance [--hours 1] [--target prod-vcenter]
+
+# Aria Operations / VCF Operations
+vmware-aiops ops alerts [--severity critical] [--target prod-vcenter]
+vmware-aiops ops metrics <resource-name> [--hours 24]
+vmware-aiops ops recommendations [--target prod-vcenter]
+vmware-aiops ops capacity <cluster-name> [--target prod-vcenter]
+
+# vSphere Kubernetes Service (VKS)
+vmware-aiops vks clusters [--namespace default]
+vmware-aiops vks health <cluster-name> [--namespace default]
+vmware-aiops vks scale <machine-deployment> --replicas <n>
+vmware-aiops vks nodes <cluster-name>
 
 # Scanning
 vmware-aiops scan now [--target prod-vcenter]

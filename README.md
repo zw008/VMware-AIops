@@ -122,7 +122,41 @@ ESXi 独立主机 ──→ VM
 | **Task Waiting / 任务等待** | All async operations wait for completion and report result / 所有异步操作等待完成并报告结果 |
 | **State Validation / 状态校验** | Pre-operation checks (VM exists, power state correct) / 操作前检查 VM 是否存在、电源状态是否正确 |
 
-### 6. vCenter vs ESXi Comparison / vCenter 与 ESXi 能力对比
+### 6. vSAN Management / vSAN 管理
+
+| Feature / 功能 | Details / 说明 |
+|------|------|
+| Health Check / 健康检查 | Cluster-wide health summary, per-group test results / 集群健康总览、分组测试结果 |
+| Capacity / 容量 | Total/free/used capacity with projections / 总容量、可用、已用及趋势 |
+| Disk Groups / 磁盘组 | Cache SSD + capacity disks per host / 每主机缓存 SSD + 容量盘 |
+| Performance / 性能 | IOPS, latency, throughput per cluster/host/VM / 每集群/主机/VM 的 IOPS、延迟、吞吐 |
+
+> Requires pyVmomi 8.0.3+ (vSAN SDK merged). For older versions, install the standalone vSAN Management SDK.
+
+### 7. Aria Operations / VCF Operations
+
+| Feature / 功能 | Details / 说明 |
+|------|------|
+| Historical Metrics / 历史指标 | Time-series CPU, memory, disk, network with months of history / 时序 CPU、内存、磁盘、网络，保留数月 |
+| Anomaly Detection / 异常检测 | ML-based dynamic baselines and anomaly alerts / 基于 ML 的动态基线和异常告警 |
+| Capacity Planning / 容量规划 | What-if analysis, time-to-exhaustion, forecasting / 假设分析、剩余时间、容量预测 |
+| Right-sizing / 右规格建议 | CPU/memory recommendations per VM / 每 VM 的 CPU/内存调整建议 |
+| Intelligent Alerts / 智能告警 | Root cause analysis, remediation recommendations / 根因分析、修复建议 |
+
+> REST API at `/suite-api/`. Auth: `vRealizeOpsToken`. Rebranded as VCF Operations in VCF 9.0.
+
+### 8. vSphere Kubernetes Service (VKS) / Kubernetes 服务
+
+| Feature / 功能 | Details / 说明 |
+|------|------|
+| List Clusters / 列出集群 | Tanzu Kubernetes clusters with phase status / Tanzu K8s 集群及阶段状态 |
+| Cluster Health / 集群健康 | InfrastructureReady, ControlPlaneAvailable, WorkersAvailable conditions / 基础设施、控制面、工作节点状态 |
+| Scale Workers / 扩缩容 | Adjust MachineDeployment replicas / 调整工作节点副本数 |
+| Node Status / 节点状态 | Machine status, ready/unhealthy counts / 节点状态、就绪/异常计数 |
+
+> Kubernetes-native API via kubectl/kubeconfig. VKS 3.6+ uses Cluster API specification.
+
+### 9. vCenter vs ESXi Comparison / vCenter 与 ESXi 能力对比
 
 | Capability / 能力 | vCenter | ESXi Standalone / ESXi 独立 |
 |------|:-------:|:----:|
@@ -592,6 +626,24 @@ vmware-aiops scan now              # One-time scan / 一次性扫描
 vmware-aiops daemon start          # Start scanner / 启动扫描守护进程
 vmware-aiops daemon status         # Check status / 查看状态
 vmware-aiops daemon stop           # Stop daemon / 停止守护进程
+
+# vSAN / vSAN 管理
+vmware-aiops vsan health [--target prod-vcenter]                  # vSAN health / 健康检查
+vmware-aiops vsan capacity [--target prod-vcenter]                # vSAN capacity / 容量
+vmware-aiops vsan disks [--target prod-vcenter]                   # Disk groups / 磁盘组
+vmware-aiops vsan performance [--hours 1] [--target prod-vcenter] # Performance / 性能指标
+
+# Aria Operations / VCF Operations
+vmware-aiops ops alerts [--severity critical]                     # Intelligent alerts / 智能告警
+vmware-aiops ops metrics <resource-name> [--hours 24]             # Time-series metrics / 时序指标
+vmware-aiops ops recommendations [--target prod-vcenter]          # Right-sizing / 右规格建议
+vmware-aiops ops capacity <cluster-name>                          # Capacity planning / 容量规划
+
+# vSphere Kubernetes Service (VKS)
+vmware-aiops vks clusters [--namespace default]                   # List K8s clusters / 列出 K8s 集群
+vmware-aiops vks health <cluster-name>                            # Cluster health / 集群健康
+vmware-aiops vks scale <machine-deployment> --replicas <n>        # Scale workers / 扩缩容
+vmware-aiops vks nodes <cluster-name>                             # Node status / 节点状态
 ```
 
 ---

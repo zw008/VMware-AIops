@@ -347,6 +347,64 @@ Monitor these critical events:
 | HA/DRS | `DasHostFailedEvent`, `DrsVmMigratedEvent`, `DrsSoftRuleViolationEvent` |
 | Auth | `UserLoginSessionEvent`, `UserLogoutSessionEvent`, `BadUsernameSessionEvent` |
 
+### 5. vSAN Management (pyVmomi 8u3+ includes vSAN SDK)
+
+```python
+# vSAN health
+vsan_health = content.vsan.VsanVcClusterHealthSystem
+health = vsan_health.VsanQueryVcClusterHealthSummary(cluster=cluster_ref, fetchFromCache=False)
+
+# vSAN capacity
+vsan_space = content.vsan.VsanSpaceReportSystem
+report = vsan_space.VsanQuerySpaceUsage(cluster=cluster_ref)
+
+# vSAN performance
+vsan_perf = content.vsan.VsanPerformanceManager
+spec = vim.cluster.VsanPerfQuerySpec(
+    entityRefId="cluster-domclient:*",
+    startTime=datetime.now() - timedelta(hours=1), endTime=datetime.now(),
+    labels=["iopsRead", "iopsWrite", "latencyAvgRead", "latencyAvgWrite"]
+)
+metrics = vsan_perf.VsanPerfQueryPerf(querySpecs=[spec], cluster=cluster_ref)
+```
+
+### 6. Aria Operations / VCF Operations (REST API)
+
+```python
+# Auth: POST /suite-api/api/auth/token/acquire
+resp = requests.post(f"https://{host}/suite-api/api/auth/token/acquire",
+    json={"username": "admin", "password": "xxx", "authSource": "local"})
+headers = {"Authorization": f"vRealizeOpsToken {resp.json()['token']}"}
+
+# Alerts: GET /suite-api/api/alerts?alertCriticality=CRITICAL&status=ACTIVE
+# Metrics: POST /suite-api/api/resources/{id}/stats/query
+# Recommendations: GET /suite-api/api/recommendations
+# Capacity: GET /suite-api/api/resources/{id}/stats?statKey=summary|capacity_remaining_percentage
+```
+
+### 7. vSphere Kubernetes Service (VKS)
+
+```python
+import subprocess, json
+
+# List clusters
+result = subprocess.run(["kubectl", "--kubeconfig", kubeconfig_path,
+    "-n", namespace, "get", "clusters", "-o", "json"], capture_output=True, text=True)
+clusters = json.loads(result.stdout)["items"]
+
+# Cluster health (check conditions)
+result = subprocess.run(["kubectl", "--kubeconfig", kubeconfig_path,
+    "-n", namespace, "get", "cluster", name, "-o", "json"], capture_output=True, text=True)
+status = json.loads(result.stdout)["status"]
+for cond in status.get("conditions", []):
+    print(f"  {cond['type']}: {cond['status']}")  # InfrastructureReady, ControlPlaneAvailable, WorkersAvailable
+
+# Scale workers
+subprocess.run(["kubectl", "--kubeconfig", kubeconfig_path, "-n", namespace,
+    "patch", "machinedeployment", md_name, "-p",
+    json.dumps({"spec": {"replicas": desired}}), "--type=merge"])
+```
+
 ## Troubleshooting & Contributing
 
 If you encounter any errors or issues, please send the error message, logs, or screenshots to **zhouwei008@gmail.com**. Contributions are welcome — feel free to join us in maintaining and improving this skill!

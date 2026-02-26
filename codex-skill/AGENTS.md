@@ -324,6 +324,91 @@ def wait_for_task(task):
     raise Exception(f"Task failed: {task.info.error.msg}")
 ```
 
+### 5. vSAN Management (pyVmomi 8u3+ includes vSAN SDK)
+
+> vSAN SDK is merged into pyVmomi since vSphere 8.0 Update 3. No separate install needed.
+
+**vSAN cluster health:**
+```python
+vsan_cluster_system = content.vsan.VsanVcClusterHealthSystem
+health = vsan_cluster_system.VsanQueryVcClusterHealthSummary(
+    cluster=cluster_ref, fetchFromCache=False
+)
+print(f"Overall: {health.overallHealth}")
+for group in health.groups:
+    print(f"  {group.groupName}: {group.groupHealth}")
+```
+
+**vSAN capacity:**
+```python
+vsan_space = content.vsan.VsanSpaceReportSystem
+report = vsan_space.VsanQuerySpaceUsage(cluster=cluster_ref)
+print(f"Total: {report.totalCapacityB / (1024**4):.1f} TB")
+print(f"Free:  {report.freeCapacityB / (1024**4):.1f} TB")
+```
+
+**vSAN performance:**
+```python
+vsan_perf = content.vsan.VsanPerformanceManager
+spec = vim.cluster.VsanPerfQuerySpec(
+    entityRefId="cluster-domclient:*",
+    startTime=datetime.now() - timedelta(hours=1),
+    endTime=datetime.now(),
+    labels=["iopsRead", "iopsWrite", "latencyAvgRead", "latencyAvgWrite"]
+)
+metrics = vsan_perf.VsanPerfQueryPerf(querySpecs=[spec], cluster=cluster_ref)
+```
+
+### 6. Aria Operations / VCF Operations (REST API)
+
+> Aria Operations provides historical metrics, ML anomaly detection, capacity planning, and intelligent alerting via REST API at `/suite-api/`.
+
+**Authentication:**
+```python
+resp = requests.post(f"https://{ops_host}/suite-api/api/auth/token/acquire", json={
+    "username": "admin", "password": "xxx", "authSource": "local"
+})
+token = resp.json()["token"]
+headers = {"Authorization": f"vRealizeOpsToken {token}", "Accept": "application/json"}
+```
+
+**Key endpoints:**
+```python
+# Intelligent alerts with root cause
+GET /suite-api/api/alerts?alertCriticality=CRITICAL&status=ACTIVE
+
+# Time-series metrics for any resource
+POST /suite-api/api/resources/{id}/stats/query
+  {"statKey": ["cpu|usage_average", "mem|usage_average"], "begin": ..., "end": ...}
+
+# Right-sizing recommendations
+GET /suite-api/api/recommendations
+
+# Capacity remaining
+GET /suite-api/api/resources/{id}/stats?statKey=summary|capacity_remaining_percentage
+```
+
+### 7. vSphere Kubernetes Service (VKS)
+
+> Manages Tanzu Kubernetes clusters on vSphere via Kubernetes-native API (kubectl/kubeconfig).
+
+```python
+import subprocess, json
+
+# List clusters
+result = subprocess.run(["kubectl", "--kubeconfig", kc, "-n", ns,
+    "get", "clusters", "-o", "json"], capture_output=True, text=True)
+
+# Cluster health (conditions: InfrastructureReady, ControlPlaneAvailable, WorkersAvailable)
+result = subprocess.run(["kubectl", "--kubeconfig", kc, "-n", ns,
+    "get", "cluster", name, "-o", "json"], capture_output=True, text=True)
+
+# Scale workers
+subprocess.run(["kubectl", "--kubeconfig", kc, "-n", ns,
+    "patch", "machinedeployment", md, "-p",
+    json.dumps({"spec": {"replicas": n}}), "--type=merge"])
+```
+
 ## Key Event Types for Log Scanning
 
 Monitor these critical events:

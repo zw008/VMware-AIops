@@ -171,6 +171,80 @@ def wait_for_task(task):
     raise Exception(f"Task failed: {task.info.error.msg}")
 ```
 
+### 5. vSAN Management (pyVmomi 8u3+ includes vSAN SDK)
+
+```python
+# vSAN health check
+vsan_health = content.vsan.VsanVcClusterHealthSystem
+health = vsan_health.VsanQueryVcClusterHealthSummary(cluster=cluster_ref, fetchFromCache=False)
+print(f"Overall: {health.overallHealth}")
+for group in health.groups:
+    print(f"  {group.groupName}: {group.groupHealth}")
+
+# vSAN capacity
+vsan_space = content.vsan.VsanSpaceReportSystem
+report = vsan_space.VsanQuerySpaceUsage(cluster=cluster_ref)
+print(f"Total: {report.totalCapacityB / (1024**4):.1f} TB")
+print(f"Free:  {report.freeCapacityB / (1024**4):.1f} TB")
+
+# vSAN performance
+vsan_perf = content.vsan.VsanPerformanceManager
+spec = vim.cluster.VsanPerfQuerySpec(
+    entityRefId="cluster-domclient:*",
+    startTime=datetime.now() - timedelta(hours=1), endTime=datetime.now(),
+    labels=["iopsRead", "iopsWrite", "latencyAvgRead", "latencyAvgWrite"]
+)
+metrics = vsan_perf.VsanPerfQueryPerf(querySpecs=[spec], cluster=cluster_ref)
+```
+
+### 6. Aria Operations / VCF Operations (REST API)
+
+```python
+import requests
+
+# Authenticate
+resp = requests.post(f"https://{ops_host}/suite-api/api/auth/token/acquire", json={
+    "username": "admin", "password": "xxx", "authSource": "local"
+})
+token = resp.json()["token"]
+headers = {"Authorization": f"vRealizeOpsToken {token}", "Accept": "application/json"}
+
+# Get intelligent alerts with root cause
+alerts = requests.get(f"https://{ops_host}/suite-api/api/alerts",
+    params={"alertCriticality": "CRITICAL", "status": "ACTIVE"}, headers=headers)
+
+# Get time-series metrics
+metrics = requests.post(f"https://{ops_host}/suite-api/api/resources/{rid}/stats/query",
+    json={"statKey": ["cpu|usage_average", "mem|usage_average"],
+          "begin": begin_ms, "end": end_ms}, headers=headers)
+
+# Right-sizing recommendations
+recs = requests.get(f"https://{ops_host}/suite-api/api/recommendations", headers=headers)
+```
+
+### 7. vSphere Kubernetes Service (VKS)
+
+```python
+import subprocess, json
+
+# List clusters
+result = subprocess.run(["kubectl", "--kubeconfig", kubeconfig_path,
+    "-n", namespace, "get", "clusters", "-o", "json"], capture_output=True, text=True)
+for cluster in json.loads(result.stdout).get("items", []):
+    print(f"{cluster['metadata']['name']} | Phase: {cluster.get('status',{}).get('phase','Unknown')}")
+
+# Cluster health
+result = subprocess.run(["kubectl", "--kubeconfig", kubeconfig_path,
+    "-n", namespace, "get", "cluster", name, "-o", "json"], capture_output=True, text=True)
+for cond in json.loads(result.stdout)["status"].get("conditions", []):
+    print(f"  {cond['type']}: {cond['status']}")
+
+# Scale workers
+subprocess.run(["kubectl", "--kubeconfig", kubeconfig_path, "-n", namespace,
+    "patch", "machinedeployment", md_name, "-p",
+    json.dumps({"spec": {"replicas": desired}}), "--type=merge"])
+```
+
 ## Troubleshooting & Contributing
 
 If you encounter any errors or issues, please send the error message, logs, or screenshots to **zhouwei008@gmail.com**. Contributions are welcome — feel free to join us in maintaining and improving this skill!

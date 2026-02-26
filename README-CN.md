@@ -96,7 +96,41 @@ ESXi 独立主机 ──→ VM
 | 结构化日志 | JSONL 输出到 `~/.vmware-aiops/scan.log` |
 | Webhook 通知 | 支持 Slack、Discord 或任意 HTTP 端点 |
 
-### 5. 安全特性
+### 5. vSAN 管理
+
+| 功能 | 说明 |
+|------|------|
+| 健康检查 | 集群健康总览、分组测试结果 |
+| 容量监控 | 总容量、可用、已用及趋势预测 |
+| 磁盘组 | 每主机缓存 SSD + 容量盘列表 |
+| 性能指标 | 集群/主机/VM 级别的 IOPS、延迟、吞吐 |
+
+> 需要 pyVmomi 8.0.3+（vSAN SDK 已合并）。旧版本需单独安装 vSAN Management SDK。
+
+### 6. Aria Operations / VCF Operations
+
+| 功能 | 说明 |
+|------|------|
+| 历史指标 | 时序 CPU、内存、磁盘、网络，保留数月历史 |
+| 异常检测 | 基于 ML 的动态基线和异常告警 |
+| 容量规划 | 假设分析、剩余时间预测、容量预测 |
+| 右规格建议 | 每 VM 的 CPU/内存调整建议 |
+| 智能告警 | 根因分析、修复建议 |
+
+> REST API，端点 `/suite-api/`。VCF 9.0 中已更名为 VCF Operations。
+
+### 7. vSphere Kubernetes Service (VKS)
+
+| 功能 | 说明 |
+|------|------|
+| 列出集群 | Tanzu K8s 集群及阶段状态 |
+| 集群健康 | 基础设施就绪、控制面可用、工作节点状态 |
+| 扩缩容 | 调整 MachineDeployment 工作节点副本数 |
+| 节点状态 | 节点就绪/异常计数 |
+
+> 通过 kubectl/kubeconfig 使用 Kubernetes 原生 API。VKS 3.6+ 基于 Cluster API 规范。
+
+### 8. 安全特性
 
 | 功能 | 说明 |
 |------|------|
@@ -292,6 +326,24 @@ vmware-aiops vm migrate <name> --to-host <host>
 # 扫描与守护进程
 vmware-aiops scan now [--target <name>]
 vmware-aiops daemon start|stop|status
+
+# vSAN 管理
+vmware-aiops vsan health [--target <name>]
+vmware-aiops vsan capacity [--target <name>]
+vmware-aiops vsan disks [--target <name>]
+vmware-aiops vsan performance [--hours 1] [--target <name>]
+
+# Aria Operations / VCF Operations
+vmware-aiops ops alerts [--severity critical] [--target <name>]
+vmware-aiops ops metrics <resource-name> [--hours 24]
+vmware-aiops ops recommendations [--target <name>]
+vmware-aiops ops capacity <cluster-name> [--target <name>]
+
+# vSphere Kubernetes Service (VKS)
+vmware-aiops vks clusters [--namespace default]
+vmware-aiops vks health <cluster-name>
+vmware-aiops vks scale <machine-deployment> --replicas <n>
+vmware-aiops vks nodes <cluster-name>
 ```
 
 ---

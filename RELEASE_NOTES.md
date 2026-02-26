@@ -2,6 +2,51 @@
 
 ---
 
+## v0.4.0 — 2026-02-26
+
+### New Features / 新功能
+
+- **vSAN Management / vSAN 管理**: Added vSAN health check, capacity monitoring, disk group listing, and performance metrics via pyVmomi 8u3+ integrated vSAN SDK.
+  新增 vSAN 健康检查、容量监控、磁盘组列表、性能指标（通过 pyVmomi 8u3+ 内置 vSAN SDK）。
+
+- **Aria Operations / VCF Operations 集成**: Added REST API integration for `/suite-api/` — historical metrics, ML anomaly detection, capacity planning, right-sizing recommendations, intelligent alerts with root cause analysis.
+  新增 Aria Operations REST API 集成——历史指标、ML 异常检测、容量规划、右规格建议、根因分析智能告警。
+
+- **vSphere Kubernetes Service (VKS) / Kubernetes 服务**: Added Tanzu Kubernetes cluster management — list clusters, health checks (InfrastructureReady/ControlPlaneAvailable/WorkersAvailable), scale workers, node status.
+  新增 Tanzu Kubernetes 集群管理——列出集群、健康检查、扩缩容、节点状态。
+
+### New CLI Commands / 新增命令
+
+```bash
+# vSAN
+vmware-aiops vsan health|capacity|disks|performance [--target <name>]
+
+# Aria Operations / VCF Operations
+vmware-aiops ops alerts|metrics|recommendations|capacity [--target <name>]
+
+# VKS
+vmware-aiops vks clusters|health|scale|nodes
+```
+
+### Files Updated / 更新文件
+
+- All skill files updated with vSAN, Aria Operations, and VKS sections:
+  `skill/SKILL.md`, `codex-skill/AGENTS.md`, `gemini-extension/GEMINI.md`,
+  `trae-rules/project_rules.md`, `kimi-skill/SKILL.md`,
+  `plugins/vmware-ops/skills/vmware-aiops/SKILL.md`
+- `README.md` — Added capabilities sections 6-8 (vSAN, Aria Ops, VKS) and CLI commands
+- `README-CN.md` — Same updates in Chinese
+- `plugins/vmware-ops/.claude-plugin/plugin.json` — Version 0.3.0 → 0.4.0
+
+### API References / API 参考
+
+- vSAN Management SDK: https://developer.broadcom.com/sdks/vsan-management-sdk-for-python/latest/
+- Aria Operations API: https://developer.broadcom.com/xapis/vmware-aria-operations-api/latest/
+- VKS API: https://developer.broadcom.com/xapis/vmware-vsphere-kubernetes-service/3.6.0/api-docs.html
+- VCF 9.0 API Spec: https://developer.broadcom.com/sdks/vcf-api-specification/latest/
+
+---
+
 ## v0.3.0 — 2026-02-26
 
 ### New Features / 新功能

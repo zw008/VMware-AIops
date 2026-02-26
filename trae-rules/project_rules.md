@@ -57,6 +57,46 @@ for vm in container.view:
 container.Destroy()
 ```
 
+## vSAN Management
+
+vSAN SDK is merged into pyVmomi 8u3+. Key operations:
+- Health: `vmware-aiops vsan health [--target <name>]`
+- Capacity: `vmware-aiops vsan capacity [--target <name>]`
+- Disks: `vmware-aiops vsan disks [--target <name>]`
+- Performance: `vmware-aiops vsan performance [--hours 1] [--target <name>]`
+
+```python
+# vSAN health check
+vsan_health = content.vsan.VsanVcClusterHealthSystem
+health = vsan_health.VsanQueryVcClusterHealthSummary(cluster=cluster_ref, fetchFromCache=False)
+
+# vSAN capacity
+vsan_space = content.vsan.VsanSpaceReportSystem
+report = vsan_space.VsanQuerySpaceUsage(cluster=cluster_ref)
+```
+
+## Aria Operations / VCF Operations
+
+REST API at `/suite-api/` for historical metrics, ML anomaly detection, capacity planning, and intelligent alerting.
+
+- Alerts: `vmware-aiops ops alerts [--severity critical]`
+- Metrics: `vmware-aiops ops metrics <resource-name> [--hours 24]`
+- Recommendations: `vmware-aiops ops recommendations`
+- Capacity: `vmware-aiops ops capacity <cluster-name>`
+
+Auth: `POST /suite-api/api/auth/token/acquire` → `vRealizeOpsToken <token>`
+
+## vSphere Kubernetes Service (VKS)
+
+Manages Tanzu Kubernetes clusters on vSphere via kubectl/kubeconfig.
+
+- List clusters: `vmware-aiops vks clusters [--namespace default]`
+- Health: `vmware-aiops vks health <cluster-name>`
+- Scale: `vmware-aiops vks scale <machine-deployment> --replicas <n>`
+- Nodes: `vmware-aiops vks nodes <cluster-name>`
+
+Health conditions: `InfrastructureReady`, `ControlPlaneAvailable`, `WorkersAvailable`
+
 ## Troubleshooting & Contributing
 
 If you encounter any errors or issues, please send the error message, logs, or screenshots to **zhouwei008@gmail.com**. Contributions are welcome — feel free to join us in maintaining and improving this skill!
