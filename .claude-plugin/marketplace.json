@@ -1,7 +1,7 @@
 {
   "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
   "name": "vmware-aiops",
-  "description": "VMware vCenter/ESXi AI-powered monitoring and operations toolkit. Two skills: vmware-monitor (read-only, safe) and vmware-aiops (full operations). / VMware vCenter/ESXi AI 运维工具包。两个技能：vmware-monitor（只读安全版）和 vmware-aiops（完整运维版）。",
+  "description": "VMware vCenter/ESXi AI-powered operations toolkit. Full operations including inventory, health monitoring, and VM lifecycle management. For read-only monitoring, see VMware-Monitor. / VMware vCenter/ESXi AI 运维工具包。完整运维功能，包含资产查询、健康监控及 VM 生命周期管理。只读监控请使用 VMware-Monitor。",
   "owner": {
     "name": "Wei Zhou / 周崴",
     "url": "https://github.com/zw008"
@@ -9,7 +9,7 @@
   "plugins": [
     {
       "name": "vmware-ops",
-      "description": "VMware vCenter/ESXi AI operations plugin with two skills: (1) vmware-monitor — read-only monitoring (inventory, health, alarms, metrics, safe); (2) vmware-aiops — full operations (monitoring + power, create, delete, snapshot, clone, migrate). Invoke: /vmware-ops:vmware-monitor or /vmware-ops:vmware-aiops / VMware AI 运维插件，含两个技能：(1) vmware-monitor — 只读监控（安全）；(2) vmware-aiops — 完整运维（监控 + 增删改查）。命令：/vmware-ops:vmware-monitor 或 /vmware-ops:vmware-aiops",
+      "description": "VMware vCenter/ESXi AI operations plugin — full operations including inventory, health monitoring, VM lifecycle (power, create, delete, snapshot, clone, migrate). Invoke: /vmware-ops:vmware-aiops. For read-only monitoring, see https://github.com/zw008/VMware-Monitor / VMware AI 运维插件 — 完整运维功能（资产查询、健康监控、VM 生命周期管理）。命令：/vmware-ops:vmware-aiops。只读监控请见 VMware-Monitor 仓库",
       "version": "0.5.3",
       "source": "./plugins/vmware-ops",
       "category": "automation",
@@ -25,7 +25,6 @@
         "pyvmomi",
         "infrastructure",
         "monitoring",
-        "read-only",
         "automation",
         "aiops"
       ]
