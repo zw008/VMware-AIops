@@ -134,6 +134,10 @@ npx skills add zw008/VMware-AIops
 | 6.7 | ✅ Compatible | Backward-compatible, tested |
 | 6.5 | ✅ Compatible | Backward-compatible, tested |
 
+## Query Audit Trail
+
+All queries are logged to `~/.vmware-aiops/audit.log` (JSONL) for compliance, providing a complete record of what was accessed and when.
+
 ## CLI Reference (Read-Only Only)
 
 ```bash

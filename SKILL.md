@@ -154,7 +154,9 @@ ESXi Standalone ──→ VMs
 
 | Feature | Details |
 |---------|---------|
+| Plan → Confirm → Execute → Log | Structured workflow: show current state, confirm changes, execute, audit log |
 | Double Confirmation | Power-off, delete, reconfigure require 2 sequential confirmations |
+| Audit Trail | All operations logged to `~/.vmware-aiops/audit.log` (JSONL) with before/after state |
 | Password Protection | `.env` file loading, never in command line or shell history |
 | SSL Self-signed Support | `disableSslCertValidation` for ESXi 8.0 self-signed certs |
 | Task Waiting | All async operations wait for completion and report result |

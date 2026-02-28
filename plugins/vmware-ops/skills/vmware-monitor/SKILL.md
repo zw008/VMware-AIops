@@ -518,6 +518,17 @@ pyVmomi auto-negotiates the API version during SOAP handshake — no manual conf
 - **vSphere 8.0**: `SmartConnectNoSSL()` removed → use `SmartConnect(disableSslCertValidation=True)`
 - **vSphere 7.0**: All standard APIs fully supported
 
+## Query Audit Trail
+
+All queries are logged to `~/.vmware-aiops/audit.log` (JSONL) for compliance:
+```json
+{"timestamp": "...", "target": "prod-vcenter", "operation": "query",
+ "resource": "vms", "skill": "monitor", "parameters": {"query_type": "inventory_vms"}}
+```
+
+This provides a complete record of what was accessed and when, enabling compliance
+auditing even for read-only operations.
+
 ## Safety Rules — READ-ONLY ENFORCEMENT
 
 1. **NEVER** execute power operations (`PowerOn`, `PowerOff`, `ShutdownGuest`, `Reset`, `Suspend`)

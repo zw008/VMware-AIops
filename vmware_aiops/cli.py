@@ -11,6 +11,9 @@ from rich.console import Console
 from rich.table import Table
 
 from vmware_aiops.config import CONFIG_DIR
+from vmware_aiops.notify.audit import AuditLogger
+
+_audit = AuditLogger()
 
 app = typer.Typer(
     name="vmware-aiops",
@@ -48,6 +51,20 @@ def _get_connection(target: str | None, config_path: Path | None = None):
     cfg = load_config(config_path)
     mgr = ConnectionManager(cfg)
     return mgr.connect(target), cfg
+
+
+def _resolve_target(target: str | None) -> str:
+    """Return a display name for the target (used in audit logs)."""
+    return target or "default"
+
+
+def _show_state_preview(info: dict, action: str, vm_name: str) -> None:
+    """Display current VM state before a destructive operation."""
+    console.print(f"\n[bold cyan]📋 Current state of VM '{vm_name}':[/]")
+    for key in ("power_state", "cpu", "memory_mb", "guest_os", "host", "ip_address", "snapshot_count"):
+        if key in info:
+            console.print(f"  [cyan]{key}:[/] {info[key]}")
+    console.print()
 
 
 def _double_confirm(action: str, vm_name: str) -> None:
@@ -247,6 +264,13 @@ def vm_power_on(
     si, _ = _get_connection(target, config)
     result = power_on_vm(si, name)
     console.print(f"[green]{result}[/]")
+    _audit.log(
+        target=_resolve_target(target),
+        operation="power_on",
+        resource=name,
+        after_state={"power_state": "poweredOn"},
+        result=result,
+    )
 
 
 @vm_app.command("power-off")
@@ -257,13 +281,23 @@ def vm_power_off(
     config: ConfigOption = None,
 ) -> None:
     """Power off a VM (graceful shutdown or force)."""
-    _double_confirm("关机", name)
-
-    from vmware_aiops.ops.vm_lifecycle import power_off_vm
+    from vmware_aiops.ops.vm_lifecycle import get_vm_info, power_off_vm
 
     si, _ = _get_connection(target, config)
+    before = get_vm_info(si, name)
+    _show_state_preview(before, "关机", name)
+    _double_confirm("关机", name)
     result = power_off_vm(si, name, force=force)
     console.print(f"[green]{result}[/]")
+    _audit.log(
+        target=_resolve_target(target),
+        operation="power_off",
+        resource=name,
+        parameters={"force": force},
+        before_state={"power_state": before.get("power_state")},
+        after_state={"power_state": "poweredOff"},
+        result=result,
+    )
 
 
 @vm_app.command("create")
@@ -293,6 +327,13 @@ def vm_create(
         folder_path=folder or None,
     )
     console.print(f"[green]{result}[/]")
+    _audit.log(
+        target=_resolve_target(target),
+        operation="create_vm",
+        resource=name,
+        parameters={"cpu": cpu, "memory_mb": memory, "disk_gb": disk, "network": network},
+        result=result,
+    )
 
 
 @vm_app.command("delete")
@@ -305,14 +346,22 @@ def vm_delete(
     config: ConfigOption = None,
 ) -> None:
     """Delete a VM (destructive!)."""
-    if not confirm:
-        _double_confirm("删除", name)
-
-    from vmware_aiops.ops.vm_lifecycle import delete_vm
+    from vmware_aiops.ops.vm_lifecycle import delete_vm, get_vm_info
 
     si, _ = _get_connection(target, config)
+    before = get_vm_info(si, name)
+    _show_state_preview(before, "删除", name)
+    if not confirm:
+        _double_confirm("删除", name)
     result = delete_vm(si, name)
     console.print(f"[green]{result}[/]")
+    _audit.log(
+        target=_resolve_target(target),
+        operation="delete_vm",
+        resource=name,
+        before_state={"power_state": before.get("power_state"), "cpu": before.get("cpu"), "memory_mb": before.get("memory_mb"), "snapshot_count": before.get("snapshot_count")},
+        result=result,
+    )
 
 
 @vm_app.command("reconfigure")
@@ -324,18 +373,31 @@ def vm_reconfigure(
     config: ConfigOption = None,
 ) -> None:
     """Reconfigure VM CPU/memory."""
+    from vmware_aiops.ops.vm_lifecycle import get_vm_info, reconfigure_vm
+
+    si, _ = _get_connection(target, config)
+    before = get_vm_info(si, name)
+    _show_state_preview(before, "调整配置", name)
+
     changes = []
     if cpu is not None:
         changes.append(f"CPU→{cpu}")
     if memory is not None:
         changes.append(f"内存→{memory}MB")
+
+    console.print(f"[bold yellow]  Proposed: CPU={cpu or before.get('cpu')}, Memory={memory or before.get('memory_mb')}MB[/]")
     _double_confirm(f"调整配置({', '.join(changes)})", name)
-
-    from vmware_aiops.ops.vm_lifecycle import reconfigure_vm
-
-    si, _ = _get_connection(target, config)
     result = reconfigure_vm(si, name, cpu=cpu, memory_mb=memory)
     console.print(f"[green]{result}[/]")
+    _audit.log(
+        target=_resolve_target(target),
+        operation="reconfigure_vm",
+        resource=name,
+        parameters={"cpu": cpu, "memory_mb": memory},
+        before_state={"cpu": before.get("cpu"), "memory_mb": before.get("memory_mb")},
+        after_state={"cpu": cpu or before.get("cpu"), "memory_mb": memory or before.get("memory_mb")},
+        result=result,
+    )
 
 
 @vm_app.command("snapshot-create")
@@ -353,6 +415,13 @@ def vm_snapshot_create(
     si, _ = _get_connection(target, config)
     result = create_snapshot(si, vm_name, snap_name, description, memory)
     console.print(f"[green]{result}[/]")
+    _audit.log(
+        target=_resolve_target(target),
+        operation="snapshot_create",
+        resource=vm_name,
+        parameters={"snap_name": snap_name, "description": description, "memory": memory},
+        result=result,
+    )
 
 
 @vm_app.command("snapshot-list")
@@ -387,6 +456,13 @@ def vm_snapshot_revert(
     si, _ = _get_connection(target, config)
     result = revert_to_snapshot(si, vm_name, snap_name)
     console.print(f"[green]{result}[/]")
+    _audit.log(
+        target=_resolve_target(target),
+        operation="snapshot_revert",
+        resource=vm_name,
+        parameters={"snap_name": snap_name},
+        result=result,
+    )
 
 
 @vm_app.command("snapshot-delete")
@@ -402,6 +478,13 @@ def vm_snapshot_delete(
     si, _ = _get_connection(target, config)
     result = delete_snapshot(si, vm_name, snap_name)
     console.print(f"[green]{result}[/]")
+    _audit.log(
+        target=_resolve_target(target),
+        operation="snapshot_delete",
+        resource=vm_name,
+        parameters={"snap_name": snap_name},
+        result=result,
+    )
 
 
 @vm_app.command("clone")
@@ -417,6 +500,13 @@ def vm_clone(
     si, _ = _get_connection(target, config)
     result = clone_vm(si, name, new_name)
     console.print(f"[green]{result}[/]")
+    _audit.log(
+        target=_resolve_target(target),
+        operation="clone_vm",
+        resource=name,
+        parameters={"new_name": new_name},
+        result=result,
+    )
 
 
 @vm_app.command("migrate")
@@ -427,11 +517,21 @@ def vm_migrate(
     config: ConfigOption = None,
 ) -> None:
     """Migrate (vMotion) a VM to another host."""
-    from vmware_aiops.ops.vm_lifecycle import migrate_vm
+    from vmware_aiops.ops.vm_lifecycle import get_vm_info, migrate_vm
 
     si, _ = _get_connection(target, config)
+    before = get_vm_info(si, name)
     result = migrate_vm(si, name, to_host)
     console.print(f"[green]{result}[/]")
+    _audit.log(
+        target=_resolve_target(target),
+        operation="migrate_vm",
+        resource=name,
+        parameters={"to_host": to_host},
+        before_state={"host": before.get("host")},
+        after_state={"host": to_host},
+        result=result,
+    )
 
 
 # ─── Scan ─────────────────────────────────────────────────────────────────────

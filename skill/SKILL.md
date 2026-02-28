@@ -622,6 +622,44 @@ pyVmomi auto-negotiates the API version during SOAP handshake — no manual conf
 
 If you encounter any errors or issues, please send the error message, logs, or screenshots to **zhouwei008@gmail.com**. Contributions are welcome — feel free to join us in maintaining and improving this skill!
 
+## Execution Workflow — Plan → Confirm → Execute → Log
+
+For ANY operation that modifies state, follow this workflow strictly:
+
+### Step 1: Plan — Show Current State
+Before executing, ALWAYS query and display the current state:
+- Power operation → show current power state, uptime, connected users
+- Reconfigure → show current CPU, memory, disk config
+- Snapshot → show existing snapshot tree
+- Delete → show VM config, power state, snapshot count
+- Clone/Migrate → show source VM config and target resources
+
+### Step 2: Confirm — Present Change Summary
+Show a clear before/after summary:
+```
+Operation: Reconfigure VM 'web-01'
+Current:   CPU=2, Memory=4096MB
+Proposed:  CPU=4, Memory=8192MB
+Target:    prod-vcenter (vcenter-prod.example.com)
+```
+Then ask for explicit user confirmation before proceeding.
+
+### Step 3: Execute — Run with Task Tracking
+Execute the operation and wait for task completion.
+
+### Step 4: Log — Record to Audit Trail
+After execution, append to `~/.vmware-aiops/audit.log` (JSONL):
+```json
+{"timestamp": "...", "target": "prod-vcenter", "operation": "reconfigure_vm",
+ "resource": "web-01", "parameters": {"cpu": 4, "memory_mb": 8192},
+ "before_state": {"cpu": 2, "memory_mb": 4096},
+ "after_state": {"cpu": 4, "memory_mb": 8192},
+ "result": "success", "user": "admin", "skill": "aiops"}
+```
+
+The CLI automatically logs all operations via `AuditLogger`. The audit log provides a
+complete record of what was changed, when, by whom, and the before/after state.
+
 ## Safety Rules
 
 1. **NEVER** execute destructive operations (delete VM, power off, remove snapshot) without explicit user confirmation

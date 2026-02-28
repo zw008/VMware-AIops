@@ -443,6 +443,18 @@ pyVmomi auto-negotiates the API version during SOAP handshake — no manual conf
 
 If you encounter any errors or issues, please send the error message, logs, or screenshots to **zhouwei008@gmail.com**. Contributions are welcome — feel free to join us in maintaining and improving this skill!
 
+## Execution Workflow — Plan → Confirm → Execute → Log
+
+For ANY operation that modifies state, follow this workflow:
+
+1. **Plan**: Query and display current state before changes
+2. **Confirm**: Show before/after summary, get explicit user confirmation
+3. **Execute**: Run the operation and wait for task completion
+4. **Log**: All operations are automatically recorded to `~/.vmware-aiops/audit.log` (JSONL)
+
+Audit log fields: `timestamp`, `target`, `operation`, `resource`, `parameters`,
+`before_state`, `after_state`, `result`, `user`, `skill`
+
 ## Safety Rules
 
 1. **NEVER** execute destructive operations (delete VM, power off, remove snapshot) without explicit user confirmation

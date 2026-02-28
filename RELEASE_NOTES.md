@@ -2,6 +2,44 @@
 
 ---
 
+## v0.5.1 — 2026-02-28
+
+### New Features / 新功能
+
+- **Plan → Confirm → Execute → Log workflow / 计划→确认→执行→日志工作流**: All state-modifying operations now follow a structured 4-step workflow. Before executing destructive actions, the CLI shows the current VM state (power, CPU, memory, snapshots), presents a before/after change summary, asks for confirmation, then logs the operation with full audit trail.
+  所有修改状态的操作现在遵循结构化的 4 步工作流。执行修改操作前，CLI 展示当前 VM 状态（电源、CPU、内存、快照），呈现变更前后对比，请求确认，然后记录完整审计日志。
+
+- **Audit logging / 操作审计日志**: New `AuditLogger` class (`vmware_aiops/notify/audit.py`) writes all operations to `~/.vmware-aiops/audit.log` in JSONL format. Each entry includes: timestamp, target, operation, resource, parameters, before_state, after_state, result, user, and skill (aiops/monitor). Follows the same append-only JSONL pattern as the existing `ScanLogger`.
+  新增 `AuditLogger` 类，将所有操作写入 `~/.vmware-aiops/audit.log`（JSONL 格式）。每条记录包含：时间戳、目标、操作类型、资源名、参数、操作前状态、操作后状态、结果、用户、技能类型。
+
+- **State preview before destructive operations / 修改操作前状态预览**: Power-off, delete, and reconfigure commands now query and display the current VM state (power state, CPU, memory, snapshot count, host, IP) before asking for confirmation.
+  关机、删除、调整配置命令现在在请求确认前查询并展示当前 VM 状态。
+
+- **Query audit trail for vmware-monitor / vmware-monitor 查询审计**: The read-only monitoring skill also supports audit logging for compliance — all queries can be recorded with operation type "query".
+  只读监控技能也支持审计日志记录，用于合规要求——所有查询操作可记录为 "query" 类型。
+
+### Files Added / 新增文件
+
+- `vmware_aiops/notify/audit.py` — AuditLogger class (JSONL format, append-only)
+
+### Files Updated / 更新文件
+
+- `vmware_aiops/cli.py` — Added state preview, audit logging for all VM operations
+- `plugins/vmware-ops/skills/vmware-aiops/SKILL.md` — Added "Execution Workflow" section
+- `plugins/vmware-ops/skills/vmware-monitor/SKILL.md` — Added "Query Audit Trail" section
+- `skill/SKILL.md` — Synced Execution Workflow
+- `SKILL.md` (root) — Added Audit Trail to Safety Features table
+- `skills/vmware-aiops/SKILL.md` — Synced Safety Features
+- `vmware-aiops/SKILL.md` — Synced Safety Features
+- `codex-skill/AGENTS.md` — Added Execution Workflow
+- `.agents/skills/vmware-aiops/AGENTS.md` — Added Execution Workflow
+- `.agents/skills/vmware-monitor/AGENTS.md` — Added Query Audit Trail
+- `README.md` — Added Audit Trail to Safety Features table
+- `README-CN.md` — Same updates in Chinese
+- `RELEASE_NOTES.md` — Added v0.5.1 release notes
+
+---
+
 ## v0.5.0 — 2026-02-28
 
 ### New Features / 新功能

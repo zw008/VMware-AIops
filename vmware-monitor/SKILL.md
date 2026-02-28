@@ -111,6 +111,16 @@ npx skills add zw008/VMware-AIops
 | Multi-target Scan | Sequentially scan all configured targets |
 | Webhook | Slack, Discord, or any HTTP endpoint |
 
+## Query Audit Trail
+
+All queries are logged to `~/.vmware-aiops/audit.log` (JSONL) for compliance:
+
+```jsonl
+{"timestamp": "2025-01-15T10:30:00Z", "target": "vcenter-prod", "operation": "query", "resource": "VirtualMachine", "query_type": "inventory_vms", "skill": "monitor"}
+```
+
+This provides a complete record of what was accessed and when — useful for security audits and compliance reporting.
+
 ## CLI Reference (Read-Only Only)
 
 ```bash

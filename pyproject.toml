@@ -4,12 +4,12 @@ build-backend = "hatchling.build"
 
 [project]
 name = "vmware-aiops"
-version = "0.5.0"
+version = "0.5.1"
 description = "VMware vCenter/ESXi AI-powered monitoring and operations tool"
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.10"
-authors = [{ name = "zw008" }]
+authors = [{ name = "Wei Zhou / 周崴" }]
 dependencies = [
     "pyvmomi>=8.0.3.0",
     "pyaml>=24.0",
