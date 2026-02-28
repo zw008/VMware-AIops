@@ -10,7 +10,7 @@
     {
       "name": "vmware-ops",
       "description": "VMware vCenter/ESXi AI operations plugin with two skills: (1) vmware-monitor — read-only monitoring (inventory, health, alarms, metrics, safe); (2) vmware-aiops — full operations (monitoring + power, create, delete, snapshot, clone, migrate). Invoke: /vmware-ops:vmware-monitor or /vmware-ops:vmware-aiops / VMware AI 运维插件，含两个技能：(1) vmware-monitor — 只读监控（安全）；(2) vmware-aiops — 完整运维（监控 + 增删改查）。命令：/vmware-ops:vmware-monitor 或 /vmware-ops:vmware-aiops",
-      "version": "0.5.1",
+      "version": "0.5.2",
       "source": "./plugins/vmware-ops",
       "category": "automation",
       "homepage": "https://github.com/zw008/VMware-AIops",

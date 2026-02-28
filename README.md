@@ -136,9 +136,11 @@ ESXi 独立主机 ──→ VM
 | Feature / 功能 | Details / 说明 |
 |------|------|
 | **Plan → Confirm → Execute → Log** | Structured workflow: show current state, confirm changes, execute, audit log / 结构化工作流：展示当前状态、确认变更、执行、审计日志 |
-| **Double Confirmation / 双重确认** | Power-off, delete, reconfigure require 2 sequential confirmations / 关机、删除、调整配置需连续两次确认 |
+| **Double Confirmation / 双重确认** | All destructive ops (power-off, delete, reconfigure, snapshot-revert/delete, clone, migrate) require 2 sequential confirmations — no bypass flags / 所有破坏性操作需连续两次确认，无绕过参数 |
+| **Rejection Logging / 拒绝记录** | Declined confirmations are recorded in the audit trail / 用户拒绝的操作也会记录到审计日志 |
 | **Audit Trail / 审计日志** | All operations logged to `~/.vmware-aiops/audit.log` (JSONL) with before/after state / 所有操作记录到审计日志，包含操作前后状态 |
-| **Password Protection / 密码保护** | `.env` file loading, never in command line or shell history / 通过 `.env` 加载密码，不会出现在命令行或 shell 历史 |
+| **Input Validation / 输入校验** | VM name, CPU (1-128), memory (128-1048576 MB), disk (1-65536 GB) validated / VM 名称、CPU、内存、磁盘参数范围校验 |
+| **Password Protection / 密码保护** | `.env` file loading with permission check; never in shell history / 通过 `.env` 加载密码并检查文件权限，不出现在 shell 历史 |
 | **SSL Self-signed Support / 自签名证书** | `disableSslCertValidation` for ESXi 8.0 self-signed certs / 适配 ESXi 8.0 自签名证书 |
 | **Task Waiting / 任务等待** | All async operations wait for completion and report result / 所有异步操作等待完成并报告结果 |
 | **State Validation / 状态校验** | Pre-operation checks (VM exists, power state correct) / 操作前检查 VM 是否存在、电源状态是否正确 |

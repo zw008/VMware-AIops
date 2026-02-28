@@ -662,13 +662,16 @@ complete record of what was changed, when, by whom, and the before/after state.
 
 ## Safety Rules
 
-1. **NEVER** execute destructive operations (delete VM, power off, remove snapshot) without explicit user confirmation
-2. **ALWAYS** show current state before making changes (e.g., show VM config before reconfigure)
-3. **ALWAYS** wait for task completion and report the result
-4. For bulk operations, show a summary and ask for confirmation before proceeding
-5. When connecting to production vCenters, remind the user of the environment
-6. **NEVER** store passwords in scripts — always use `ConnectionManager` + `.env`
-7. **NEVER** display passwords in output — show only host, username, and connection type
+1. **NEVER** execute destructive operations (delete VM, power off, remove snapshot, clone, migrate) without explicit user confirmation
+2. **ALL** destructive operations require double confirmation (2 sequential prompts) — no bypass flags exist
+3. **ALWAYS** show current state before making changes (e.g., show VM config before reconfigure)
+4. **ALWAYS** wait for task completion and report the result
+5. **ALL** rejected confirmations are logged to the audit trail for security review
+6. **ALWAYS** validate input parameters: VM name (1-80 chars), CPU (1-128), memory (128-1048576 MB), disk (1-65536 GB)
+7. For bulk operations, show a summary and ask for confirmation before proceeding
+8. When connecting to production vCenters, remind the user of the environment
+9. **NEVER** store passwords in scripts — always use `ConnectionManager` + `.env`; `.env` file permissions checked at startup
+10. **NEVER** display passwords in output — show only host, username, and connection type
 
 ## CLI Commands Reference
 

@@ -153,9 +153,11 @@ ESXi Standalone ──→ VMs
 | Feature | Details |
 |---------|---------|
 | Plan → Confirm → Execute → Log | Structured workflow: show current state, confirm changes, execute, audit log |
-| Double Confirmation | Power-off, delete, reconfigure require 2 sequential confirmations |
+| Double Confirmation | All destructive ops (power-off, delete, reconfigure, snapshot-revert/delete, clone, migrate) require 2 sequential confirmations — no bypass flags |
+| Rejection Logging | Declined confirmations are recorded in the audit trail for security review |
 | Audit Trail | All operations logged to `~/.vmware-aiops/audit.log` (JSONL) with before/after state |
-| Password Protection | `.env` file loading, never in command line or shell history |
+| Input Validation | VM name length/format, CPU (1-128), memory (128-1048576 MB), disk (1-65536 GB) validated before execution |
+| Password Protection | `.env` file loading, never in command line or shell history; file permission check at startup |
 | SSL Self-signed Support | `disableSslCertValidation` for ESXi 8.0 self-signed certs |
 | Task Waiting | All async operations wait for completion and report result |
 | State Validation | Pre-operation checks (VM exists, power state correct) |

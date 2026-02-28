@@ -67,11 +67,44 @@ def _show_state_preview(info: dict, action: str, vm_name: str) -> None:
     console.print()
 
 
-def _double_confirm(action: str, vm_name: str) -> None:
-    """Require two confirmations for destructive operations."""
+def _validate_vm_params(
+    *,
+    name: str | None = None,
+    cpu: int | None = None,
+    memory_mb: int | None = None,
+    disk_gb: int | None = None,
+) -> None:
+    """Validate VM parameter ranges. Raises typer.BadParameter on invalid input."""
+    if name is not None:
+        if not name or len(name) > 80:
+            raise typer.BadParameter(f"VM name must be 1-80 characters, got {len(name or '')}.")
+        if name.startswith("-") or name.startswith("."):
+            raise typer.BadParameter("VM name must not start with '-' or '.'.")
+    if cpu is not None and not (1 <= cpu <= 128):
+        raise typer.BadParameter(f"CPU count must be 1-128, got {cpu}.")
+    if memory_mb is not None and not (128 <= memory_mb <= 1_048_576):
+        raise typer.BadParameter(f"Memory must be 128-1048576 MB, got {memory_mb}.")
+    if disk_gb is not None and not (1 <= disk_gb <= 65_536):
+        raise typer.BadParameter(f"Disk size must be 1-65536 GB, got {disk_gb}.")
+
+
+def _double_confirm(action: str, vm_name: str, target: str = "default") -> None:
+    """Require two confirmations for destructive operations.
+
+    Logs a 'rejected' audit entry if the user declines at either step.
+    """
     console.print(f"[bold yellow]⚠️  即将执行: {action} VM '{vm_name}'[/]")
-    typer.confirm(f"第 1 次确认: 确定要{action} '{vm_name}'?", abort=True)
-    typer.confirm(f"第 2 次确认: 再次确认{action} '{vm_name}'，此操作不可撤销?", abort=True)
+    try:
+        typer.confirm(f"第 1 次确认: 确定要{action} '{vm_name}'?", abort=True)
+        typer.confirm(f"第 2 次确认: 再次确认{action} '{vm_name}'，此操作不可撤销?", abort=True)
+    except typer.Abort:
+        _audit.log(
+            target=target,
+            operation=action,
+            resource=vm_name,
+            result="rejected",
+        )
+        raise
 
 
 # ─── Inventory ────────────────────────────────────────────────────────────────
@@ -286,7 +319,7 @@ def vm_power_off(
     si, _ = _get_connection(target, config)
     before = get_vm_info(si, name)
     _show_state_preview(before, "关机", name)
-    _double_confirm("关机", name)
+    _double_confirm("关机", name, _resolve_target(target))
     result = power_off_vm(si, name, force=force)
     console.print(f"[green]{result}[/]")
     _audit.log(
@@ -315,6 +348,7 @@ def vm_create(
     """Create a new VM."""
     from vmware_aiops.ops.vm_lifecycle import create_vm
 
+    _validate_vm_params(name=name, cpu=cpu, memory_mb=memory, disk_gb=disk)
     si, _ = _get_connection(target, config)
     result = create_vm(
         si,
@@ -339,9 +373,6 @@ def vm_create(
 @vm_app.command("delete")
 def vm_delete(
     name: str,
-    confirm: Annotated[
-        bool, typer.Option("--confirm", help="Skip confirmation prompt")
-    ] = False,
     target: TargetOption = None,
     config: ConfigOption = None,
 ) -> None:
@@ -351,8 +382,7 @@ def vm_delete(
     si, _ = _get_connection(target, config)
     before = get_vm_info(si, name)
     _show_state_preview(before, "删除", name)
-    if not confirm:
-        _double_confirm("删除", name)
+    _double_confirm("删除", name, _resolve_target(target))
     result = delete_vm(si, name)
     console.print(f"[green]{result}[/]")
     _audit.log(
@@ -375,6 +405,7 @@ def vm_reconfigure(
     """Reconfigure VM CPU/memory."""
     from vmware_aiops.ops.vm_lifecycle import get_vm_info, reconfigure_vm
 
+    _validate_vm_params(cpu=cpu, memory_mb=memory)
     si, _ = _get_connection(target, config)
     before = get_vm_info(si, name)
     _show_state_preview(before, "调整配置", name)
@@ -386,7 +417,7 @@ def vm_reconfigure(
         changes.append(f"内存→{memory}MB")
 
     console.print(f"[bold yellow]  Proposed: CPU={cpu or before.get('cpu')}, Memory={memory or before.get('memory_mb')}MB[/]")
-    _double_confirm(f"调整配置({', '.join(changes)})", name)
+    _double_confirm(f"调整配置({', '.join(changes)})", name, _resolve_target(target))
     result = reconfigure_vm(si, name, cpu=cpu, memory_mb=memory)
     console.print(f"[green]{result}[/]")
     _audit.log(
@@ -451,9 +482,13 @@ def vm_snapshot_revert(
     config: ConfigOption = None,
 ) -> None:
     """Revert VM to a snapshot."""
-    from vmware_aiops.ops.vm_lifecycle import revert_to_snapshot
+    from vmware_aiops.ops.vm_lifecycle import get_vm_info, revert_to_snapshot
 
     si, _ = _get_connection(target, config)
+    before = get_vm_info(si, vm_name)
+    _show_state_preview(before, "恢复快照", vm_name)
+    console.print(f"[bold yellow]  Snapshot: {snap_name}[/]")
+    _double_confirm(f"恢复快照 '{snap_name}'", vm_name, _resolve_target(target))
     result = revert_to_snapshot(si, vm_name, snap_name)
     console.print(f"[green]{result}[/]")
     _audit.log(
@@ -461,6 +496,7 @@ def vm_snapshot_revert(
         operation="snapshot_revert",
         resource=vm_name,
         parameters={"snap_name": snap_name},
+        before_state={"power_state": before.get("power_state")},
         result=result,
     )
 
@@ -476,6 +512,8 @@ def vm_snapshot_delete(
     from vmware_aiops.ops.vm_lifecycle import delete_snapshot
 
     si, _ = _get_connection(target, config)
+    console.print(f"[bold yellow]⚠️  即将删除 VM '{vm_name}' 的快照 '{snap_name}'[/]")
+    _double_confirm(f"删除快照 '{snap_name}'", vm_name, _resolve_target(target))
     result = delete_snapshot(si, vm_name, snap_name)
     console.print(f"[green]{result}[/]")
     _audit.log(
@@ -495,9 +533,13 @@ def vm_clone(
     config: ConfigOption = None,
 ) -> None:
     """Clone a VM."""
-    from vmware_aiops.ops.vm_lifecycle import clone_vm
+    from vmware_aiops.ops.vm_lifecycle import clone_vm, get_vm_info
 
     si, _ = _get_connection(target, config)
+    before = get_vm_info(si, name)
+    _show_state_preview(before, "克隆", name)
+    console.print(f"[bold yellow]  Clone name: {new_name}[/]")
+    _double_confirm(f"克隆为 '{new_name}'", name, _resolve_target(target))
     result = clone_vm(si, name, new_name)
     console.print(f"[green]{result}[/]")
     _audit.log(
@@ -505,6 +547,7 @@ def vm_clone(
         operation="clone_vm",
         resource=name,
         parameters={"new_name": new_name},
+        before_state={"cpu": before.get("cpu"), "memory_mb": before.get("memory_mb")},
         result=result,
     )
 
@@ -521,6 +564,9 @@ def vm_migrate(
 
     si, _ = _get_connection(target, config)
     before = get_vm_info(si, name)
+    _show_state_preview(before, "迁移", name)
+    console.print(f"[bold yellow]  Target host: {to_host}[/]")
+    _double_confirm(f"迁移到 '{to_host}'", name, _resolve_target(target))
     result = migrate_vm(si, name, to_host)
     console.print(f"[green]{result}[/]")
     _audit.log(

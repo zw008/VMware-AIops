@@ -6,7 +6,9 @@ Passwords are NEVER stored in config files — always via environment variables.
 
 from __future__ import annotations
 
+import logging
 import os
+import stat
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Literal
@@ -18,8 +20,31 @@ CONFIG_DIR = Path.home() / ".vmware-aiops"
 CONFIG_FILE = CONFIG_DIR / "config.yaml"
 ENV_FILE = CONFIG_DIR / ".env"
 
+_log = logging.getLogger("vmware-aiops.config")
+
 # Load passwords from .env file (if exists) before any config access
 load_dotenv(ENV_FILE)
+
+
+def _check_env_permissions() -> None:
+    """Warn if .env file has permissions wider than owner-only (600)."""
+    if not ENV_FILE.exists():
+        return
+    try:
+        mode = ENV_FILE.stat().st_mode
+        if mode & (stat.S_IRWXG | stat.S_IRWXO):
+            _log.warning(
+                "Security warning: %s has permissions %s (should be 600). "
+                "Run: chmod 600 %s",
+                ENV_FILE,
+                oct(stat.S_IMODE(mode)),
+                ENV_FILE,
+            )
+    except OSError:
+        pass
+
+
+_check_env_permissions()
 
 
 @dataclass(frozen=True)

@@ -2,6 +2,33 @@
 
 ---
 
+## v0.5.2 — 2026-02-28
+
+### Security Hardening / 安全加固
+
+- **Remove --confirm bypass flag / 移除 --confirm 绕过参数**: The `vm delete --confirm` flag that allowed skipping double confirmation has been removed. All destructive operations now require mandatory double confirmation with no bypass mechanism.
+  移除了 `vm delete` 的 `--confirm` 跳过确认参数。所有破坏性操作强制双重确认，无法绕过。
+
+- **Double confirmation for all destructive ops / 所有破坏性操作双重确认**: Extended double confirmation to `snapshot-revert`, `snapshot-delete`, `clone`, and `migrate` (previously only `power-off`, `delete`, `reconfigure` were protected).
+  将双重确认扩展到快照恢复、快照删除、克隆、迁移操作（之前仅关机、删除、配置变更受保护）。
+
+- **Rejected confirmation audit logging / 拒绝操作审计记录**: When a user declines a confirmation prompt, the rejection is now logged to the audit trail with `result: "rejected"`.
+  用户拒绝确认时，拒绝操作也会被记录到审计日志中。
+
+- **Input validation / 输入参数校验**: VM name (1-80 chars, no leading `-`/`.`), CPU (1-128), memory (128-1048576 MB), disk (1-65536 GB) are now validated before execution.
+  VM 名称（1-80 字符，不以 `-`/`.` 开头）、CPU（1-128）、内存（128-1048576 MB）、磁盘（1-65536 GB）参数校验。
+
+- **`.env` file permission check / `.env` 文件权限检查**: At startup, warns if `~/.vmware-aiops/.env` has permissions wider than `600` (owner-only).
+  启动时检查 `.env` 文件权限，如果非 owner-only（600）则发出警告。
+
+### Files Updated / 更新文件
+
+- `vmware_aiops/cli.py` — Removed --confirm bypass, added double confirm + state preview to 4 more operations, added input validation, rejection audit logging
+- `vmware_aiops/config.py` — Added `.env` permission check at startup
+- All SKILL.md / AGENTS.md / README files — Updated Safety Features/Rules with new security measures
+
+---
+
 ## v0.5.1 — 2026-02-28
 
 ### New Features / 新功能

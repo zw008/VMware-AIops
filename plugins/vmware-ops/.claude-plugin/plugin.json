@@ -1,6 +1,6 @@
 {
   "name": "vmware-ops",
-  "version": "0.5.1",
+  "version": "0.5.2",
   "description": "VMware vCenter/ESXi AI-powered operations plugin. Two skills: vmware-monitor (read-only monitoring, safe) and vmware-aiops (full operations including VM lifecycle). / VMware AI 运维插件。两个技能：vmware-monitor（只读监控，安全版）和 vmware-aiops（完整运维，含 VM 生命周期）",
   "author": {
     "name": "Wei Zhou / 周崴",
