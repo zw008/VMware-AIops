@@ -1,27 +1,36 @@
 ---
-name: vmware-aiops
+name: vmware-monitor
 description: >
-  AI-powered VMware vCenter/ESXi monitoring and operations.
-  Manage infrastructure via natural language: inventory queries, health monitoring,
-  VM lifecycle (create, delete, power, snapshot, clone, migrate), vSAN management,
-  Aria Operations analytics, Kubernetes clusters, and scheduled log scanning.
+  VMware vCenter/ESXi read-only monitoring skill (safe version).
+  Query inventory, check health/alarms/events, view VM info and snapshots,
+  monitor vSAN and Aria Operations metrics, scan logs.
+  NO destructive operations — no power off, delete, or reconfigure.
+  For full operations, use vmware-aiops skill.
 ---
 
-# VMware AIops
+# VMware Monitor (Read-Only)
 
-AI-powered VMware vCenter and ESXi operations tool. Manage your entire VMware infrastructure using natural language through any AI coding assistant.
+Safe, read-only VMware vCenter and ESXi monitoring skill. Query your entire VMware infrastructure using natural language through any AI coding assistant — without risk of accidental modifications.
 
-> **Also available: [vmware-monitor](vmware-monitor/SKILL.md)** — A read-only version of this skill for safe monitoring without risk of accidental modifications. Use `/vmware-ops:vmware-monitor` in Claude Code.
+> **This is the safe version.** For VM lifecycle operations (power, create, delete, snapshot, clone, migrate), use the full [vmware-aiops](../vmware-aiops/SKILL.md) skill.
 
 ## When to Use This Skill
 
 - Query VM, host, datastore, cluster, and network inventory
 - Check health status, active alarms, hardware sensors, and event logs
-- Perform VM lifecycle operations: power on/off, create, delete, snapshot, clone, migrate
+- View VM details and list existing snapshots (read-only)
 - Monitor vSAN health, capacity, disk groups, and performance
 - Access Aria Operations (VCF Operations) for historical metrics, anomaly detection, and capacity planning
-- Manage vSphere Kubernetes Service (VKS) clusters
+- View vSphere Kubernetes Service (VKS) cluster status
 - Run scheduled scanning with webhook notifications (Slack, Discord)
+
+## When NOT to Use This Skill
+
+- Power on/off, reset, suspend VMs → use **vmware-aiops**
+- Create, delete, reconfigure VMs → use **vmware-aiops**
+- Create, revert, delete snapshots → use **vmware-aiops**
+- Clone or migrate VMs → use **vmware-aiops**
+- Scale VKS worker nodes → use **vmware-aiops**
 
 ## Quick Install
 
@@ -36,26 +45,10 @@ npx skills add zw008/VMware-AIops
 ```
 /plugin marketplace add zw008/VMware-AIops
 /plugin install vmware-ops
-/vmware-ops:vmware-aiops
+/vmware-ops:vmware-monitor
 ```
 
-## Architecture
-
-```
-User (Natural Language)
-  ↓
-AI CLI Tool (Claude Code / Gemini / Codex / Aider / Continue / Trae / Kimi)
-  ↓ Reads SKILL.md / AGENTS.md / rules
-  ↓
-vmware-aiops CLI
-  ↓ pyVmomi (vSphere SOAP API)
-  ↓
-vCenter Server ──→ ESXi Clusters ──→ VMs
-    or
-ESXi Standalone ──→ VMs
-```
-
-## Capabilities
+## Capabilities (Read-Only)
 
 ### 1. Inventory
 
@@ -86,27 +79,14 @@ ESXi Standalone ──→ VMs
 | HA/DRS | `DasHostFailedEvent`, `DrsVmMigratedEvent`, `DrsSoftRuleViolationEvent` |
 | Auth | `UserLoginSessionEvent`, `BadUsernameSessionEvent` |
 
-### 3. VM Lifecycle
+### 3. VM Info & Snapshot List (Read-Only)
 
-| Operation | Command | Confirmation | vCenter | ESXi |
-|-----------|---------|:------------:|:-------:|:----:|
-| Power On | `vm power-on <name>` | — | ✅ | ✅ |
-| Graceful Shutdown | `vm power-off <name>` | Double | ✅ | ✅ |
-| Force Power Off | `vm power-off <name> --force` | Double | ✅ | ✅ |
-| Reset | `vm reset <name>` | — | ✅ | ✅ |
-| Suspend | `vm suspend <name>` | — | ✅ | ✅ |
-| VM Info | `vm info <name>` | — | ✅ | ✅ |
-| Create VM | `vm create <name> --cpu --memory --disk` | — | ✅ | ✅ |
-| Delete VM | `vm delete <name>` | Double | ✅ | ✅ |
-| Reconfigure | `vm reconfigure <name> --cpu --memory` | Double | ✅ | ✅ |
-| Create Snapshot | `vm snapshot-create <name> --name <snap>` | — | ✅ | ✅ |
-| List Snapshots | `vm snapshot-list <name>` | — | ✅ | ✅ |
-| Revert Snapshot | `vm snapshot-revert <name> --name <snap>` | — | ✅ | ✅ |
-| Delete Snapshot | `vm snapshot-delete <name> --name <snap>` | — | ✅ | ✅ |
-| Clone VM | `vm clone <name> --new-name <new>` | — | ✅ | ✅ |
-| vMotion | `vm migrate <name> --to-host <host>` | — | ✅ | ❌ |
+| Feature | Details |
+|---------|---------|
+| VM Info | Name, power state, guest OS, CPU, memory, IP, VMware Tools, disks |
+| Snapshot List | List existing snapshots with name and creation time (no create/revert/delete) |
 
-### 4. vSAN Management
+### 4. vSAN Monitoring (Read-Only)
 
 | Feature | Details |
 |---------|---------|
@@ -115,9 +95,7 @@ ESXi Standalone ──→ VMs
 | Disk Groups | Cache SSD + capacity disks per host |
 | Performance | IOPS, latency, throughput per cluster/host/VM |
 
-> Requires pyVmomi 8.0.3+ (vSAN SDK merged). For older versions, install the standalone vSAN Management SDK.
-
-### 5. Aria Operations (VCF Operations)
+### 5. Aria Operations (VCF Operations) — Read-Only
 
 | Feature | Details |
 |---------|---------|
@@ -127,18 +105,15 @@ ESXi Standalone ──→ VMs
 | Right-sizing | CPU/memory recommendations per VM |
 | Intelligent Alerts | Root cause analysis, remediation recommendations |
 
-> REST API at `/suite-api/`. Auth: `vRealizeOpsToken`. Rebranded as VCF Operations in VCF 9.0.
-
-### 6. vSphere Kubernetes Service (VKS)
+### 6. VKS (Read-Only)
 
 | Feature | Details |
 |---------|---------|
 | List Clusters | Tanzu Kubernetes clusters with phase status |
 | Cluster Health | InfrastructureReady, ControlPlaneAvailable, WorkersAvailable |
-| Scale Workers | Adjust MachineDeployment replicas |
 | Node Status | Machine status, ready/unhealthy counts |
 
-> Kubernetes-native API via kubectl/kubeconfig. VKS 3.6+ uses Cluster API specification.
+> No scaling operations. Use **vmware-aiops** to scale worker nodes.
 
 ### 7. Scheduled Scanning & Notifications
 
@@ -150,42 +125,16 @@ ESXi Standalone ──→ VMs
 | Log Analysis | Regex pattern matching: error, fail, critical, panic, timeout |
 | Webhook | Slack, Discord, or any HTTP endpoint |
 
-## Safety Features
-
-| Feature | Details |
-|---------|---------|
-| Double Confirmation | Power-off, delete, reconfigure require 2 sequential confirmations |
-| Password Protection | `.env` file loading, never in command line or shell history |
-| SSL Self-signed Support | `disableSslCertValidation` for ESXi 8.0 self-signed certs |
-| Task Waiting | All async operations wait for completion and report result |
-| State Validation | Pre-operation checks (VM exists, power state correct) |
-
 ## Version Compatibility
 
 | vSphere Version | Support | Notes |
 |----------------|---------|-------|
-| 8.0 / 8.0U1-U3 | ✅ Full | `CreateSnapshot_Task` deprecated → use `CreateSnapshotEx_Task` |
-| 7.0 / 7.0U1-U3 | ✅ Full | All APIs supported |
+| 8.0 / 8.0U1-U3 | ✅ Full | pyVmomi 8.0.3+ includes vSAN SDK |
+| 7.0 / 7.0U1-U3 | ✅ Full | All read-only APIs supported |
 | 6.7 | ✅ Compatible | Backward-compatible, tested |
 | 6.5 | ✅ Compatible | Backward-compatible, tested |
 
-> pyVmomi auto-negotiates the API version during SOAP handshake — no manual configuration needed.
-
-## Supported AI Platforms
-
-| Platform | Status | Config File |
-|----------|--------|-------------|
-| Claude Code | ✅ Native Skill | `plugins/.../SKILL.md` |
-| Gemini CLI | ✅ Extension | `gemini-extension/GEMINI.md` |
-| OpenAI Codex CLI | ✅ Skill + AGENTS.md | `codex-skill/AGENTS.md` |
-| Aider | ✅ Conventions | `codex-skill/AGENTS.md` |
-| Continue CLI | ✅ Rules | `codex-skill/AGENTS.md` |
-| Trae IDE | ✅ Rules | `trae-rules/project_rules.md` |
-| Kimi Code CLI | ✅ Skill | `kimi-skill/SKILL.md` |
-| MCP Server | ✅ MCP Protocol | `mcp_server/` |
-| Python CLI | ✅ Standalone | N/A |
-
-## CLI Reference
+## CLI Reference (Read-Only Only)
 
 ```bash
 # Inventory
@@ -198,36 +147,25 @@ vmware-aiops inventory clusters [--target <name>]
 vmware-aiops health alarms [--target <name>]
 vmware-aiops health events [--hours 24] [--severity warning]
 
-# VM Operations
+# VM Info (read-only)
 vmware-aiops vm info <vm-name>
-vmware-aiops vm power-on <vm-name>
-vmware-aiops vm power-off <vm-name> [--force]
-vmware-aiops vm create <name> [--cpu <n>] [--memory <mb>] [--disk <gb>]
-vmware-aiops vm delete <vm-name> [--confirm]
-vmware-aiops vm reconfigure <vm-name> [--cpu <n>] [--memory <mb>]
-vmware-aiops vm snapshot-create <vm-name> --name <snap-name>
 vmware-aiops vm snapshot-list <vm-name>
-vmware-aiops vm snapshot-revert <vm-name> --name <snap-name>
-vmware-aiops vm snapshot-delete <vm-name> --name <snap-name>
-vmware-aiops vm clone <vm-name> --new-name <name>
-vmware-aiops vm migrate <vm-name> --to-host <host>
 
-# vSAN
+# vSAN (read-only)
 vmware-aiops vsan health [--target <name>]
 vmware-aiops vsan capacity [--target <name>]
 vmware-aiops vsan disks [--target <name>]
 vmware-aiops vsan performance [--hours 1]
 
-# Aria Operations
+# Aria Operations (read-only)
 vmware-aiops ops alerts [--severity critical]
 vmware-aiops ops metrics <resource-name> [--hours 24]
 vmware-aiops ops recommendations [--target <name>]
 vmware-aiops ops capacity <cluster-name>
 
-# VKS (Kubernetes)
+# VKS (read-only)
 vmware-aiops vks clusters [--namespace default]
 vmware-aiops vks health <cluster-name>
-vmware-aiops vks scale <machine-deployment> --replicas <n>
 vmware-aiops vks nodes <cluster-name>
 
 # Scanning & Daemon
@@ -236,6 +174,8 @@ vmware-aiops daemon start
 vmware-aiops daemon stop
 vmware-aiops daemon status
 ```
+
+> **Commands NOT available:** `vm power-on/off`, `vm create/delete/reconfigure`, `vm snapshot-create/revert/delete`, `vm clone/migrate`, `vks scale`. Use [vmware-aiops](../vmware-aiops/SKILL.md) for these.
 
 ## Setup
 

@@ -4,6 +4,13 @@ English | [中文](README-CN.md)
 
 AI-powered VMware vCenter/ESXi monitoring and operations tool.
 
+> **Two skills available / 提供两个技能版本：**
+>
+> | Skill | Command | Use Case |
+> |-------|---------|----------|
+> | **vmware-monitor** (safe) | `/vmware-ops:vmware-monitor` | Read-only monitoring: inventory, health, alarms, metrics. No risk of accidental changes. |
+> | **vmware-aiops** (full) | `/vmware-ops:vmware-aiops` | Full operations: everything in monitor + power, create, delete, snapshot, clone, migrate. |
+
 [![Skills.sh](https://img.shields.io/badge/Skills.sh-Install-blue)](https://skills.sh/zw008/VMware-AIops)
 [![Claude Code Marketplace](https://img.shields.io/badge/Claude_Code-Marketplace-blueviolet)](https://github.com/zw008/VMware-AIops)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
@@ -25,8 +32,11 @@ npx skills add zw008/VMware-AIops
 # Install plugin / 安装插件
 /plugin install vmware-ops
 
-# Use it / 开始使用
+# Use full operations skill / 使用完整版
 /vmware-ops:vmware-aiops
+
+# Or use read-only monitoring skill (safer) / 或使用只读监控版（更安全）
+/vmware-ops:vmware-monitor
 ```
 
 ---
@@ -287,7 +297,8 @@ In Claude Code, run: / 在 Claude Code 中执行：
 
 Then use: / 然后使用：
 ```
-/vmware-ops:vmware-aiops
+/vmware-ops:vmware-aiops          # Full operations / 完整版
+/vmware-ops:vmware-monitor        # Read-only monitoring (safer) / 只读监控（更安全）
 > 192.168.1.100 是 ESXi 主机，用户名 root
 ```
 
@@ -322,7 +333,8 @@ f.write_text(json.dumps(d, indent=2))
 
 Restart Claude Code, then: / 重启 Claude Code，然后：
 ```
-/vmware-ops:vmware-aiops
+/vmware-ops:vmware-aiops          # Full operations / 完整版
+/vmware-ops:vmware-monitor        # Read-only monitoring (safer) / 只读监控（更安全）
 ```
 
 **Submit to Official Marketplace / 提交到官方市场**
@@ -738,8 +750,10 @@ VMware-AIops/
 │       ├── .claude-plugin/
 │       │   └── plugin.json        # Plugin manifest / 插件清单
 │       └── skills/
-│           └── vmware-aiops/
-│               └── SKILL.md       # Skill instructions / 技能指令
+│           ├── vmware-aiops/
+│           │   └── SKILL.md       # Full operations skill / 完整运维技能
+│           └── vmware-monitor/
+│               └── SKILL.md       # Read-only monitoring skill / 只读监控技能
 ├── vmware_aiops/                  # Python backend / Python 后端
 │   ├── config.py                  # YAML + .env config / 配置管理
 │   ├── connection.py              # Multi-target pyVmomi / 多目标连接管理

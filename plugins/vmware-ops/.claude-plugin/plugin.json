@@ -1,7 +1,7 @@
 {
   "name": "vmware-ops",
-  "version": "0.4.0",
-  "description": "VMware vCenter/ESXi AI-powered operations: inventory, health monitoring, alarms, VM lifecycle (create/delete/power/snapshot/clone/migrate), scheduled scanning, and webhook notifications. / VMware AI 运维：资源清单、健康监控、告警、VM 生命周期、定时扫描、Webhook 通知",
+  "version": "0.5.0",
+  "description": "VMware vCenter/ESXi AI-powered operations plugin. Two skills: vmware-monitor (read-only monitoring, safe) and vmware-aiops (full operations including VM lifecycle). / VMware AI 运维插件。两个技能：vmware-monitor（只读监控，安全版）和 vmware-aiops（完整运维，含 VM 生命周期）",
   "author": {
     "name": "zw008",
     "url": "https://github.com/zw008"
@@ -17,6 +17,7 @@
     "pyvmomi",
     "infrastructure",
     "monitoring",
+    "read-only",
     "automation",
     "aiops",
     "vm-lifecycle"

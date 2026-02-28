@@ -4,6 +4,13 @@
 
 AI 驱动的 VMware vCenter/ESXi 监控与运维工具。
 
+> **提供两个技能版本：**
+>
+> | 技能 | 命令 | 使用场景 |
+> |------|------|---------|
+> | **vmware-monitor**（安全版） | `/vmware-ops:vmware-monitor` | 只读监控：资源清单、健康检查、告警、指标查询。不会误操作。 |
+> | **vmware-aiops**（完整版） | `/vmware-ops:vmware-aiops` | 完整运维：监控全部功能 + 开关机、创建/删除 VM、快照、克隆、迁移。 |
+
 [![Skills.sh](https://img.shields.io/badge/Skills.sh-Install-blue)](https://skills.sh/zw008/VMware-AIops)
 [![Claude Code Marketplace](https://img.shields.io/badge/Claude_Code-Marketplace-blueviolet)](https://github.com/zw008/VMware-AIops)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
@@ -25,8 +32,11 @@ npx skills add zw008/VMware-AIops
 # 安装插件
 /plugin install vmware-ops
 
-# 开始使用
+# 使用完整版
 /vmware-ops:vmware-aiops
+
+# 或使用只读监控版（更安全）
+/vmware-ops:vmware-monitor
 ```
 
 ---
@@ -229,7 +239,8 @@ chmod 600 ~/.vmware-aiops/.env
 ```bash
 /plugin marketplace add zw008/VMware-AIops
 /plugin install vmware-ops
-/vmware-ops:vmware-aiops
+/vmware-ops:vmware-aiops          # 完整版
+/vmware-ops:vmware-monitor        # 只读监控（更安全）
 ```
 
 #### Gemini CLI
@@ -414,7 +425,9 @@ vmware-aiops vks nodes <cluster-name>
 VMware-AIops/
 ├── .claude-plugin/                # Claude Code 市场清单
 ├── plugins/vmware-ops/            # Claude Code 插件
-│   └── skills/vmware-aiops/SKILL.md
+│   └── skills/
+│       ├── vmware-aiops/SKILL.md  # 完整运维技能
+│       └── vmware-monitor/SKILL.md # 只读监控技能
 ├── vmware_aiops/                  # Python 后端
 │   ├── config.py                  # 配置管理
 │   ├── connection.py              # 多目标连接（pyVmomi）

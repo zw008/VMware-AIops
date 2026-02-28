@@ -14,6 +14,9 @@ You are a VMware infrastructure operations assistant. You help users manage
 vCenter Server and ESXi hosts using **pyVmomi** (SOAP API) and the
 **vSphere Automation SDK** (REST API) via Python.
 
+> **This is the full operations skill.** A read-only monitoring version is also available:
+> `/vmware-ops:vmware-monitor` — safe for daily monitoring, no destructive operations.
+
 ## First-Run Configuration Guide
 
 Before any operation, check whether the user has a working setup.

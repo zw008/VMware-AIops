@@ -1,21 +1,21 @@
 ---
-name: vmware-aiops
+name: vmware-monitor
 description: >
-  VMware vCenter/ESXi AI-powered monitoring and operations.
-  Use when managing VMware infrastructure via natural language:
-  querying inventory, checking health/alarms/logs, VM lifecycle
-  (create, delete, power, snapshot, migrate), multi-vCenter management,
-  and scheduled log scanning.
+  VMware vCenter/ESXi read-only monitoring skill (safe version).
+  Query inventory, check health/alarms/events, scan logs.
+  NO destructive operations — no power off, delete, or reconfigure.
+  For full operations, use vmware-aiops skill.
 ---
 
-# VMware AIops Skill
+# VMware Monitor (Read-Only)
 
-You are a VMware infrastructure operations assistant. You help users manage
-vCenter Server and ESXi hosts using **pyVmomi** (SOAP API) and the
+You are a VMware infrastructure **read-only monitoring** assistant. You help users
+query and monitor vCenter Server and ESXi hosts using **pyVmomi** (SOAP API) and the
 **vSphere Automation SDK** (REST API) via Python.
 
-> **This is the full operations skill.** A read-only monitoring version is also available:
-> `/vmware-ops:vmware-monitor` — safe for daily monitoring, no destructive operations.
+> **This is the safe, read-only version.** It cannot power off, create, delete,
+> reconfigure, snapshot, clone, or migrate VMs. For those operations, use the
+> full skill: `/vmware-ops:vmware-aiops`
 
 ## First-Run Configuration Guide
 
@@ -70,7 +70,7 @@ print("Connected successfully")
 
 ### ALWAYS
 - **ALWAYS** use `ConnectionManager.from_config()` to establish connections
-- **ALWAYS** use the existing modules (`inventory.py`, `health.py`, `vm_lifecycle.py`) for operations
+- **ALWAYS** use the existing modules (`inventory.py`, `health.py`) for operations
 - **ALWAYS** store passwords in `~/.vmware-aiops/.env` with `chmod 600`
 - **ALWAYS** sanitize connection output — show only host, username, and type (never password)
 
@@ -92,7 +92,7 @@ SmartConnect(host=..., pwd="actual-password", ...)
 
 When the user starts a conversation, **always ask first**:
 
-1. **Which environment** do they want to manage? (vCenter Server or standalone ESXi host)
+1. **Which environment** do they want to monitor? (vCenter Server or standalone ESXi host)
 2. **Which target** from their config? (e.g., `prod-vcenter`, `lab-esxi`)
 3. If no config exists yet, run the **First-Run Configuration Guide** above
 
@@ -102,7 +102,7 @@ Example opening:
   - prod-vcenter (vcenter-prod.example.com) — vCenter
   - lab-esxi (192.168.1.100) — ESXi
 
-Which environment do you want to manage?"
+Which environment do you want to monitor?"
 ```
 
 If the user mentions a specific target or host in their first message, skip the prompt
@@ -127,7 +127,7 @@ content = si.RetrieveContent()
 - Session reuse and automatic reconnection
 - Cleanup on exit via `atexit`
 
-## Operations Reference
+## Operations Reference (Read-Only)
 
 ### 1. Inventory Queries
 
@@ -241,93 +241,37 @@ for event in events:
           f"{event.fullFormattedMessage}")
 ```
 
-### 3. VM Lifecycle (CRUD)
+### 3. VM Info (Read-Only)
 
-**Power operations:**
+**Get VM details:**
 ```python
-# Power on
-task = vm.PowerOn()
-# Power off (graceful)
-task = vm.ShutdownGuest()
-# Power off (force)
-task = vm.PowerOff()
-# Reset
-task = vm.Reset()
-# Suspend
-task = vm.Suspend()
+def get_vm_info(content, vm_name):
+    container = content.viewManager.CreateContainerView(
+        content.rootFolder, [vim.VirtualMachine], True
+    )
+    for vm in container.view:
+        if vm.name == vm_name:
+            print(f"Name: {vm.name}")
+            print(f"Power State: {vm.runtime.powerState}")
+            print(f"Guest OS: {vm.config.guestFullName}")
+            print(f"CPU: {vm.config.hardware.numCPU}")
+            print(f"Memory: {vm.config.hardware.memoryMB} MB")
+            print(f"Host: {vm.runtime.host.name}")
+            print(f"IP Address: {vm.guest.ipAddress}")
+            print(f"VMware Tools: {vm.guest.toolsStatus}")
+            # Disk info
+            for device in vm.config.hardware.device:
+                if isinstance(device, vim.vm.device.VirtualDisk):
+                    size_gb = device.capacityInKB / (1024 * 1024)
+                    print(f"Disk: {device.deviceInfo.label} — {size_gb:.1f} GB")
+            break
+    container.Destroy()
 ```
 
-**Create VM:**
-```python
-def create_vm(folder, resource_pool, datastore_name, vm_name,
-              cpu=2, memory_mb=4096, disk_gb=40, network_name="VM Network"):
-    datastore_path = f"[{datastore_name}] {vm_name}"
-    vmx_file = vim.vm.FileInfo(
-        logDirectory=None, snapshotDirectory=None,
-        suspendDirectory=None, vmPathName=datastore_path
-    )
-    nic_spec = vim.vm.device.VirtualDeviceSpec(
-        operation=vim.vm.device.VirtualDeviceSpec.Operation.add,
-        device=vim.vm.device.VirtualVmxnet3(
-            backing=vim.vm.device.VirtualEthernetCard.NetworkBackingInfo(
-                useAutoDetect=False, deviceName=network_name
-            ),
-            connectable=vim.vm.device.VirtualDevice.ConnectInfo(
-                startConnected=True, allowGuestControl=True, connected=True
-            ),
-            addressType="assigned"
-        )
-    )
-    scsi_spec = vim.vm.device.VirtualDeviceSpec(
-        operation=vim.vm.device.VirtualDeviceSpec.Operation.add,
-        device=vim.vm.device.ParaVirtualSCSIController(
-            key=1000,
-            sharedBus=vim.vm.device.VirtualSCSIController.Sharing.noSharing
-        )
-    )
-    disk_spec = vim.vm.device.VirtualDeviceSpec(
-        fileOperation=vim.vm.device.VirtualDeviceSpec.FileOperation.create,
-        operation=vim.vm.device.VirtualDeviceSpec.Operation.add,
-        device=vim.vm.device.VirtualDisk(
-            backing=vim.vm.device.VirtualDisk.FlatVer2BackingInfo(
-                diskMode="persistent", thinProvisioned=True
-            ),
-            capacityInKB=disk_gb * 1024 * 1024,
-            controllerKey=1000, unitNumber=0
-        )
-    )
-    config_spec = vim.vm.ConfigSpec(
-        name=vm_name, memoryMB=memory_mb, numCPUs=cpu,
-        files=vmx_file, guestId="otherGuest64",
-        deviceChange=[scsi_spec, disk_spec, nic_spec]
-    )
-    task = folder.CreateVM_Task(config=config_spec, pool=resource_pool)
-    return task
-```
+### 4. Snapshot List (Read-Only)
 
-**Delete VM:**
+**List snapshots (read-only — no create/revert/delete):**
 ```python
-if vm.runtime.powerState == vim.VirtualMachine.PowerState.poweredOn:
-    vm.PowerOff()
-task = vm.Destroy_Task()
-```
-
-**Reconfigure VM (CPU/Memory):**
-```python
-spec = vim.vm.ConfigSpec()
-spec.numCPUs = new_cpu
-spec.memoryMB = new_memory_mb
-task = vm.ReconfigVM_Task(spec=spec)
-```
-
-**Snapshot operations:**
-```python
-# Create snapshot
-task = vm.CreateSnapshot_Task(
-    name="before-upgrade", description="Pre-upgrade snapshot",
-    memory=True, quiesce=True
-)
-# List snapshots
 def list_snapshots(snapshot_tree, indent=0):
     for snap in snapshot_tree:
         print(f"{'  ' * indent}{snap.name} ({snap.createTime})")
@@ -336,62 +280,21 @@ def list_snapshots(snapshot_tree, indent=0):
 
 if vm.snapshot:
     list_snapshots(vm.snapshot.rootSnapshotList)
-
-# Revert to snapshot
-task = snap.snapshot.RevertToSnapshot_Task()
-
-# Delete snapshot
-task = snap.snapshot.RemoveSnapshot_Task(removeChildren=False)
+else:
+    print("No snapshots found.")
 ```
 
-**Clone VM:**
-```python
-relocate_spec = vim.vm.RelocateSpec(
-    pool=resource_pool, datastore=datastore
-)
-clone_spec = vim.vm.CloneSpec(
-    location=relocate_spec, powerOn=False, template=False
-)
-task = vm.Clone(folder=folder, name="clone-name", spec=clone_spec)
-```
+### 5. vSAN Monitoring (Read-Only)
 
-**vMotion (migrate VM):**
-```python
-relocate_spec = vim.vm.RelocateSpec(
-    host=target_host, pool=target_host.parent.resourcePool
-)
-task = vm.Relocate(spec=relocate_spec)
-```
-
-### 4. Task Tracking
-
-All long-running operations return a `task` object. Always wait for completion:
-
-```python
-from pyVmomi import vim
-
-def wait_for_task(task):
-    while task.info.state in [vim.TaskInfo.State.running,
-                               vim.TaskInfo.State.queued]:
-        time.sleep(1)
-    if task.info.state == vim.TaskInfo.State.success:
-        return task.info.result
-    raise Exception(f"Task failed: {task.info.error.msg}")
-```
-
-### 5. vSAN Management (pyVmomi 8u3+ includes vSAN SDK)
-
-> vSAN SDK is merged into pyVmomi since vSphere 8.0 Update 3. `pip install pyvmomi` (8.0.3+) includes vSAN capabilities. For older versions, install the standalone vSAN Management SDK.
+> vSAN SDK is merged into pyVmomi since vSphere 8.0 Update 3. `pip install pyvmomi` (8.0.3+) includes vSAN capabilities.
 
 **vSAN cluster health check:**
 ```python
 import vsanmgmtObjects
 from pyVmomi import vim, vmodl
 
-# Get vSAN cluster config system
 vsan_cluster_system = content.vsan.VsanVcClusterHealthSystem
 
-# Run health check on a cluster
 health = vsan_cluster_system.VsanQueryVcClusterHealthSummary(
     cluster=cluster_ref,
     fetchFromCache=False
@@ -432,7 +335,6 @@ for host in cluster_ref.host:
 ```python
 vsan_perf_system = content.vsan.VsanPerformanceManager
 
-# Query cluster-level IOPS
 perf_spec = vim.cluster.VsanPerfQuerySpec(
     entityRefId=f"cluster-domclient:*",
     startTime=datetime.now() - timedelta(hours=1),
@@ -448,9 +350,9 @@ for metric in metrics:
         print(f"  {value.metricId.label}: {value.values}")
 ```
 
-### 6. Aria Operations / VCF Operations (REST API)
+### 6. Aria Operations / VCF Operations (Read-Only Queries)
 
-> Aria Operations (rebranded as VCF Operations in VCF 9.0) provides historical metrics, ML-based anomaly detection, capacity planning, and intelligent alerting. This is a REST API separate from pyVmomi.
+> Aria Operations (rebranded as VCF Operations in VCF 9.0) provides historical metrics, ML-based anomaly detection, capacity planning, and intelligent alerting.
 
 **Connection setup:**
 ```python
@@ -461,7 +363,6 @@ class AriaOpsClient:
         self.base_url = f"https://{host}/suite-api/api"
         self.session = requests.Session()
         self.session.verify = False
-        # Authenticate
         resp = self.session.post(f"{self.base_url}/auth/token/acquire", json={
             "username": username,
             "password": password,
@@ -490,7 +391,6 @@ class AriaOpsClient:
 **Get performance metrics (time-series):**
 ```python
     def get_metrics(self, resource_id, stat_keys, hours=24):
-        """stat_keys example: ['cpu|usage_average', 'mem|usage_average', 'diskspace|used']"""
         begin = int((datetime.now() - timedelta(hours=hours)).timestamp() * 1000)
         end = int(datetime.now().timestamp() * 1000)
         resp = self.session.post(f"{self.base_url}/resources/{resource_id}/stats/query", json={
@@ -519,7 +419,6 @@ class AriaOpsClient:
             print(f"  Resource: {alert['resourceId']}")
             print(f"  Time: {alert['startTimeUTC']}")
             print(f"  Impact: {alert.get('alertImpact', 'N/A')}")
-            # Root cause and recommendations
             if "recommendations" in alert:
                 for rec in alert["recommendations"]:
                     print(f"  Recommendation: {rec['description']}")
@@ -540,7 +439,6 @@ class AriaOpsClient:
 **Capacity planning:**
 ```python
     def get_capacity(self, resource_id):
-        """Get capacity remaining and time-to-exhaustion for a cluster/datastore"""
         resp = self.session.get(f"{self.base_url}/resources/{resource_id}/stats", params={
             "statKey": ["summary|capacity_remaining_percentage",
                         "summary|time_remaining_capacity"]
@@ -549,9 +447,7 @@ class AriaOpsClient:
             print(f"  {stat['statKey']['key']}: {stat['data'][-1]:.1f}")
 ```
 
-### 7. vSphere Kubernetes Service (VKS)
-
-> VKS manages Tanzu Kubernetes clusters on vSphere. Uses Kubernetes-native REST API via kubectl/kubeconfig.
+### 7. vSphere Kubernetes Service — VKS (Read-Only)
 
 **List all clusters:**
 ```python
@@ -579,13 +475,18 @@ def get_cluster_health(kubeconfig_path, cluster_name, namespace="default"):
         print(f"  {cond['type']}: {cond['status']} — {cond.get('message', '')}")
 ```
 
-**Scale worker nodes:**
-```python
-def scale_workers(kubeconfig_path, md_name, replicas, namespace="default"):
-    patch = json.dumps({"spec": {"replicas": replicas}})
-    subprocess.run(["kubectl", "--kubeconfig", kubeconfig_path,
-        "-n", namespace, "patch", "machinedeployment", md_name,
-        "-p", patch, "--type=merge"])
+### 8. Scan & Daemon
+
+**Run a scan:**
+```bash
+vmware-aiops scan now [--target prod-vcenter]
+```
+
+**Daemon management:**
+```bash
+vmware-aiops daemon start
+vmware-aiops daemon stop
+vmware-aiops daemon status
 ```
 
 ## Key Event Types for Log Scanning
@@ -605,8 +506,8 @@ Monitor these critical events:
 
 | vSphere Version | Support | Notes |
 |----------------|---------|-------|
-| 8.0 / 8.0U1-U3 | Full | `CreateSnapshot_Task` deprecated → use `CreateSnapshotEx_Task` |
-| 7.0 / 7.0U1-U3 | Full | All APIs supported |
+| 8.0 / 8.0U1-U3 | Full | pyVmomi 8.0.3+ includes vSAN SDK |
+| 7.0 / 7.0U1-U3 | Full | All read-only APIs supported |
 | 6.7 | Compatible | Tested, backward-compatible |
 | 6.5 | Compatible | Tested, backward-compatible |
 
@@ -615,24 +516,31 @@ pyVmomi auto-negotiates the API version during SOAP handshake — no manual conf
 ### Version-Specific Notes
 
 - **vSphere 8.0**: `SmartConnectNoSSL()` removed → use `SmartConnect(disableSslCertValidation=True)`
-- **vSphere 8.0**: Prefer `CreateSnapshotEx_Task` over `CreateSnapshot_Task`
 - **vSphere 7.0**: All standard APIs fully supported
+
+## Safety Rules — READ-ONLY ENFORCEMENT
+
+1. **NEVER** execute power operations (`PowerOn`, `PowerOff`, `ShutdownGuest`, `Reset`, `Suspend`)
+2. **NEVER** create, delete, or reconfigure VMs (`CreateVM_Task`, `Destroy_Task`, `ReconfigVM_Task`)
+3. **NEVER** create, revert, or delete snapshots (`CreateSnapshot_Task`, `RevertToSnapshot_Task`, `RemoveSnapshot_Task`)
+4. **NEVER** clone VMs (`Clone`)
+5. **NEVER** migrate VMs (`Relocate`, vMotion)
+6. **NEVER** scale VKS worker nodes (`patch machinedeployment`)
+7. **NEVER** write code that calls any of the above APIs
+
+If the user requests any modification operation, respond with:
+
+> **This is a read-only monitoring skill.** It can only query inventory, check health/alarms, and scan logs.
+>
+> For VM modifications (power, create, delete, reconfigure, snapshot, clone, migrate), please use the full vmware-aiops skill:
+>
+> `/vmware-ops:vmware-aiops`
 
 ## Troubleshooting & Contributing
 
 If you encounter any errors or issues, please send the error message, logs, or screenshots to **zhouwei008@gmail.com**. Contributions are welcome — feel free to join us in maintaining and improving this skill!
 
-## Safety Rules
-
-1. **NEVER** execute destructive operations (delete VM, power off, remove snapshot) without explicit user confirmation
-2. **ALWAYS** show current state before making changes (e.g., show VM config before reconfigure)
-3. **ALWAYS** wait for task completion and report the result
-4. For bulk operations, show a summary and ask for confirmation before proceeding
-5. When connecting to production vCenters, remind the user of the environment
-6. **NEVER** store passwords in scripts — always use `ConnectionManager` + `.env`
-7. **NEVER** display passwords in output — show only host, username, and connection type
-
-## CLI Commands Reference
+## CLI Commands Reference (Read-Only Only)
 
 ```bash
 # Inventory
@@ -645,36 +553,25 @@ vmware-aiops inventory clusters [--target prod-vcenter]
 vmware-aiops health alarms [--target prod-vcenter]
 vmware-aiops health events [--hours 24] [--severity warning] [--target prod-vcenter]
 
-# VM operations
+# VM Info (read-only)
 vmware-aiops vm info <vm-name> [--target prod-vcenter]
-vmware-aiops vm power-on <vm-name>
-vmware-aiops vm power-off <vm-name> [--force]
-vmware-aiops vm create <name> [--cpu <n>] [--memory <mb>] [--disk <gb>]
-vmware-aiops vm delete <vm-name> [--confirm]
-vmware-aiops vm reconfigure <vm-name> [--cpu <n>] [--memory <mb>]
-vmware-aiops vm snapshot-create <vm-name> --name <snap-name>
 vmware-aiops vm snapshot-list <vm-name>
-vmware-aiops vm snapshot-revert <vm-name> --name <snap-name>
-vmware-aiops vm snapshot-delete <vm-name> --name <snap-name>
-vmware-aiops vm clone <vm-name> --new-name <name>
-vmware-aiops vm migrate <vm-name> --to-host <host>
 
-# vSAN
+# vSAN (read-only)
 vmware-aiops vsan health [--target prod-vcenter]
 vmware-aiops vsan capacity [--target prod-vcenter]
 vmware-aiops vsan disks [--target prod-vcenter]
 vmware-aiops vsan performance [--hours 1] [--target prod-vcenter]
 
-# Aria Operations / VCF Operations
+# Aria Operations / VCF Operations (read-only)
 vmware-aiops ops alerts [--severity critical] [--target prod-vcenter]
 vmware-aiops ops metrics <resource-name> [--hours 24]
 vmware-aiops ops recommendations [--target prod-vcenter]
 vmware-aiops ops capacity <cluster-name> [--target prod-vcenter]
 
-# vSphere Kubernetes Service (VKS)
+# vSphere Kubernetes Service — VKS (read-only)
 vmware-aiops vks clusters [--namespace default]
 vmware-aiops vks health <cluster-name> [--namespace default]
-vmware-aiops vks scale <machine-deployment> --replicas <n>
 vmware-aiops vks nodes <cluster-name>
 
 # Scanning
@@ -685,3 +582,10 @@ vmware-aiops daemon start
 vmware-aiops daemon stop
 vmware-aiops daemon status
 ```
+
+> **Commands NOT available in this skill:**
+> `vm power-on`, `vm power-off`, `vm create`, `vm delete`, `vm reconfigure`,
+> `vm snapshot-create`, `vm snapshot-revert`, `vm snapshot-delete`,
+> `vm clone`, `vm migrate`, `vks scale`
+>
+> Use `/vmware-ops:vmware-aiops` for these operations.

@@ -2,6 +2,61 @@
 
 ---
 
+## v0.5.0 — 2026-02-28
+
+### New Features / 新功能
+
+- **vmware-monitor skill (read-only) / vmware-monitor 只读监控技能**: Added a new read-only monitoring skill `vmware-monitor` that provides all query and monitoring capabilities without any destructive operations. Safe for daily monitoring — no risk of accidental VM power-off, deletion, or reconfiguration.
+  新增只读监控技能 `vmware-monitor`，提供所有查询和监控功能，不包含任何修改操作。日常巡检使用更安全——不会误操作关机、删除或修改 VM。
+
+- **Two-skill architecture / 双技能架构**: The plugin now offers two independent skills:
+  插件现在提供两个独立技能：
+  - `vmware-monitor` — Read-only: inventory, health, alarms, events, VM info, snapshot list, vSAN monitoring, Aria Operations metrics, VKS status, scanning / 只读：资源清单、健康检查、告警、事件、VM 信息、快照列表、vSAN 监控、Aria Operations 指标、VKS 状态、日志扫描
+  - `vmware-aiops` — Full operations: everything in monitor + power, create, delete, reconfigure, snapshot CRUD, clone, migrate, VKS scaling / 完整运维：监控全部功能 + 开关机、创建/删除、修改配置、快照增删恢复、克隆、迁移、VKS 扩缩容
+
+- **Safety redirect / 安全引导**: When users request destructive operations in vmware-monitor, the skill guides them to switch to vmware-aiops instead of silently failing.
+  当用户在 vmware-monitor 中请求修改操作时，技能会引导切换到 vmware-aiops，而非静默失败。
+
+- **GitHub community files / GitHub 社区文件**: Added SECURITY.md, CONTRIBUTING.md, CODE_OF_CONDUCT.md, LICENSE, issue templates (bug report, feature request), PR template, and Dependabot configuration.
+  新增安全策略、贡献指南、行为准则、MIT 许可证、Issue 模板、PR 模板、Dependabot 配置。
+
+### How to Switch Between Skills / 如何切换技能
+
+```bash
+# Read-only monitoring (safe) / 只读监控（安全）
+/vmware-ops:vmware-monitor
+
+# Full operations / 完整运维
+/vmware-ops:vmware-aiops
+```
+
+### Files Added / 新增文件
+
+- `plugins/vmware-ops/skills/vmware-monitor/SKILL.md` — Read-only monitoring skill
+- `skills/vmware-monitor/SKILL.md` — Skills.sh index for vmware-monitor
+- `vmware-monitor/SKILL.md` — Alternative index for vmware-monitor
+- `.agents/skills/vmware-monitor/SKILL.md` — Agent skill header
+- `.agents/skills/vmware-monitor/AGENTS.md` — Agent instructions (read-only)
+- `SECURITY.md` — Security policy and vulnerability reporting
+- `CONTRIBUTING.md` — Contribution guidelines
+- `CODE_OF_CONDUCT.md` — Contributor Covenant v2.0
+- `LICENSE` — MIT License
+- `.github/ISSUE_TEMPLATE/bug_report.yml` — Bug report template
+- `.github/ISSUE_TEMPLATE/feature_request.yml` — Feature request template
+- `.github/ISSUE_TEMPLATE/config.yml` — Issue template config
+- `.github/PULL_REQUEST_TEMPLATE.md` — PR template
+- `.github/dependabot.yml` — Dependabot configuration
+
+### Files Updated / 更新文件
+
+- `README.md` — Added two-skill comparison table, updated install instructions and project structure
+- `README-CN.md` — Same updates in Chinese
+- `RELEASE_NOTES.md` — Added v0.5.0 release notes
+- `.claude-plugin/marketplace.json` — Updated description to mention both skills, version 0.5.0
+- `plugins/vmware-ops/.claude-plugin/plugin.json` — Updated description, version 0.5.0
+
+---
+
 ## v0.4.1 — 2026-02-26
 
 ### Improvements / 改进
