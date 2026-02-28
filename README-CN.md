@@ -452,6 +452,17 @@ VMware-AIops/
 └── pyproject.toml
 ```
 
+## 相关项目
+
+| 项目 | 说明 | 安装 |
+|------|------|------|
+| **[VMware-Monitor](https://github.com/zw008/VMware-Monitor)** | 只读监控 — 代码级安全，零破坏性操作 | `npx skills add zw008/VMware-Monitor` |
+| **VMware-AIops**（本仓库） | 完整 AI 运维 — 监控 + VM 生命周期管理 | `npx skills add zw008/VMware-AIops` |
+
+> **如何选择**：如果只需要只读监控且不想有任何意外修改风险，使用 **VMware-Monitor**。如果需要完整运维能力（创建、删除、开关机、快照、克隆、迁移），使用 **VMware-AIops**。
+
+---
+
 ## 问题反馈与贡献
 
 如果遇到任何报错或问题，请将错误信息、日志或截图发送至 **zhouwei008@gmail.com**。欢迎加入我们，一起维护和改进这个项目！

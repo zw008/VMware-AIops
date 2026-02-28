@@ -803,6 +803,17 @@ Built on **pyVmomi** (vSphere Web Services API / SOAP). / 基于 **pyVmomi**（v
 | `vim.alarm.AlarmManager` | Active alarm monitoring / 活跃告警监控 |
 | `vim.event.EventManager` | Event/log queries / 事件日志查询 |
 
+## Related Projects / 相关项目
+
+| Project / 项目 | Description / 说明 | Install / 安装 |
+|---------|-------------|---------|
+| **[VMware-Monitor](https://github.com/zw008/VMware-Monitor)** | Read-only monitoring — code-level enforced safety, zero destructive operations / 只读监控 — 代码级安全，零破坏性操作 | `npx skills add zw008/VMware-Monitor` |
+| **VMware-AIops** (this repo / 本仓库) | Full AI-powered operations — monitoring + VM lifecycle management / 完整 AI 运维 — 监控 + VM 生命周期管理 | `npx skills add zw008/VMware-AIops` |
+
+> **Choosing between them / 如何选择**: Use **VMware-Monitor** if you only need read-only monitoring with zero risk of accidental changes. Use **VMware-AIops** if you need full operations (create, delete, power, snapshot, clone, migrate). / 如果只需要只读监控且不想有任何意外修改风险，使用 **VMware-Monitor**。如果需要完整运维能力，使用 **VMware-AIops**。
+
+---
+
 ## Troubleshooting & Contributing / 问题反馈与贡献
 
 If you encounter any errors or issues, please send the error message, logs, or screenshots to **zhouwei008@gmail.com**. Contributions are welcome — feel free to join us in maintaining and improving this project!
