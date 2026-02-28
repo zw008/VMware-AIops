@@ -16,7 +16,7 @@ Example opening:
 ```
 "You have the following targets configured:
   - prod-vcenter (vcenter-prod.example.com) — vCenter
-  - lab-esxi (192.168.1.100) — ESXi
+  - lab-esxi (esxi-lab.example.com) — ESXi
 
 Which environment do you want to manage?"
 ```
@@ -42,7 +42,7 @@ targets:
     type: vcenter
 
   - name: lab-esxi
-    host: 192.168.1.100
+    host: esxi-lab.example.com
     port: 443
     username: root
     # password via env: VMWARE_LAB_ESXI_PASSWORD

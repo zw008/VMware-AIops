@@ -303,7 +303,7 @@ Then use: / 然后使用：
 ```
 /vmware-ops:vmware-aiops          # Full operations / 完整版
 /vmware-ops:vmware-monitor        # Read-only monitoring (safer) / 只读监控（更安全）
-> 192.168.1.100 是 ESXi 主机，用户名 root
+> esxi-lab.example.com 是 ESXi 主机，用户名 root
 ```
 
 **Method 2: Local install / 方式 2：本地安装**

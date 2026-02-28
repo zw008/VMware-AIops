@@ -45,7 +45,7 @@ targets:
     type: vcenter
 
   - name: lab-esxi
-    host: 192.168.1.100
+    host: esxi-lab.example.com
     port: 443
     username: root
     # password via env: VMWARE_LAB_ESXI_PASSWORD

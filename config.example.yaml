@@ -17,8 +17,9 @@ targets:
     verify_ssl: false
 
   # Standalone ESXi host
+  # Prefer FQDN over IP — required for Kerberos auth; IP also accepted
   - name: lab-esxi
-    host: 192.168.1.100
+    host: esxi-lab.example.com       # FQDN recommended; IP (e.g. 192.168.1.100) also works
     port: 443
     username: root
     # Set password via env: export VMWARE_LAB_ESXI_PASSWORD=xxx

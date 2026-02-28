@@ -81,7 +81,7 @@ print("Connected successfully")
 
 When displaying connection info, use this format:
 ```
-Connected to home-esxi (192.168.1.100) as root [esxi]
+Connected to home-esxi (esxi-lab.example.com) as root [esxi]
 ```
 
 Never display:
@@ -103,7 +103,7 @@ Example opening:
 ```
 "You have the following targets configured:
   - prod-vcenter (vcenter-prod.example.com) — vCenter
-  - lab-esxi (192.168.1.100) — ESXi
+  - lab-esxi (esxi-lab.example.com) — ESXi
 
 Which environment do you want to monitor?"
 ```
