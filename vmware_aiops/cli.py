@@ -41,6 +41,43 @@ TargetOption = Annotated[
 ConfigOption = Annotated[
     Path | None, typer.Option("--config", "-c", help="Config file path")
 ]
+DryRunOption = Annotated[
+    bool, typer.Option("--dry-run", help="Print API calls without executing")
+]
+
+
+def _dry_run_print(
+    *,
+    target: str,
+    vm_name: str,
+    operation: str,
+    api_call: str,
+    parameters: dict | None = None,
+    before_state: dict | None = None,
+    expected_after: dict | None = None,
+) -> None:
+    """Print a dry-run preview of the API call that would be made."""
+    console.print("\n[bold magenta][DRY-RUN] No changes will be made.[/]")
+    console.print(f"[magenta]  Target:    {target}[/]")
+    console.print(f"[magenta]  VM:        {vm_name}[/]")
+    console.print(f"[magenta]  Operation: {operation}[/]")
+    console.print(f"[magenta]  API Call:  {api_call}[/]")
+    if parameters:
+        for k, v in parameters.items():
+            console.print(f"[magenta]  Param:     {k} = {v}[/]")
+    if before_state:
+        console.print(f"[magenta]  Current:   {before_state}[/]")
+    if expected_after:
+        console.print(f"[magenta]  Expected:  {expected_after}[/]")
+    console.print("[magenta]  Run without --dry-run to execute.[/]\n")
+    _audit.log(
+        target=target,
+        operation=operation,
+        resource=vm_name,
+        parameters={"dry_run": True, **(parameters or {})},
+        before_state=before_state or {},
+        result="dry-run",
+    )
 
 
 def _get_connection(target: str | None, config_path: Path | None = None):
@@ -290,11 +327,22 @@ def vm_power_on(
     name: str,
     target: TargetOption = None,
     config: ConfigOption = None,
+    dry_run: DryRunOption = False,
 ) -> None:
     """Power on a VM."""
     from vmware_aiops.ops.vm_lifecycle import power_on_vm
 
     si, _ = _get_connection(target, config)
+    if dry_run:
+        from vmware_aiops.ops.vm_lifecycle import get_vm_info
+        before = get_vm_info(si, name)
+        _dry_run_print(
+            target=_resolve_target(target), vm_name=name, operation="power_on",
+            api_call="vim.VirtualMachine.PowerOn()",
+            before_state={"power_state": before.get("power_state")},
+            expected_after={"power_state": "poweredOn"},
+        )
+        return
     result = power_on_vm(si, name)
     console.print(f"[green]{result}[/]")
     _audit.log(
@@ -312,12 +360,22 @@ def vm_power_off(
     force: Annotated[bool, typer.Option(help="Force power off")] = False,
     target: TargetOption = None,
     config: ConfigOption = None,
+    dry_run: DryRunOption = False,
 ) -> None:
     """Power off a VM (graceful shutdown or force)."""
     from vmware_aiops.ops.vm_lifecycle import get_vm_info, power_off_vm
 
     si, _ = _get_connection(target, config)
     before = get_vm_info(si, name)
+    if dry_run:
+        api = "vim.VirtualMachine.PowerOff()" if force else "vim.VirtualMachine.ShutdownGuest()"
+        _dry_run_print(
+            target=_resolve_target(target), vm_name=name, operation="power_off",
+            api_call=api, parameters={"force": force},
+            before_state={"power_state": before.get("power_state")},
+            expected_after={"power_state": "poweredOff"},
+        )
+        return
     _show_state_preview(before, "关机", name)
     _double_confirm("关机", name, _resolve_target(target))
     result = power_off_vm(si, name, force=force)
@@ -344,11 +402,20 @@ def vm_create(
     folder: Annotated[str, typer.Option(help="VM folder path")] = "",
     target: TargetOption = None,
     config: ConfigOption = None,
+    dry_run: DryRunOption = False,
 ) -> None:
     """Create a new VM."""
     from vmware_aiops.ops.vm_lifecycle import create_vm
 
     _validate_vm_params(name=name, cpu=cpu, memory_mb=memory, disk_gb=disk)
+    if dry_run:
+        _dry_run_print(
+            target=_resolve_target(target), vm_name=name, operation="create_vm",
+            api_call="vim.Folder.CreateVM_Task()",
+            parameters={"cpu": cpu, "memory_mb": memory, "disk_gb": disk, "network": network,
+                         "datastore": datastore or "(auto)", "folder": folder or "(root)"},
+        )
+        return
     si, _ = _get_connection(target, config)
     result = create_vm(
         si,
@@ -375,12 +442,21 @@ def vm_delete(
     name: str,
     target: TargetOption = None,
     config: ConfigOption = None,
+    dry_run: DryRunOption = False,
 ) -> None:
     """Delete a VM (destructive!)."""
     from vmware_aiops.ops.vm_lifecycle import delete_vm, get_vm_info
 
     si, _ = _get_connection(target, config)
     before = get_vm_info(si, name)
+    if dry_run:
+        _dry_run_print(
+            target=_resolve_target(target), vm_name=name, operation="delete_vm",
+            api_call="vim.VirtualMachine.Destroy_Task()",
+            before_state={"power_state": before.get("power_state"), "cpu": before.get("cpu"),
+                          "memory_mb": before.get("memory_mb"), "snapshot_count": before.get("snapshot_count")},
+        )
+        return
     _show_state_preview(before, "删除", name)
     _double_confirm("删除", name, _resolve_target(target))
     result = delete_vm(si, name)
@@ -401,6 +477,7 @@ def vm_reconfigure(
     memory: Annotated[int | None, typer.Option(help="New memory in MB")] = None,
     target: TargetOption = None,
     config: ConfigOption = None,
+    dry_run: DryRunOption = False,
 ) -> None:
     """Reconfigure VM CPU/memory."""
     from vmware_aiops.ops.vm_lifecycle import get_vm_info, reconfigure_vm
@@ -408,6 +485,15 @@ def vm_reconfigure(
     _validate_vm_params(cpu=cpu, memory_mb=memory)
     si, _ = _get_connection(target, config)
     before = get_vm_info(si, name)
+    if dry_run:
+        _dry_run_print(
+            target=_resolve_target(target), vm_name=name, operation="reconfigure_vm",
+            api_call="vim.VirtualMachine.ReconfigVM_Task()",
+            parameters={"cpu": cpu or "(unchanged)", "memory_mb": memory or "(unchanged)"},
+            before_state={"cpu": before.get("cpu"), "memory_mb": before.get("memory_mb")},
+            expected_after={"cpu": cpu or before.get("cpu"), "memory_mb": memory or before.get("memory_mb")},
+        )
+        return
     _show_state_preview(before, "调整配置", name)
 
     changes = []
@@ -439,10 +525,18 @@ def vm_snapshot_create(
     memory: Annotated[bool, typer.Option(help="Include memory")] = True,
     target: TargetOption = None,
     config: ConfigOption = None,
+    dry_run: DryRunOption = False,
 ) -> None:
     """Create a VM snapshot."""
     from vmware_aiops.ops.vm_lifecycle import create_snapshot
 
+    if dry_run:
+        _dry_run_print(
+            target=_resolve_target(target), vm_name=vm_name, operation="snapshot_create",
+            api_call="vim.VirtualMachine.CreateSnapshot_Task()",
+            parameters={"snap_name": snap_name, "description": description, "memory": memory},
+        )
+        return
     si, _ = _get_connection(target, config)
     result = create_snapshot(si, vm_name, snap_name, description, memory)
     console.print(f"[green]{result}[/]")
@@ -480,12 +574,21 @@ def vm_snapshot_revert(
     snap_name: Annotated[str, typer.Option("--name", help="Snapshot name to revert to")],
     target: TargetOption = None,
     config: ConfigOption = None,
+    dry_run: DryRunOption = False,
 ) -> None:
     """Revert VM to a snapshot."""
     from vmware_aiops.ops.vm_lifecycle import get_vm_info, revert_to_snapshot
 
     si, _ = _get_connection(target, config)
     before = get_vm_info(si, vm_name)
+    if dry_run:
+        _dry_run_print(
+            target=_resolve_target(target), vm_name=vm_name, operation="snapshot_revert",
+            api_call="vim.vm.Snapshot.RevertToSnapshot_Task()",
+            parameters={"snap_name": snap_name},
+            before_state={"power_state": before.get("power_state")},
+        )
+        return
     _show_state_preview(before, "恢复快照", vm_name)
     console.print(f"[bold yellow]  Snapshot: {snap_name}[/]")
     _double_confirm(f"恢复快照 '{snap_name}'", vm_name, _resolve_target(target))
@@ -507,10 +610,18 @@ def vm_snapshot_delete(
     snap_name: Annotated[str, typer.Option("--name", help="Snapshot name to delete")],
     target: TargetOption = None,
     config: ConfigOption = None,
+    dry_run: DryRunOption = False,
 ) -> None:
     """Delete a VM snapshot."""
     from vmware_aiops.ops.vm_lifecycle import delete_snapshot
 
+    if dry_run:
+        _dry_run_print(
+            target=_resolve_target(target), vm_name=vm_name, operation="snapshot_delete",
+            api_call="vim.vm.Snapshot.RemoveSnapshot_Task()",
+            parameters={"snap_name": snap_name},
+        )
+        return
     si, _ = _get_connection(target, config)
     console.print(f"[bold yellow]⚠️  即将删除 VM '{vm_name}' 的快照 '{snap_name}'[/]")
     _double_confirm(f"删除快照 '{snap_name}'", vm_name, _resolve_target(target))
@@ -531,12 +642,21 @@ def vm_clone(
     new_name: Annotated[str, typer.Option("--new-name", help="Name for the clone")],
     target: TargetOption = None,
     config: ConfigOption = None,
+    dry_run: DryRunOption = False,
 ) -> None:
     """Clone a VM."""
     from vmware_aiops.ops.vm_lifecycle import clone_vm, get_vm_info
 
     si, _ = _get_connection(target, config)
     before = get_vm_info(si, name)
+    if dry_run:
+        _dry_run_print(
+            target=_resolve_target(target), vm_name=name, operation="clone_vm",
+            api_call="vim.VirtualMachine.Clone()",
+            parameters={"new_name": new_name},
+            before_state={"cpu": before.get("cpu"), "memory_mb": before.get("memory_mb")},
+        )
+        return
     _show_state_preview(before, "克隆", name)
     console.print(f"[bold yellow]  Clone name: {new_name}[/]")
     _double_confirm(f"克隆为 '{new_name}'", name, _resolve_target(target))
@@ -558,12 +678,22 @@ def vm_migrate(
     to_host: Annotated[str, typer.Option("--to-host", help="Target ESXi host name")],
     target: TargetOption = None,
     config: ConfigOption = None,
+    dry_run: DryRunOption = False,
 ) -> None:
     """Migrate (vMotion) a VM to another host."""
     from vmware_aiops.ops.vm_lifecycle import get_vm_info, migrate_vm
 
     si, _ = _get_connection(target, config)
     before = get_vm_info(si, name)
+    if dry_run:
+        _dry_run_print(
+            target=_resolve_target(target), vm_name=name, operation="migrate_vm",
+            api_call="vim.VirtualMachine.Relocate()",
+            parameters={"to_host": to_host},
+            before_state={"host": before.get("host")},
+            expected_after={"host": to_host},
+        )
+        return
     _show_state_preview(before, "迁移", name)
     console.print(f"[bold yellow]  Target host: {to_host}[/]")
     _double_confirm(f"迁移到 '{to_host}'", name, _resolve_target(target))

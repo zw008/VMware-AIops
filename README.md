@@ -135,6 +135,7 @@ ESXi 独立主机 ──→ VM
 
 | Feature / 功能 | Details / 说明 |
 |------|------|
+| **Dry-Run Mode / 预演模式** | `--dry-run` on any destructive command prints exact API calls without executing / 任何破坏性命令加 `--dry-run` 可预览 API 调用而不执行 |
 | **Plan → Confirm → Execute → Log** | Structured workflow: show current state, confirm changes, execute, audit log / 结构化工作流：展示当前状态、确认变更、执行、审计日志 |
 | **Double Confirmation / 双重确认** | All destructive ops (power-off, delete, reconfigure, snapshot-revert/delete, clone, migrate) require 2 sequential confirmations — no bypass flags / 所有破坏性操作需连续两次确认，无绕过参数 |
 | **Rejection Logging / 拒绝记录** | Declined confirmations are recorded in the audit trail / 用户拒绝的操作也会记录到审计日志 |

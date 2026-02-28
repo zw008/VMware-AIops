@@ -2,6 +2,34 @@
 
 ---
 
+## v0.5.3 — 2026-02-28
+
+### Dry-Run Mode / 预演模式
+
+- **`--dry-run` for all destructive commands / 所有破坏性命令支持 `--dry-run`**: Add `--dry-run` to any destructive command to preview the exact API call, target, parameters, and current VM state — without executing. Covers: `power-on`, `power-off`, `create`, `delete`, `reconfigure`, `snapshot-create`, `snapshot-revert`, `snapshot-delete`, `clone`, `migrate`.
+  所有破坏性命令支持 `--dry-run` 参数，预览将要执行的 API 调用、目标、参数和当前 VM 状态，但不实际执行。
+
+  ```bash
+  vmware-aiops vm power-off my-vm --dry-run
+  # [DRY-RUN] API Call: vim.VirtualMachine.ShutdownGuest()
+  # [DRY-RUN] Current: {'power_state': 'poweredOn'}
+  # [DRY-RUN] Expected: {'power_state': 'poweredOff'}
+  # [DRY-RUN] Run without --dry-run to execute.
+  ```
+
+- **Dry-run audit logging / 预演审计记录**: Dry-run invocations are logged to audit trail with `result: "dry-run"` for compliance tracking.
+  预演操作同样记录到审计日志，`result` 为 `"dry-run"`。
+
+### Other / 其他
+
+- **FQDN recommended / 推荐使用 FQDN**: Config examples updated to prefer FQDN over bare IP addresses. Required for Kerberos authentication; IP still accepted.
+  配置示例改为推荐 FQDN，Kerberos 认证需要 FQDN；IP 地址仍然支持。
+
+- **Cross-repo documentation / 跨仓库文档**: Added [VMware-Monitor](https://github.com/zw008/VMware-Monitor) cross-references to all skill files and README.
+  所有 skill 文件和 README 添加了独立 VMware-Monitor 仓库交叉引用。
+
+---
+
 ## v0.5.2 — 2026-02-28
 
 ### Security Hardening / 安全加固
