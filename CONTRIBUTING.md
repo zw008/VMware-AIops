@@ -70,7 +70,8 @@ We follow [Conventional Commits](https://www.conventionalcommits.org/):
 - **NEVER** hardcode passwords or credentials in code
 - **NEVER** log or print sensitive information
 - **ALWAYS** use `ConnectionManager.from_config()` for connections
-- **ALWAYS** store credentials in `~/.vmware-aiops/.env`
+- **ALWAYS** store credentials in `~/.vmware-aiops/.env` with `chmod 600`
+- **ALWAYS** implement `_double_confirm()` for any new destructive operation (power-off, delete, reconfigure, snapshot-revert/delete, clone, migrate)
 
 ### Testing
 

@@ -32,16 +32,25 @@ Safe, read-only VMware vCenter and ESXi monitoring skill. Query your entire VMwa
 - Clone or migrate VMs → use **vmware-aiops**
 - Scale VKS worker nodes → use **vmware-aiops**
 
-## Quick Install
+## Install Options
 
-Works with Claude Code, Cursor, Codex, Gemini CLI, Trae, Kimi, and 30+ AI agents:
+### Option A: Standalone (Recommended for read-only use)
+
+Independent repository with **code-level safety** — zero destructive code paths in the codebase:
+
+```bash
+npx skills add zw008/VMware-Monitor
+```
+
+### Option B: As part of VMware-AIops
+
+Install both monitoring and full operations skills together:
 
 ```bash
 npx skills add zw008/VMware-AIops
 ```
 
-### Claude Code
-
+Claude Code:
 ```
 /plugin marketplace add zw008/VMware-AIops
 /plugin install vmware-ops
@@ -136,7 +145,10 @@ npx skills add zw008/VMware-AIops
 
 ## Query Audit Trail
 
-All queries are logged to `~/.vmware-aiops/audit.log` (JSONL) for compliance, providing a complete record of what was accessed and when.
+All queries are logged to an audit log (JSONL) for compliance, providing a complete record of what was accessed and when.
+
+- Standalone install (VMware-Monitor): `~/.vmware-monitor/audit.log`
+- As part of VMware-AIops: `~/.vmware-aiops/audit.log`
 
 ## CLI Reference (Read-Only Only)
 

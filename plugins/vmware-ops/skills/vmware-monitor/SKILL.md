@@ -16,6 +16,9 @@ query and monitor vCenter Server and ESXi hosts using **pyVmomi** (SOAP API) and
 > **This is the safe, read-only version.** It cannot power off, create, delete,
 > reconfigure, snapshot, clone, or migrate VMs. For those operations, use the
 > full skill: `/vmware-ops:vmware-aiops`
+>
+> For a standalone repository with **code-level safety** (zero destructive code in the codebase):
+> `npx skills add zw008/VMware-Monitor`
 
 ## First-Run Configuration Guide
 
@@ -520,7 +523,7 @@ pyVmomi auto-negotiates the API version during SOAP handshake — no manual conf
 
 ## Query Audit Trail
 
-All queries are logged to `~/.vmware-aiops/audit.log` (JSONL) for compliance:
+All queries are logged to an audit log (JSONL) for compliance. Standalone install: `~/.vmware-monitor/audit.log`. As part of AIops: `~/.vmware-aiops/audit.log`.
 ```json
 {"timestamp": "...", "target": "prod-vcenter", "operation": "query",
  "resource": "vms", "skill": "monitor", "parameters": {"query_type": "inventory_vms"}}

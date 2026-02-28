@@ -11,6 +11,8 @@ description: >
 
 AI-powered VMware vCenter and ESXi operations tool. Manage your entire VMware infrastructure using natural language through any AI coding assistant.
 
+> **Need read-only monitoring only?** Use [VMware-Monitor](https://github.com/zw008/VMware-Monitor) — an independent repository with code-level safety (zero destructive code in the codebase). Install: `npx skills add zw008/VMware-Monitor`
+
 ## When to Use This Skill
 
 - Query VM, host, datastore, cluster, and network inventory

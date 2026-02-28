@@ -16,6 +16,8 @@ vCenter Server and ESXi hosts using **pyVmomi** (SOAP API) and the
 
 > **This is the full operations skill.** A read-only monitoring version is also available:
 > `/vmware-ops:vmware-monitor` — safe for daily monitoring, no destructive operations.
+>
+> For an independent repository with **code-level safety** (zero destructive code): `npx skills add zw008/VMware-Monitor`
 
 ## First-Run Configuration Guide
 
