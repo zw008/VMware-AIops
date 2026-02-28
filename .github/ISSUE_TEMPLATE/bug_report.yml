@@ -1,0 +1,89 @@
+name: Bug Report
+description: Report a bug or unexpected behavior
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a bug! Please fill out the information below.
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: A clear description of the bug
+      placeholder: What happened?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to Reproduce
+      description: How can we reproduce this issue?
+      placeholder: |
+        1. Run command '...'
+        2. See error '...'
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: What did you expect to happen?
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual Behavior
+      description: What actually happened?
+    validations:
+      required: true
+  - type: input
+    id: python-version
+    attributes:
+      label: Python Version
+      placeholder: "3.12"
+  - type: dropdown
+    id: vsphere-version
+    attributes:
+      label: vSphere Version
+      options:
+        - "8.0"
+        - "7.0"
+        - "6.7"
+        - "6.5"
+        - "Other"
+  - type: dropdown
+    id: target-type
+    attributes:
+      label: Target Type
+      options:
+        - vCenter Server
+        - ESXi Standalone
+  - type: dropdown
+    id: ai-platform
+    attributes:
+      label: AI Platform
+      options:
+        - Claude Code
+        - Gemini CLI
+        - Codex CLI
+        - Aider
+        - Continue CLI
+        - Trae IDE
+        - Kimi Code CLI
+        - MCP Server
+        - Standalone CLI
+        - Other
+  - type: textarea
+    id: logs
+    attributes:
+      label: Error Logs
+      description: Paste any error messages or logs. **Please redact all passwords and sensitive information.**
+      render: shell
+  - type: input
+    id: os
+    attributes:
+      label: Operating System
+      placeholder: "macOS 15, Ubuntu 24.04, Windows 11, etc."
