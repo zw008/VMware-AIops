@@ -509,6 +509,22 @@ vmware-aiops vm power-on my-vm --target home-esxi
 
 ---
 
+## Update / Upgrade
+
+Already installed? Re-run the install command for your channel to get the latest version:
+
+| Install Channel | Update Command |
+|----------------|----------------|
+| ClawHub | `clawhub install vmware-aiops` |
+| Skills.sh | `npx skills add zw008/VMware-AIops` |
+| Claude Code Plugin | `/plugin marketplace add zw008/VMware-AIops` |
+| Git clone | `cd VMware-AIops && git pull origin main && uv pip install -e .` |
+| uv | `uv tool install vmware-aiops --force` |
+
+Check your current version: `vmware-aiops --version`
+
+---
+
 ## Chinese Cloud Models
 
 For users in China who prefer domestic cloud APIs or have limited access to overseas services.
