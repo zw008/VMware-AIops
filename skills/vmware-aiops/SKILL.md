@@ -14,7 +14,7 @@ installer:
 
 AI-powered VMware vCenter and ESXi operations tool. Manage your entire VMware infrastructure using natural language through any AI coding assistant.
 
-> **Need read-only monitoring only?** Use [VMware-Monitor](https://github.com/zw008/VMware-Monitor) — an independent repository with code-level safety (zero destructive code in the codebase). Install: `npx skills add zw008/VMware-Monitor`
+> **Need read-only monitoring only?** Use [VMware-Monitor](https://github.com/zw008/VMware-Monitor) — an independent repository with code-level safety (zero destructive code in the codebase). Install: `clawhub install vmware-monitor`
 
 ## When to Use This Skill
 
@@ -31,6 +31,10 @@ AI-powered VMware vCenter and ESXi operations tool. Manage your entire VMware in
 Works with Claude Code, Cursor, Codex, Gemini CLI, Trae, Kimi, and 30+ AI agents:
 
 ```bash
+# Via ClawHub (recommended)
+clawhub install vmware-aiops
+
+# Via Skills.sh
 npx skills add zw008/VMware-AIops
 ```
 
