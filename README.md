@@ -615,8 +615,8 @@ For fully offline operation — no cloud API, no internet, full privacy.
 # macOS
 brew install ollama
 
-# Linux
-curl -fsSL https://ollama.com/install.sh | sh
+# Linux — download from https://ollama.com/download and install manually
+# See https://github.com/ollama/ollama for platform-specific instructions
 ```
 
 ### Step 2: Pull a model

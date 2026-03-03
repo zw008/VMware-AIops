@@ -51,11 +51,16 @@ def scan_logs(
         if severity_rank.get(severity, 2) > min_rank:
             continue
 
+        # Sanitize event message: truncate and strip control characters
+        # to prevent prompt injection from attacker-controlled log content
+        raw_msg = event.fullFormattedMessage or str(event)
+        safe_msg = raw_msg[:500].replace("\x00", "")
+
         issues.append({
             "severity": severity,
             "source": "event",
             "event_type": event_type,
-            "message": event.fullFormattedMessage or str(event),
+            "message": safe_msg,
             "time": str(event.createdTime),
             "entity": _safe_entity_name(event),
         })
@@ -111,10 +116,13 @@ def scan_host_logs(
                         if any(p in line_lower for p in ("critical", "panic", "corrupt"))
                         else "warning"
                     )
+                    # Truncate and sanitize log lines to prevent
+                    # prompt injection from attacker-controlled content
+                    safe_line = line.strip()[:200].replace("\x00", "")
                     issues.append({
                         "severity": severity,
                         "source": f"host_log:{log_key}",
-                        "message": f"[{host.name}] {line.strip()[:200]}",
+                        "message": f"[{host.name}] {safe_line}",
                         "time": str(datetime.now(tz=timezone.utc)),
                         "entity": host.name,
                     })
