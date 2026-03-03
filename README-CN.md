@@ -239,8 +239,10 @@ chmod 600 ~/.vmware-aiops/.env
 - **绝不**通过命令行参数传递密码（`ps` 命令可见）
 - **绝不**在输出或日志中显示密码
 - **始终**使用 `~/.vmware-aiops/.env` 并设置 `chmod 600`
-- **始终**使用 `ConnectionManager.from_config()` 建立连接
-- 密码在模块导入时自动从 `.env` 加载，无需手动 `export`
+- **始终**通过 `config.yaml` 配置连接 — 凭据自动从 `.env` 加载
+- **TLS**：默认启用。仅在使用自签名证书的隔离实验环境中才禁用
+- **Webhook**：仅向您自己配置的 URL 发送通知，默认不向第三方服务发送数据
+- **代码审查**：建议在生产部署前审查[源代码](https://github.com/zw008/VMware-AIops)和提交历史
 
 ### 第 3 步：连接 AI 工具
 

@@ -139,7 +139,7 @@ ESXi Standalone Host ──→ VM
 | **Audit Trail** | All operations logged to `~/.vmware-aiops/audit.log` (JSONL) with before/after state |
 | **Input Validation** | VM name, CPU (1-128), memory (128-1048576 MB), disk (1-65536 GB) validated |
 | **Password Protection** | `.env` file loading with permission check; never in shell history |
-| **SSL Self-signed Support** | `disableSslCertValidation` for ESXi 8.0 self-signed certs |
+| **SSL Self-signed Support** | `disableSslCertValidation` — only for ESXi with self-signed certs in isolated labs; production should use CA-signed certificates |
 | **Task Waiting** | All async operations wait for completion and report result |
 | **State Validation** | Pre-operation checks (VM exists, power state correct) |
 
@@ -276,8 +276,10 @@ VMWARE_{TARGET_NAME_UPPER}_PASSWORD
 - **NEVER** hardcode passwords in scripts or config files
 - **NEVER** pass passwords as command-line arguments (visible in `ps`)
 - **ALWAYS** use `~/.vmware-aiops/.env` with `chmod 600`
-- **ALWAYS** use `ConnectionManager.from_config()` for connections
-- Passwords are loaded automatically from `.env` at module import time
+- **ALWAYS** configure connections via `config.yaml` — credentials are loaded from `.env` automatically
+- **TLS**: Enabled by default. Disable only for ESXi hosts with self-signed certificates in isolated lab environments
+- **Webhook**: Sends notifications to your own configured URL only — no data sent to third-party services by default
+- **Code Review**: We recommend reviewing the [source code](https://github.com/zw008/VMware-AIops) and commit history before deploying in production
 
 ### Step 3: Connect Your AI Tool
 

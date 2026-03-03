@@ -1,7 +1,15 @@
-"""Log scanner: queries vCenter/ESXi events and classifies issues."""
+"""Log scanner: queries vCenter/ESXi events and classifies issues.
+
+Security: All vSphere-sourced content (event messages, host log lines) is
+sanitized before output to prevent prompt injection attacks.  Sanitization
+includes truncation, control-character removal, and explicit boundary markers
+so that downstream consumers (including LLM agents) can distinguish trusted
+output from untrusted vSphere data.
+"""
 
 from __future__ import annotations
 
+import re
 from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING
 
@@ -12,6 +20,9 @@ from vmware_aiops.ops.health import CRITICAL_EVENTS, WARNING_EVENTS
 
 if TYPE_CHECKING:
     from pyVmomi.vim import ServiceInstance
+
+# Regex to strip ALL control characters (C0, C1, DEL) except newline/tab
+_CONTROL_CHAR_RE = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f]")
 
 
 def scan_logs(
@@ -51,16 +62,17 @@ def scan_logs(
         if severity_rank.get(severity, 2) > min_rank:
             continue
 
-        # Sanitize event message: truncate and strip control characters
-        # to prevent prompt injection from attacker-controlled log content
+        # Sanitize event message: truncate, strip ALL control characters,
+        # and wrap in boundary markers to prevent prompt injection from
+        # attacker-controlled vSphere event content.
         raw_msg = event.fullFormattedMessage or str(event)
-        safe_msg = raw_msg[:500].replace("\x00", "")
+        safe_msg = _sanitize(raw_msg, max_len=500)
 
         issues.append({
             "severity": severity,
             "source": "event",
             "event_type": event_type,
-            "message": safe_msg,
+            "message": f"[VSPHERE_EVENT]{safe_msg}[/VSPHERE_EVENT]",
             "time": str(event.createdTime),
             "entity": _safe_entity_name(event),
         })
@@ -116,19 +128,33 @@ def scan_host_logs(
                         if any(p in line_lower for p in ("critical", "panic", "corrupt"))
                         else "warning"
                     )
-                    # Truncate and sanitize log lines to prevent
-                    # prompt injection from attacker-controlled content
-                    safe_line = line.strip()[:200].replace("\x00", "")
+                    # Sanitize host log lines: truncate, strip ALL control
+                    # characters, and wrap in boundary markers to prevent
+                    # prompt injection from attacker-controlled content.
+                    safe_line = _sanitize(line.strip(), max_len=200)
                     issues.append({
                         "severity": severity,
                         "source": f"host_log:{log_key}",
-                        "message": f"[{host.name}] {safe_line}",
+                        "message": (
+                            f"[VSPHERE_HOST_LOG]{host.name}: "
+                            f"{safe_line}[/VSPHERE_HOST_LOG]"
+                        ),
                         "time": str(datetime.now(tz=timezone.utc)),
                         "entity": host.name,
                     })
 
     container.Destroy()
     return issues
+
+
+def _sanitize(text: str, *, max_len: int) -> str:
+    """Truncate and strip control characters from untrusted vSphere text.
+
+    Removes all C0/C1 control characters (except \\n and \\t) to prevent
+    prompt injection when the output is consumed by LLM agents.
+    """
+    truncated = text[:max_len]
+    return _CONTROL_CHAR_RE.sub("", truncated)
 
 
 def _safe_entity_name(event) -> str:

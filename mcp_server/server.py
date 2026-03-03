@@ -1,7 +1,22 @@
 """MCP server wrapping VMware AIops operations.
 
-Exposes inventory, health, and VM lifecycle tools via the
-Model Context Protocol (stdio transport).
+This module exposes VMware vCenter/ESXi inventory, health monitoring,
+and VM lifecycle tools via the Model Context Protocol (MCP) using stdio
+transport.  It acts as a thin adapter layer — each ``@mcp.tool()``
+function simply delegates to the corresponding function in the
+``vmware_aiops`` package (ops.inventory, ops.health, ops.vm_lifecycle).
+
+Security considerations
+-----------------------
+* **Read vs Write tools**: Read-only tools (list_*, get_*) have no side
+  effects.  Write tools (vm_power_on, vm_power_off) mutate VM state and
+  should be gated by the AI agent's confirmation flow.
+* **Credential handling**: Credentials are loaded from environment
+  variables / ``.env`` file — never passed via MCP messages.
+* **Transport**: Uses stdio transport (local only); no network listener.
+
+Source: https://github.com/zw008/VMware-AIops
+License: MIT
 """
 
 from __future__ import annotations
@@ -11,8 +26,10 @@ import os
 from pathlib import Path
 from typing import Any
 
+# MCP SDK — Model Context Protocol server framework
 from mcp.server.fastmcp import FastMCP
 
+# Internal VMware operations modules
 from vmware_aiops.config import load_config
 from vmware_aiops.connection import ConnectionManager
 from vmware_aiops.ops.health import get_active_alarms, get_recent_events
