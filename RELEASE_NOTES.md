@@ -2,6 +2,29 @@
 
 ---
 
+## v0.5.4 — 2026-03-03
+
+### Security Hardening: Prompt Injection Protection / 安全加固：Prompt 注入防护
+
+- **Boundary markers / 边界标记**: All vSphere-sourced content (event messages, host logs) is now wrapped in explicit boundary markers (`[VSPHERE_EVENT]...[/VSPHERE_EVENT]`, `[VSPHERE_HOST_LOG]...[/VSPHERE_HOST_LOG]`) so downstream LLM agents can distinguish trusted output from untrusted vSphere data.
+  所有 vSphere 来源内容（事件消息、主机日志）现在用显式边界标记包裹，使下游 LLM Agent 能区分可信输出和不可信的 vSphere 数据。
+
+- **Comprehensive control character sanitization / 全面控制字符清理**: Replaced simple null-byte removal with regex-based stripping of all C0/C1 control characters (except `\n` and `\t`). Prevents prompt injection via embedded control sequences.
+  用正则替换原来的简单空字节移除，清理所有 C0/C1 控制字符（保留换行和制表符），防止通过嵌入控制序列进行 Prompt 注入。
+
+- **MCP server documentation / MCP 服务文档**: Added comprehensive module docstring to `mcp_server/server.py` with security considerations (credential handling, transport security, Read vs Write tool classification) to resolve Socket "Obfuscated File" audit flag.
+  为 `mcp_server/server.py` 添加完整模块文档和安全说明，解决 Socket 审计的 "Obfuscated File" 标记。
+
+- **Security section in SKILL.md / SKILL.md 安全段落**: Added explicit Security section covering TLS verification, credential handling, webhook data scope, prompt injection protection, and code review guidance.
+  SKILL.md 新增安全段落，涵盖 TLS 验证、凭据处理、Webhook 数据范围、Prompt 注入防护和代码审查建议。
+
+- **README security context / README 安全上下文**: Updated Safety Features table and Security Best Practices in both English and Chinese READMEs. Removed internal API reference (`ConnectionManager.from_config()`).
+  更新中英文 README 的安全特性表格和安全最佳实践，移除内部 API 引用。
+
+**Files updated / 变更文件**: `vmware_aiops/scanner/log_scanner.py`, `mcp_server/server.py`, `skills/vmware-aiops/SKILL.md`, `plugins/.../SKILL.md`, `README.md`, `README-CN.md`
+
+---
+
 ## v0.5.3 — 2026-02-28
 
 ### Dry-Run Mode / 预演模式

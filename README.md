@@ -140,6 +140,8 @@ ESXi Standalone Host ──→ VM
 | **Input Validation** | VM name, CPU (1-128), memory (128-1048576 MB), disk (1-65536 GB) validated |
 | **Password Protection** | `.env` file loading with permission check; never in shell history |
 | **SSL Self-signed Support** | `disableSslCertValidation` — only for ESXi with self-signed certs in isolated labs; production should use CA-signed certificates |
+| **Prompt Injection Protection** | vSphere event messages and host logs are truncated, stripped of control characters, and wrapped in boundary markers before output |
+| **Webhook Data Scope** | Sends notifications to user-configured URLs only — no third-party services by default |
 | **Task Waiting** | All async operations wait for completion and report result |
 | **State Validation** | Pre-operation checks (VM exists, power state correct) |
 
