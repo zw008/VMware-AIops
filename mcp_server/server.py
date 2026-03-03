@@ -32,7 +32,7 @@ logger = logging.getLogger(__name__)
 
 mcp = FastMCP(
     "vmware-aiops",
-    description=(
+    instructions=(
         "VMware vCenter/ESXi AI-powered monitoring and operations. "
         "Query inventory, check health/alarms, and manage VM power state."
     ),
