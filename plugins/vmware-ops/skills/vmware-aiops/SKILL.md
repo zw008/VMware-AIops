@@ -46,16 +46,70 @@ npx skills add zw008/VMware-AIops
 /vmware-ops:vmware-aiops
 ```
 
+## Usage Mode: MCP First, CLI Fallback
+
+**Default: MCP mode** — vmware-aiops runs as an MCP Server registered in the AI tool. All queries and operations go through MCP tool calls directly, no manual CLI needed.
+
+**Fallback: CLI mode** — only when MCP connection fails (server crash, config error, etc.), switch to CLI commands via `vmware-aiops` in the terminal.
+
+### MCP Tools (9 tools)
+
+| MCP Tool | Type | Description | Equivalent CLI |
+|----------|------|-------------|----------------|
+| `list_virtual_machines` | Read | List all VMs | `vmware-aiops inventory vms` |
+| `list_esxi_hosts` | Read | List ESXi hosts | `vmware-aiops inventory hosts` |
+| `list_all_datastores` | Read | List datastores | `vmware-aiops inventory datastores` |
+| `list_all_clusters` | Read | List clusters | `vmware-aiops inventory clusters` |
+| `get_alarms` | Read | Active alarms | `vmware-aiops health alarms` |
+| `get_events` | Read | Recent events | `vmware-aiops health events` |
+| `vm_info` | Read | VM details | `vmware-aiops vm info <name>` |
+| `vm_power_on` | **Write** | Power on VM | `vmware-aiops vm power-on <name>` |
+| `vm_power_off` | **Write** | Power off VM | `vmware-aiops vm power-off <name>` |
+
+All tools accept optional `target` parameter (e.g., `"home-esxi"`, `"prod-vcenter"`).
+
+### MCP Setup (Claude Code)
+
+Add to `~/.claude/settings.json`:
+
+```json
+{
+  "mcpServers": {
+    "vmware-aiops": {
+      "command": "/path/to/VMware-AIops/.venv/bin/python",
+      "args": ["-m", "mcp_server"],
+      "cwd": "/path/to/VMware-AIops",
+      "env": {
+        "VMWARE_AIOPS_CONFIG": "~/.vmware-aiops/config.yaml"
+      }
+    }
+  }
+}
+```
+
+### When to Fall Back to CLI
+
+- MCP server fails to start or crashes mid-session
+- Need operations not yet exposed via MCP (create, delete, snapshot, clone, migrate, vSAN, Aria, VKS)
+- Need daemon/scan features (`scan now`, `daemon start`)
+- Debugging connection issues (CLI gives more verbose output)
+
+```bash
+# Activate venv and run CLI
+source /path/to/VMware-AIops/.venv/bin/activate
+vmware-aiops inventory vms --target home-esxi
+```
+
 ## Architecture
 
 ```
 User (Natural Language)
   ↓
 AI CLI Tool (Claude Code / Gemini / Codex / Aider / Continue / Trae / Kimi)
-  ↓ Reads SKILL.md / AGENTS.md / rules
   ↓
-vmware-aiops CLI
-  ↓ pyVmomi (vSphere SOAP API)
+  ├─ MCP mode (default): MCP Server (stdio) ──→ pyVmomi ──→ vSphere API
+  │
+  └─ CLI fallback: vmware-aiops CLI ──→ pyVmomi ──→ vSphere API
   ↓
 vCenter Server ──→ ESXi Clusters ──→ VMs
     or
