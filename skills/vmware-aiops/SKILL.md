@@ -68,6 +68,39 @@ npx skills add zw008/VMware-AIops
 
 All tools accept optional `target` parameter (e.g., `"home-esxi"`, `"prod-vcenter"`).
 
+### MCP Direct Calling Pattern (Default)
+
+When this skill is activated, **always use direct Python import** to call MCP tools:
+
+```python
+# cd /path/to/VMware-AIops
+
+from mcp_server.server import (
+    list_virtual_machines,
+    list_esxi_hosts,
+    list_all_datastores,
+    list_all_clusters,
+    get_alarms,
+    get_events,
+    vm_info,
+    vm_power_on,
+    vm_power_off,
+)
+
+# Read operations
+result = list_virtual_machines(target='home-esxi')
+alarms = get_alarms(target='home-vcenter')
+info = vm_info(vm_name='my-vm', target='home-esxi')
+
+# Write operations (require user confirmation)
+vm_power_on(vm_name='my-vm', target='home-esxi')
+vm_power_off(vm_name='my-vm', force=False, target='home-esxi')
+```
+
+**Calling priority:**
+1. ✅ Direct import from `mcp_server.server` (fastest, default)
+2. ⚠️ CLI fallback: `vmware-aiops inventory vms` (when import fails)
+
 ### MCP Setup (Claude Code)
 
 Add to `~/.claude/settings.json`:
