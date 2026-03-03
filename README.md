@@ -6,6 +6,7 @@ AI-powered VMware vCenter/ESXi monitoring and operations tool.
 
 > **Need read-only monitoring only?** See [VMware-Monitor](https://github.com/zw008/VMware-Monitor) — an independent repository with code-level safety (zero destructive code in the codebase).
 
+[![ClawHub](https://img.shields.io/badge/ClawHub-vmware--aiops-orange)](https://clawhub.ai/skills/vmware-aiops)
 [![Skills.sh](https://img.shields.io/badge/Skills.sh-Install-blue)](https://skills.sh/zw008/VMware-AIops)
 [![Claude Code Marketplace](https://img.shields.io/badge/Claude_Code-Marketplace-blueviolet)](https://github.com/zw008/VMware-AIops)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
@@ -15,6 +16,10 @@ AI-powered VMware vCenter/ESXi monitoring and operations tool.
 Works with Claude Code, Cursor, Codex, Gemini CLI, Trae, and 30+ AI agents:
 
 ```bash
+# Via ClawHub (recommended)
+clawhub install vmware-aiops
+
+# Via Skills.sh
 npx skills add zw008/VMware-AIops
 ```
 
@@ -788,8 +793,8 @@ Built on **pyVmomi** (vSphere Web Services API / SOAP).
 
 | Project | Description | Install |
 |---------|-------------|---------|
-| **[VMware-Monitor](https://github.com/zw008/VMware-Monitor)** | Read-only monitoring — code-level enforced safety, zero destructive operations | `npx skills add zw008/VMware-Monitor` |
-| **VMware-AIops** (this repo) | Full AI-powered operations — monitoring + VM lifecycle management | `npx skills add zw008/VMware-AIops` |
+| **[VMware-Monitor](https://github.com/zw008/VMware-Monitor)** | Read-only monitoring — code-level enforced safety, zero destructive operations | `clawhub install vmware-monitor` |
+| **VMware-AIops** (this repo) | Full AI-powered operations — monitoring + VM lifecycle management | `clawhub install vmware-aiops` |
 
 > **Choosing between them**: Use **VMware-Monitor** if you only need read-only monitoring with zero risk of accidental changes. Use **VMware-AIops** if you need full operations (create, delete, power, snapshot, clone, migrate).
 

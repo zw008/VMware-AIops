@@ -5,6 +5,9 @@ description: >
   Manage infrastructure via natural language: inventory queries, health monitoring,
   VM lifecycle (create, delete, power, snapshot, clone, migrate), vSAN management,
   Aria Operations analytics, Kubernetes clusters, and scheduled log scanning.
+installer:
+  kind: uv
+  package: vmware-aiops
 ---
 
 # VMware AIops
@@ -244,18 +247,24 @@ vmware-aiops daemon status
 ## Setup
 
 ```bash
-# 1. Clone & install
-git clone https://github.com/zw008/VMware-AIops.git
-cd VMware-AIops
-python3 -m venv .venv && source .venv/bin/activate
-pip install -e .
+# 1. Install via uv (recommended) or pip
+uv tool install vmware-aiops
+# Or: pip install vmware-aiops
 
 # 2. Configure
 mkdir -p ~/.vmware-aiops
-cp config.example.yaml ~/.vmware-aiops/config.yaml
-cp .env.example ~/.vmware-aiops/.env
+vmware-aiops init  # generates config.yaml and .env templates
 chmod 600 ~/.vmware-aiops/.env
-# Edit config.yaml and .env with your target details
+# Edit ~/.vmware-aiops/config.yaml and .env with your target details
+```
+
+### Development Install
+
+```bash
+git clone https://github.com/zw008/VMware-AIops.git
+cd VMware-AIops
+uv venv && source .venv/bin/activate
+uv pip install -e .
 ```
 
 ## License

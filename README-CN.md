@@ -11,6 +11,7 @@ AI 驱动的 VMware vCenter/ESXi 监控与运维工具。
 > | **vmware-monitor**（安全版） | `/vmware-ops:vmware-monitor` | 只读监控：资源清单、健康检查、告警、指标查询。不会误操作。 |
 > | **vmware-aiops**（完整版） | `/vmware-ops:vmware-aiops` | 完整运维：监控全部功能 + 开关机、创建/删除 VM、快照、克隆、迁移。 |
 
+[![ClawHub](https://img.shields.io/badge/ClawHub-vmware--aiops-orange)](https://clawhub.ai/skills/vmware-aiops)
 [![Skills.sh](https://img.shields.io/badge/Skills.sh-Install-blue)](https://skills.sh/zw008/VMware-AIops)
 [![Claude Code Marketplace](https://img.shields.io/badge/Claude_Code-Marketplace-blueviolet)](https://github.com/zw008/VMware-AIops)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
@@ -20,6 +21,10 @@ AI 驱动的 VMware vCenter/ESXi 监控与运维工具。
 支持 Claude Code、Cursor、Codex、Gemini CLI、Trae 等 30+ AI 工具：
 
 ```bash
+# 通过 ClawHub 安装（推荐）
+clawhub install vmware-aiops
+
+# 通过 Skills.sh 安装
 npx skills add zw008/VMware-AIops
 ```
 
@@ -457,8 +462,8 @@ VMware-AIops/
 
 | 项目 | 说明 | 安装 |
 |------|------|------|
-| **[VMware-Monitor](https://github.com/zw008/VMware-Monitor)** | 只读监控 — 代码级安全，零破坏性操作 | `npx skills add zw008/VMware-Monitor` |
-| **VMware-AIops**（本仓库） | 完整 AI 运维 — 监控 + VM 生命周期管理 | `npx skills add zw008/VMware-AIops` |
+| **[VMware-Monitor](https://github.com/zw008/VMware-Monitor)** | 只读监控 — 代码级安全，零破坏性操作 | `clawhub install vmware-monitor` |
+| **VMware-AIops**（本仓库） | 完整 AI 运维 — 监控 + VM 生命周期管理 | `clawhub install vmware-aiops` |
 
 > **如何选择**：如果只需要只读监控且不想有任何意外修改风险，使用 **VMware-Monitor**。如果需要完整运维能力（创建、删除、开关机、快照、克隆、迁移），使用 **VMware-AIops**。
 
