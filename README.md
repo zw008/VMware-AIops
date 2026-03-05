@@ -116,7 +116,27 @@ ESXi Standalone Host ──→ VM
 | Clone VM | `vm clone <name> --new-name <new>` | — | ✅ | ✅ |
 | vMotion | `vm migrate <name> --to-host <host>` | — | ✅ | ❌ |
 
-### 4. Scheduled Scanning & Notifications
+### 4. VM Deployment & Provisioning
+
+| Operation | Command | Speed | vCenter | ESXi |
+|-----------|---------|:-----:|:-------:|:----:|
+| Deploy from OVA | `deploy ova <path> --name <vm>` | Minutes | ✅ | ✅ |
+| Deploy from Template | `deploy template <tmpl> --name <vm>` | Minutes | ✅ | ✅ |
+| Linked Clone | `deploy linked-clone --source <vm> --snapshot <snap> --name <new>` | Seconds | ✅ | ✅ |
+| Attach ISO | `deploy iso <vm> --iso "[ds] path/to.iso"` | Instant | ✅ | ✅ |
+| Convert to Template | `deploy mark-template <vm>` | Instant | ✅ | ✅ |
+| Batch Clone | `deploy batch-clone --source <vm> --count <n>` | Minutes | ✅ | ✅ |
+| Batch Deploy (YAML) | `deploy batch spec.yaml` | Auto | ✅ | ✅ |
+
+### 5. Datastore Browser
+
+| Feature | vCenter | ESXi | Details |
+|---------|:-------:|:----:|---------|
+| Browse Files | ✅ | ✅ | List files/folders in any datastore path |
+| Scan Images | ✅ | ✅ | Discover ISO, OVA, OVF, VMDK across all datastores |
+| Local Cache | ✅ | ✅ | Registry at `~/.vmware-aiops/image_registry.json` |
+
+### 6. Scheduled Scanning & Notifications
 
 | Feature | Details |
 |---------|---------|
@@ -128,7 +148,7 @@ ESXi Standalone Host ──→ VM
 | Webhook | Slack, Discord, or any HTTP endpoint |
 | Daemon Management | `daemon start/stop/status`, PID file, graceful shutdown |
 
-### 5. Safety Features
+### 7. Safety Features
 
 | Feature | Details |
 |---------|---------|
@@ -145,7 +165,7 @@ ESXi Standalone Host ──→ VM
 | **Task Waiting** | All async operations wait for completion and report result |
 | **State Validation** | Pre-operation checks (VM exists, power state correct) |
 
-### 6. vSAN Management
+### 8. vSAN Management
 
 | Feature | Details |
 |---------|---------|
@@ -156,7 +176,7 @@ ESXi Standalone Host ──→ VM
 
 > Requires pyVmomi 8.0.3+ (vSAN SDK merged). For older versions, install the standalone vSAN Management SDK.
 
-### 7. Aria Operations / VCF Operations
+### 9. Aria Operations / VCF Operations
 
 | Feature | Details |
 |---------|---------|
@@ -168,7 +188,7 @@ ESXi Standalone Host ──→ VM
 
 > REST API at `/suite-api/`. Auth: `vRealizeOpsToken`. Rebranded as VCF Operations in VCF 9.0.
 
-### 8. vSphere Kubernetes Service (VKS)
+### 10. vSphere Kubernetes Service (VKS)
 
 | Feature | Details |
 |---------|---------|
@@ -179,7 +199,7 @@ ESXi Standalone Host ──→ VM
 
 > Kubernetes-native API via kubectl/kubeconfig. VKS 3.6+ uses Cluster API specification.
 
-### 9. vCenter vs ESXi Comparison
+### 11. vCenter vs ESXi Comparison
 
 | Capability | vCenter | ESXi Standalone |
 |------------|:-------:|:----:|
@@ -188,6 +208,8 @@ ESXi Standalone Host ──→ VM
 | vMotion migration | ✅ | ❌ |
 | Cross-host clone | ✅ | ❌ |
 | All VM lifecycle ops | ✅ | ✅ |
+| OVA/Template/Linked Clone deploy | ✅ | ✅ |
+| Datastore browsing & image scan | ✅ | ✅ |
 | Alarms & events | ✅ | ✅ |
 | Hardware sensors | ✅ | ✅ |
 | Host services | ✅ | ✅ |
@@ -701,6 +723,20 @@ vmware-aiops vm snapshot-delete my-vm --name "before-upgrade"  # Delete snapshot
 vmware-aiops vm clone my-vm --new-name my-vm-clone             # Clone VM
 vmware-aiops vm migrate my-vm --to-host esxi-02                # vMotion
 
+# Deploy
+vmware-aiops deploy ova ./ubuntu.ova --name my-vm --datastore ds1      # Deploy from OVA
+vmware-aiops deploy template golden-ubuntu --name new-vm               # Deploy from template
+vmware-aiops deploy linked-clone --source base-vm --snapshot clean --name test-vm  # Linked clone (seconds)
+vmware-aiops deploy iso my-vm --iso "[datastore1] iso/ubuntu-22.04.iso"  # Attach ISO
+vmware-aiops deploy mark-template golden-vm                            # Convert VM to template
+vmware-aiops deploy batch-clone --source base-vm --count 5 --prefix lab  # Batch clone
+vmware-aiops deploy batch deploy.yaml                                  # Batch deploy from YAML spec
+
+# Datastore
+vmware-aiops datastore browse datastore1 --path "iso/"                 # Browse datastore
+vmware-aiops datastore scan-images --target home-esxi                  # Scan all datastores for images
+vmware-aiops datastore images --type iso                               # List cached images
+
 # Scan
 vmware-aiops scan now              # One-time scan
 
@@ -773,7 +809,9 @@ VMware-AIops/
 │   ├── ops/                       # Operations
 │   │   ├── inventory.py           # VMs, hosts, datastores, clusters
 │   │   ├── health.py              # Alarms, events, sensors
-│   │   └── vm_lifecycle.py        # VM CRUD, snapshots, clone, migrate
+│   │   ├── vm_lifecycle.py        # VM CRUD, snapshots, clone, migrate
+│   │   ├── vm_deploy.py           # OVA, template, linked clone, batch deploy
+│   │   └── datastore_browser.py   # Datastore browsing, image discovery
 │   ├── scanner/                   # Log scanning daemon
 │   └── notify/                    # Notifications (JSONL + webhook)
 ├── gemini-extension/              # Gemini CLI extension
@@ -804,6 +842,8 @@ Built on **pyVmomi** (vSphere Web Services API / SOAP).
 | `vim.VirtualMachine` | VM lifecycle, snapshots, clone, migrate |
 | `vim.HostSystem` | ESXi host info, sensors, services |
 | `vim.Datastore` | Storage capacity, type, accessibility |
+| `vim.host.DatastoreBrowser` | File browsing, image discovery (ISO/OVA/VMDK) |
+| `vim.OvfManager` | OVA import and deployment |
 | `vim.ClusterComputeResource` | Cluster, DRS, HA |
 | `vim.Network` | Network listing |
 | `vim.alarm.AlarmManager` | Active alarm monitoring |

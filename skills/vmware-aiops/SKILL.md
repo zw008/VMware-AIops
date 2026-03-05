@@ -3,7 +3,8 @@ name: vmware-aiops
 description: >
   AI-powered VMware vCenter/ESXi monitoring and operations.
   Manage infrastructure via natural language: inventory queries, health monitoring,
-  VM lifecycle (create, delete, power, snapshot, clone, migrate), vSAN management,
+  VM lifecycle (create, delete, power, snapshot, clone, migrate), VM deployment
+  (OVA, template, linked clone, batch), datastore browsing, vSAN management,
   Aria Operations analytics, Kubernetes clusters, and scheduled log scanning.
 installer:
   kind: uv
@@ -21,6 +22,8 @@ AI-powered VMware vCenter and ESXi operations tool. Manage your entire VMware in
 - Query VM, host, datastore, cluster, and network inventory
 - Check health status, active alarms, hardware sensors, and event logs
 - Perform VM lifecycle operations: power on/off, create, delete, snapshot, clone, migrate
+- Deploy VMs from OVA, templates, linked clones, or batch specs
+- Browse datastores and discover ISO/OVA/VMDK images
 - Monitor vSAN health, capacity, disk groups, and performance
 - Access Aria Operations (VCF Operations) for historical metrics, anomaly detection, and capacity planning
 - Manage vSphere Kubernetes Service (VKS) clusters
@@ -100,7 +103,7 @@ For Claude Code / Cursor users who prefer structured tool calls, add to `~/.clau
 }
 ```
 
-MCP exposes 9 tools: `list_virtual_machines`, `list_esxi_hosts`, `list_all_datastores`, `list_all_clusters`, `get_alarms`, `get_events`, `vm_info`, `vm_power_on`, `vm_power_off`. All accept optional `target` parameter.
+MCP exposes 20 tools: `list_virtual_machines`, `list_esxi_hosts`, `list_all_datastores`, `list_all_clusters`, `get_alarms`, `get_events`, `vm_info`, `vm_power_on`, `vm_power_off`, `browse_datastore`, `scan_datastore_images`, `list_cached_images`, `deploy_vm_from_ova`, `deploy_vm_from_template`, `deploy_linked_clone`, `attach_iso_to_vm`, `convert_vm_to_template`, `batch_clone_vms`, `batch_linked_clone_vms`, `batch_deploy_from_spec`. All accept optional `target` parameter.
 
 ## Architecture
 
@@ -169,7 +172,27 @@ ESXi Standalone ──→ VMs
 | Clone VM | `vm clone <name> --new-name <new>` | — | ✅ | ✅ |
 | vMotion | `vm migrate <name> --to-host <host>` | — | ✅ | ❌ |
 
-### 4. vSAN Management
+### 4. VM Deployment & Provisioning
+
+| Operation | Command | Speed | vCenter | ESXi |
+|-----------|---------|:-----:|:-------:|:----:|
+| Deploy from OVA | `deploy ova <path> --name <vm>` | Minutes | ✅ | ✅ |
+| Deploy from Template | `deploy template <tmpl> --name <vm>` | Minutes | ✅ | ✅ |
+| Linked Clone | `deploy linked-clone --source <vm> --snapshot <snap> --name <new>` | Seconds | ✅ | ✅ |
+| Attach ISO | `deploy iso <vm> --iso "[ds] path/to.iso"` | Instant | ✅ | ✅ |
+| Convert to Template | `deploy mark-template <vm>` | Instant | ✅ | ✅ |
+| Batch Clone | `deploy batch-clone --source <vm> --count <n>` | Minutes | ✅ | ✅ |
+| Batch Deploy (YAML) | `deploy batch spec.yaml` | Auto | ✅ | ✅ |
+
+### 5. Datastore Browser
+
+| Feature | vCenter | ESXi | Details |
+|---------|:-------:|:----:|---------|
+| Browse Files | ✅ | ✅ | List files/folders in any datastore path |
+| Scan Images | ✅ | ✅ | Discover ISO, OVA, OVF, VMDK across all datastores |
+| Local Cache | ✅ | ✅ | Registry at `~/.vmware-aiops/image_registry.json` |
+
+### 6. vSAN Management
 
 | Feature | Details |
 |---------|---------|
@@ -180,7 +203,7 @@ ESXi Standalone ──→ VMs
 
 > Requires pyVmomi 8.0.3+ (vSAN SDK merged). For older versions, install the standalone vSAN Management SDK.
 
-### 5. Aria Operations (VCF Operations)
+### 7. Aria Operations (VCF Operations)
 
 | Feature | Details |
 |---------|---------|
@@ -192,7 +215,7 @@ ESXi Standalone ──→ VMs
 
 > REST API at `/suite-api/`. Auth: `vRealizeOpsToken`. Rebranded as VCF Operations in VCF 9.0.
 
-### 6. vSphere Kubernetes Service (VKS)
+### 8. vSphere Kubernetes Service (VKS)
 
 | Feature | Details |
 |---------|---------|
@@ -203,7 +226,7 @@ ESXi Standalone ──→ VMs
 
 > Kubernetes-native API via kubectl/kubeconfig. VKS 3.6+ uses Cluster API specification.
 
-### 7. Scheduled Scanning & Notifications
+### 9. Scheduled Scanning & Notifications
 
 | Feature | Details |
 |---------|---------|
@@ -278,6 +301,20 @@ vmware-aiops vm snapshot-revert <vm-name> --name <snap-name>
 vmware-aiops vm snapshot-delete <vm-name> --name <snap-name>
 vmware-aiops vm clone <vm-name> --new-name <name>
 vmware-aiops vm migrate <vm-name> --to-host <host>
+
+# Deploy
+vmware-aiops deploy ova <path> --name <vm-name> [--datastore <ds>] [--network <net>]
+vmware-aiops deploy template <template-name> --name <vm-name> [--datastore <ds>]
+vmware-aiops deploy linked-clone --source <vm> --snapshot <snap> --name <new-name>
+vmware-aiops deploy iso <vm-name> --iso "[datastore] path/file.iso"
+vmware-aiops deploy mark-template <vm-name>
+vmware-aiops deploy batch-clone --source <vm> --count <n> [--prefix <prefix>]
+vmware-aiops deploy batch <spec.yaml>
+
+# Datastore
+vmware-aiops datastore browse <ds-name> [--path <subdir>]
+vmware-aiops datastore scan-images [--target <name>]
+vmware-aiops datastore images [--type ova|iso|vmdk] [--ds <name>]
 
 # vSAN
 vmware-aiops vsan health [--target <name>]

@@ -110,7 +110,27 @@ ESXi 独立主机 ──→ VM
 | 克隆 | `vm clone <name> --new-name <new>` | — | ✅ | ✅ |
 | 迁移 | `vm migrate <name> --to-host <host>` | — | ✅ | ❌ |
 
-### 4. 定时扫描与通知
+### 4. VM 部署与制备
+
+| 操作 | 命令 | 速度 | vCenter | ESXi |
+|------|------|:----:|:-------:|:----:|
+| OVA 部署 | `deploy ova <path> --name <vm>` | 分钟级 | ✅ | ✅ |
+| 模板部署 | `deploy template <tmpl> --name <vm>` | 分钟级 | ✅ | ✅ |
+| 链接克隆 | `deploy linked-clone --source <vm> --snapshot <snap> --name <new>` | 秒级 | ✅ | ✅ |
+| 挂载 ISO | `deploy iso <vm> --iso "[ds] path/to.iso"` | 即时 | ✅ | ✅ |
+| 转为模板 | `deploy mark-template <vm>` | 即时 | ✅ | ✅ |
+| 批量克隆 | `deploy batch-clone --source <vm> --count <n>` | 分钟级 | ✅ | ✅ |
+| 批量部署 (YAML) | `deploy batch spec.yaml` | 自动 | ✅ | ✅ |
+
+### 5. 数据存储浏览
+
+| 功能 | vCenter | ESXi | 说明 |
+|------|:-------:|:----:|------|
+| 浏览文件 | ✅ | ✅ | 列出数据存储中任意路径的文件/文件夹 |
+| 扫描镜像 | ✅ | ✅ | 发现所有数据存储中的 ISO、OVA、OVF、VMDK 文件 |
+| 本地缓存 | ✅ | ✅ | 注册表位于 `~/.vmware-aiops/image_registry.json` |
+
+### 6. 定时扫描与通知
 
 | 功能 | 说明 |
 |------|------|
@@ -120,7 +140,7 @@ ESXi 独立主机 ──→ VM
 | 结构化日志 | JSONL 输出到 `~/.vmware-aiops/scan.log` |
 | Webhook 通知 | 支持 Slack、Discord 或任意 HTTP 端点 |
 
-### 5. vSAN 管理
+### 7. vSAN 管理
 
 | 功能 | 说明 |
 |------|------|
@@ -131,7 +151,7 @@ ESXi 独立主机 ──→ VM
 
 > 需要 pyVmomi 8.0.3+（vSAN SDK 已合并）。旧版本需单独安装 vSAN Management SDK。
 
-### 6. Aria Operations / VCF Operations
+### 8. Aria Operations / VCF Operations
 
 | 功能 | 说明 |
 |------|------|
@@ -143,7 +163,7 @@ ESXi 独立主机 ──→ VM
 
 > REST API，端点 `/suite-api/`。VCF 9.0 中已更名为 VCF Operations。
 
-### 7. vSphere Kubernetes Service (VKS)
+### 9. vSphere Kubernetes Service (VKS)
 
 | 功能 | 说明 |
 |------|------|
@@ -154,7 +174,7 @@ ESXi 独立主机 ──→ VM
 
 > 通过 kubectl/kubeconfig 使用 Kubernetes 原生 API。VKS 3.6+ 基于 Cluster API 规范。
 
-### 8. 安全特性
+### 10. 安全特性
 
 | 功能 | 说明 |
 |------|------|
@@ -408,6 +428,20 @@ vmware-aiops vm snapshot-create|snapshot-list|snapshot-revert|snapshot-delete <n
 vmware-aiops vm clone <name> --new-name <new>
 vmware-aiops vm migrate <name> --to-host <host>
 
+# 部署
+vmware-aiops deploy ova ./ubuntu.ova --name my-vm --datastore ds1      # 从 OVA 部署
+vmware-aiops deploy template golden-ubuntu --name new-vm               # 从模板部署
+vmware-aiops deploy linked-clone --source base-vm --snapshot clean --name test-vm  # 链接克隆（秒级）
+vmware-aiops deploy iso my-vm --iso "[datastore1] iso/ubuntu-22.04.iso"  # 挂载 ISO
+vmware-aiops deploy mark-template golden-vm                            # 转为模板
+vmware-aiops deploy batch-clone --source base-vm --count 5 --prefix lab  # 批量克隆
+vmware-aiops deploy batch deploy.yaml                                  # 从 YAML 批量部署
+
+# 数据存储
+vmware-aiops datastore browse datastore1 --path "iso/"                 # 浏览数据存储
+vmware-aiops datastore scan-images --target home-esxi                  # 扫描所有数据存储的镜像
+vmware-aiops datastore images --type iso                               # 列出缓存的镜像
+
 # 扫描与守护进程
 vmware-aiops scan now [--target <name>]
 vmware-aiops daemon start|stop|status
@@ -447,6 +481,11 @@ VMware-AIops/
 │   ├── connection.py              # 多目标连接（pyVmomi）
 │   ├── cli.py                     # CLI（双重确认）
 │   ├── ops/                       # 运维操作
+│   │   ├── inventory.py           # VM、主机、数据存储、集群
+│   │   ├── health.py              # 告警、事件、传感器
+│   │   ├── vm_lifecycle.py        # VM 生命周期管理
+│   │   ├── vm_deploy.py           # OVA、模板、链接克隆、批量部署
+│   │   └── datastore_browser.py   # 数据存储浏览、镜像发现
 │   ├── scanner/                   # 日志扫描守护进程
 │   └── notify/                    # 通知（JSONL + Webhook）
 ├── skill/SKILL.md                 # Claude Code 独立技能
