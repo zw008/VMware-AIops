@@ -21,11 +21,11 @@ AI 驱动的 VMware vCenter/ESXi 监控与运维工具。
 支持 Claude Code、Cursor、Codex、Gemini CLI、Trae 等 30+ AI 工具：
 
 ```bash
-# 通过 ClawHub 安装（推荐）
-clawhub install vmware-aiops
-
 # 通过 Skills.sh 安装
 npx skills add zw008/VMware-AIops
+
+# 通过 ClawHub 安装
+clawhub install vmware-aiops
 ```
 
 ### Claude Code 快速安装

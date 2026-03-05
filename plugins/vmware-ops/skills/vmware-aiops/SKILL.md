@@ -31,11 +31,11 @@ AI-powered VMware vCenter and ESXi operations tool. Manage your entire VMware in
 Works with Claude Code, Cursor, Codex, Gemini CLI, Trae, Kimi, and 30+ AI agents:
 
 ```bash
-# Via ClawHub (recommended)
-clawhub install vmware-aiops
-
 # Via Skills.sh
 npx skills add zw008/VMware-AIops
+
+# Via ClawHub
+clawhub install vmware-aiops
 ```
 
 ### Claude Code
@@ -46,64 +46,44 @@ npx skills add zw008/VMware-AIops
 /vmware-ops:vmware-aiops
 ```
 
-## Usage Mode: MCP First, CLI Fallback
+## Usage Mode
 
-**Default: MCP mode** — vmware-aiops runs as an MCP Server registered in the AI tool. All queries and operations go through MCP tool calls directly, no manual CLI needed.
+Choose the best mode based on your AI tool:
 
-**Fallback: CLI mode** — only when MCP connection fails (server crash, config error, etc.), switch to CLI commands via `vmware-aiops` in the terminal.
+| Platform | Recommended Mode | Why |
+|----------|-----------------|-----|
+| Claude Code, Cursor | **MCP** | Structured tool calls, no interactive confirmation needed, seamless experience |
+| Aider, Codex, Gemini CLI, Continue | **CLI** | Lightweight, low context overhead, universal compatibility |
+| Ollama + local models | **CLI** | Minimal context usage, works with any model size |
 
-### MCP Tools (9 tools)
+### Calling Priority
 
-| MCP Tool | Type | Description | Equivalent CLI |
-|----------|------|-------------|----------------|
-| `list_virtual_machines` | Read | List all VMs | `vmware-aiops inventory vms` |
-| `list_esxi_hosts` | Read | List ESXi hosts | `vmware-aiops inventory hosts` |
-| `list_all_datastores` | Read | List datastores | `vmware-aiops inventory datastores` |
-| `list_all_clusters` | Read | List clusters | `vmware-aiops inventory clusters` |
-| `get_alarms` | Read | Active alarms | `vmware-aiops health alarms` |
-| `get_events` | Read | Recent events | `vmware-aiops health events` |
-| `vm_info` | Read | VM details | `vmware-aiops vm info <name>` |
-| `vm_power_on` | **Write** | Power on VM | `vmware-aiops vm power-on <name>` |
-| `vm_power_off` | **Write** | Power off VM | `vmware-aiops vm power-off <name>` |
+- **MCP-native tools** (Claude Code, Cursor): MCP first, CLI fallback
+- **All other tools**: CLI first (MCP not needed)
 
-All tools accept optional `target` parameter (e.g., `"home-esxi"`, `"prod-vcenter"`).
+> **Tip**: If your AI tool supports MCP, check whether `vmware-aiops` MCP server is loaded (`/mcp` in Claude Code). If not, configure it first — MCP provides the best hands-free experience.
 
-### MCP Direct Calling Pattern (Default)
+### CLI Examples
 
-When this skill is activated, **always use direct Python import** to call MCP tools:
+```bash
+# Activate venv first
+source /path/to/VMware-AIops/.venv/bin/activate
 
-```python
-# cd /path/to/VMware-AIops
+# Inventory
+vmware-aiops inventory vms --target home-esxi
+vmware-aiops inventory hosts --target home-esxi
 
-from mcp_server.server import (
-    list_virtual_machines,
-    list_esxi_hosts,
-    list_all_datastores,
-    list_all_clusters,
-    get_alarms,
-    get_events,
-    vm_info,
-    vm_power_on,
-    vm_power_off,
-)
+# Health
+vmware-aiops health alarms --target home-esxi
 
-# Read operations
-result = list_virtual_machines(target='home-esxi')
-alarms = get_alarms(target='home-vcenter')
-info = vm_info(vm_name='my-vm', target='home-esxi')
-
-# Write operations (require user confirmation)
-vm_power_on(vm_name='my-vm', target='home-esxi')
-vm_power_off(vm_name='my-vm', force=False, target='home-esxi')
+# VM operations
+vmware-aiops vm info my-vm --target home-esxi
+vmware-aiops vm power-on my-vm --target home-esxi
 ```
 
-**Calling priority:**
-1. ✅ Direct import from `mcp_server.server` (fastest, default)
-2. ⚠️ CLI fallback: `vmware-aiops inventory vms` (when import fails)
+### MCP Mode (Optional)
 
-### MCP Setup (Claude Code)
-
-Add to `~/.claude/settings.json`:
+For Claude Code / Cursor users who prefer structured tool calls, add to `~/.claude/settings.json`:
 
 ```json
 {
@@ -120,29 +100,18 @@ Add to `~/.claude/settings.json`:
 }
 ```
 
-### When to Fall Back to CLI
-
-- MCP server fails to start or crashes mid-session
-- Need operations not yet exposed via MCP (create, delete, snapshot, clone, migrate, vSAN, Aria, VKS)
-- Need daemon/scan features (`scan now`, `daemon start`)
-- Debugging connection issues (CLI gives more verbose output)
-
-```bash
-# Activate venv and run CLI
-source /path/to/VMware-AIops/.venv/bin/activate
-vmware-aiops inventory vms --target home-esxi
-```
+MCP exposes 9 tools: `list_virtual_machines`, `list_esxi_hosts`, `list_all_datastores`, `list_all_clusters`, `get_alarms`, `get_events`, `vm_info`, `vm_power_on`, `vm_power_off`. All accept optional `target` parameter.
 
 ## Architecture
 
 ```
 User (Natural Language)
   ↓
-AI CLI Tool (Claude Code / Gemini / Codex / Aider / Continue / Trae / Kimi)
+AI Tool (Claude Code / Aider / Gemini / Codex / Cursor / Trae / Kimi)
   ↓
-  ├─ MCP mode (default): MCP Server (stdio) ──→ pyVmomi ──→ vSphere API
+  ├─ CLI mode (default): vmware-aiops CLI ──→ pyVmomi ──→ vSphere API
   │
-  └─ CLI fallback: vmware-aiops CLI ──→ pyVmomi ──→ vSphere API
+  └─ MCP mode (optional): MCP Server (stdio) ──→ pyVmomi ──→ vSphere API
   ↓
 vCenter Server ──→ ESXi Clusters ──→ VMs
     or

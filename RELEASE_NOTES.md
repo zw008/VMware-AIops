@@ -2,6 +2,23 @@
 
 ---
 
+## v0.5.5 — 2026-03-05
+
+### Usage Mode Optimization / 使用模式优化
+
+- **Platform-aware calling priority / 按平台推荐调用模式**: Claude Code and Cursor users get MCP-first experience (structured tool calls, no interactive confirmation needed). Aider, Codex, Gemini CLI, and local models (Ollama) default to CLI mode for lower context overhead and universal compatibility.
+  Claude Code / Cursor 用户推荐 MCP 优先（结构化调用，无需交互确认）。Aider、Codex、Gemini CLI 及本地模型（Ollama）默认 CLI 模式，上下文开销更低，兼容性更强。
+
+- **Install order update / 安装顺序调整**: Skills.sh (`npx skills add`) is now the primary install method; ClawHub as secondary option.
+  Skills.sh 安装方式提升为首选；ClawHub 作为备选。
+
+- **MCP load tip / MCP 加载提示**: Added tip for MCP-native tools to check MCP server status (`/mcp`) before use.
+  新增 MCP 原生工具的加载状态检查提示。
+
+**Files updated / 变更文件**: `skills/vmware-aiops/SKILL.md`, `plugins/.../SKILL.md`, `README.md`, `README-CN.md`
+
+---
+
 ## v0.5.4 — 2026-03-03
 
 ### Security Hardening: Prompt Injection Protection / 安全加固：Prompt 注入防护

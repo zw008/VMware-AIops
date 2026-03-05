@@ -16,11 +16,11 @@ AI-powered VMware vCenter/ESXi monitoring and operations tool.
 Works with Claude Code, Cursor, Codex, Gemini CLI, Trae, and 30+ AI agents:
 
 ```bash
-# Via ClawHub (recommended)
-clawhub install vmware-aiops
-
 # Via Skills.sh
 npx skills add zw008/VMware-AIops
+
+# Via ClawHub
+clawhub install vmware-aiops
 ```
 
 ### Claude Code Plugin Install
