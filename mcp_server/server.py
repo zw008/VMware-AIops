@@ -1,19 +1,25 @@
 """MCP server wrapping VMware AIops operations.
 
 This module exposes VMware vCenter/ESXi inventory, health monitoring,
-and VM lifecycle tools via the Model Context Protocol (MCP) using stdio
-transport.  It acts as a thin adapter layer — each ``@mcp.tool()``
-function simply delegates to the corresponding function in the
-``vmware_aiops`` package (ops.inventory, ops.health, ops.vm_lifecycle).
+VM lifecycle, datastore browsing, and VM deployment tools via the Model
+Context Protocol (MCP) using stdio transport.  It acts as a thin adapter
+layer — each ``@mcp.tool()`` function simply delegates to the
+corresponding function in the ``vmware_aiops`` package.
+
+Tool categories
+---------------
+* **Read-only** (no side effects): list_*, get_*, browse_*, scan_*
+* **Write / Deploy** (mutate state): vm_power_*, deploy_*, attach_*,
+  batch_*, convert_*  — should be gated by the AI agent's confirmation
+  flow.
 
 Security considerations
 -----------------------
-* **Read vs Write tools**: Read-only tools (list_*, get_*) have no side
-  effects.  Write tools (vm_power_on, vm_power_off) mutate VM state and
-  should be gated by the AI agent's confirmation flow.
 * **Credential handling**: Credentials are loaded from environment
   variables / ``.env`` file — never passed via MCP messages.
 * **Transport**: Uses stdio transport (local only); no network listener.
+* **Destructive ops**: Deploy and batch operations create VMs and consume
+  resources; confirmation is recommended before execution.
 
 Source: https://github.com/zw008/VMware-AIops
 License: MIT
@@ -26,12 +32,11 @@ import os
 from pathlib import Path
 from typing import Any
 
-# MCP SDK — Model Context Protocol server framework
 from mcp.server.fastmcp import FastMCP
 
-# Internal VMware operations modules
 from vmware_aiops.config import load_config
 from vmware_aiops.connection import ConnectionManager
+from vmware_aiops.ops import datastore_browser, vm_deploy
 from vmware_aiops.ops.health import get_active_alarms, get_recent_events
 from vmware_aiops.ops.inventory import (
     list_clusters,
@@ -51,7 +56,9 @@ mcp = FastMCP(
     "vmware-aiops",
     instructions=(
         "VMware vCenter/ESXi AI-powered monitoring and operations. "
-        "Query inventory, check health/alarms, and manage VM power state."
+        "Query inventory, check health/alarms, manage VM power state, "
+        "browse datastores for images, and deploy VMs via OVA, template, "
+        "linked clone, or batch YAML spec."
     ),
 )
 
@@ -199,6 +206,289 @@ def vm_power_off(
     """
     si = _get_connection(target)
     return power_off_vm(si, vm_name, force=force)
+
+
+# ---------------------------------------------------------------------------
+# Datastore tools
+# ---------------------------------------------------------------------------
+
+
+@mcp.tool()
+def browse_datastore(
+    datastore_name: str,
+    path: str = "",
+    pattern: str = "*",
+    target: str | None = None,
+) -> list[dict]:
+    """Browse files in a vSphere datastore directory.
+
+    Use this to discover OVA, ISO, VMDK, and other files on datastores
+    before deploying VMs.
+
+    Args:
+        datastore_name: Name of the datastore to browse.
+        path: Subdirectory path (empty string for root).
+        pattern: Glob pattern to filter files (e.g. "*.ova", "*.iso", "*").
+        target: Optional vCenter/ESXi target name from config.
+    """
+    si = _get_connection(target)
+    return datastore_browser.browse_datastore(si, datastore_name, path=path, pattern=pattern)
+
+
+@mcp.tool()
+def scan_datastore_images(target: str | None = None) -> dict:
+    """Scan all accessible datastores for deployable images (OVA/ISO/OVF/VMDK).
+
+    Results are cached locally in ~/.vmware-aiops/image_registry.json for
+    fast lookup via list_cached_images. Run this to refresh the cache.
+
+    Args:
+        target: Optional vCenter/ESXi target name from config.
+    """
+    si = _get_connection(target)
+    return datastore_browser.update_registry(si)
+
+
+@mcp.tool()
+def list_cached_images(
+    image_type: str | None = None,
+    datastore: str | None = None,
+) -> list[dict]:
+    """List deployable images from the local registry cache.
+
+    Run scan_datastore_images first to populate the cache.
+
+    Args:
+        image_type: Filter by extension: "ova", "iso", "ovf", or "vmdk".
+        datastore: Filter by datastore name.
+    """
+    return datastore_browser.list_images(image_type=image_type, datastore=datastore)
+
+
+# ---------------------------------------------------------------------------
+# Deploy tools
+# ---------------------------------------------------------------------------
+
+
+@mcp.tool()
+def deploy_vm_from_ova(
+    ova_path: str,
+    vm_name: str,
+    datastore_name: str,
+    network_name: str = "VM Network",
+    folder_path: str | None = None,
+    power_on: bool = False,
+    snapshot_name: str | None = None,
+    target: str | None = None,
+) -> str:
+    """Deploy a VM from a local OVA file.
+
+    Parses the OVF descriptor, creates import spec, uploads VMDKs via
+    HTTP NFC lease. Optionally powers on and creates a baseline snapshot.
+
+    Args:
+        ova_path: Local file path to the .ova file.
+        vm_name: Desired name for the new VM.
+        datastore_name: Target datastore for the VM.
+        network_name: Network to attach (default "VM Network").
+        folder_path: VM folder path in vCenter (optional).
+        power_on: Power on after deployment.
+        snapshot_name: Create a baseline snapshot with this name (optional).
+        target: Optional vCenter/ESXi target name from config.
+    """
+    si = _get_connection(target)
+    return vm_deploy.deploy_ova(
+        si, ova_path=ova_path, vm_name=vm_name,
+        datastore_name=datastore_name, network_name=network_name,
+        folder_path=folder_path, power_on=power_on,
+        snapshot_name=snapshot_name,
+    )
+
+
+@mcp.tool()
+def deploy_vm_from_template(
+    template_name: str,
+    new_name: str,
+    datastore_name: str | None = None,
+    cpu: int | None = None,
+    memory_mb: int | None = None,
+    power_on: bool = False,
+    snapshot_name: str | None = None,
+    target: str | None = None,
+) -> str:
+    """Deploy a new VM by cloning from a vSphere template.
+
+    Args:
+        template_name: Name of the source vSphere template.
+        new_name: Name for the new VM.
+        datastore_name: Target datastore (uses template's datastore if omitted).
+        cpu: Override CPU count (optional).
+        memory_mb: Override memory in MB (optional).
+        power_on: Power on after deployment.
+        snapshot_name: Create a baseline snapshot with this name (optional).
+        target: Optional vCenter/ESXi target name from config.
+    """
+    si = _get_connection(target)
+    return vm_deploy.deploy_from_template(
+        si, template_name=template_name, new_name=new_name,
+        datastore_name=datastore_name, cpu=cpu, memory_mb=memory_mb,
+        power_on=power_on, snapshot_name=snapshot_name,
+    )
+
+
+@mcp.tool()
+def deploy_linked_clone(
+    source_vm_name: str,
+    snapshot_name: str,
+    new_name: str,
+    cpu: int | None = None,
+    memory_mb: int | None = None,
+    power_on: bool = False,
+    baseline_snapshot: str | None = None,
+    target: str | None = None,
+) -> str:
+    """Create a linked clone from a VM snapshot (near-instant, minimal disk).
+
+    Linked clones share the source disk and use copy-on-write delta disks.
+    This is the fastest provisioning method.
+
+    Args:
+        source_vm_name: Source VM to clone from.
+        snapshot_name: Snapshot on the source VM to use as clone base.
+        new_name: Name for the new linked clone.
+        cpu: Override CPU count (optional).
+        memory_mb: Override memory in MB (optional).
+        power_on: Power on after creation.
+        baseline_snapshot: Create a new snapshot on the clone (optional).
+        target: Optional vCenter/ESXi target name from config.
+    """
+    si = _get_connection(target)
+    return vm_deploy.linked_clone(
+        si, source_vm_name=source_vm_name, new_name=new_name,
+        snapshot_name=snapshot_name, cpu=cpu, memory_mb=memory_mb,
+        power_on=power_on, baseline_snapshot=baseline_snapshot,
+    )
+
+
+@mcp.tool()
+def attach_iso_to_vm(
+    vm_name: str,
+    iso_ds_path: str,
+    target: str | None = None,
+) -> str:
+    """Attach an ISO from a datastore to a VM's CD-ROM drive.
+
+    Args:
+        vm_name: Target VM name.
+        iso_ds_path: Datastore path, e.g. "[datastore1] iso/ubuntu.iso".
+        target: Optional vCenter/ESXi target name from config.
+    """
+    si = _get_connection(target)
+    return vm_deploy.attach_iso(si, vm_name, iso_ds_path)
+
+
+@mcp.tool()
+def convert_vm_to_template(
+    vm_name: str,
+    target: str | None = None,
+) -> str:
+    """Convert a powered-off VM to a vSphere template.
+
+    After conversion the VM cannot be powered on — it serves as a
+    clone source for deploy_vm_from_template.
+
+    Args:
+        vm_name: Name of the VM to convert (must be powered off).
+        target: Optional vCenter/ESXi target name from config.
+    """
+    si = _get_connection(target)
+    return vm_deploy.convert_to_template(si, vm_name)
+
+
+@mcp.tool()
+def batch_clone_vms(
+    source_vm_name: str,
+    vm_names: list[str],
+    cpu: int | None = None,
+    memory_mb: int | None = None,
+    snapshot_name: str | None = None,
+    power_on: bool = False,
+    target: str | None = None,
+) -> list[dict]:
+    """Batch clone multiple VMs from a source VM (gold image).
+
+    Each clone: full copy → optional reconfigure → optional snapshot → optional power on.
+
+    Args:
+        source_vm_name: Source VM to clone from.
+        vm_names: List of names for the new VMs.
+        cpu: Override CPU count for all clones (optional).
+        memory_mb: Override memory for all clones (optional).
+        snapshot_name: Create a baseline snapshot on each clone (optional).
+        power_on: Power on each clone after creation.
+        target: Optional vCenter/ESXi target name from config.
+    """
+    si = _get_connection(target)
+    return vm_deploy.batch_clone(
+        si, source_vm_name=source_vm_name, vm_names=vm_names,
+        cpu=cpu, memory_mb=memory_mb,
+        snapshot_name=snapshot_name, power_on=power_on,
+    )
+
+
+@mcp.tool()
+def batch_linked_clone_vms(
+    source_vm_name: str,
+    snapshot_name: str,
+    vm_names: list[str],
+    cpu: int | None = None,
+    memory_mb: int | None = None,
+    power_on: bool = False,
+    baseline_snapshot: str | None = None,
+    target: str | None = None,
+) -> list[dict]:
+    """Batch create linked clones from a VM snapshot (fastest batch provisioning).
+
+    Each clone shares the source disk via copy-on-write.
+
+    Args:
+        source_vm_name: Source VM to clone from.
+        snapshot_name: Snapshot to use as clone base.
+        vm_names: List of names for the new linked clones.
+        cpu: Override CPU count (optional).
+        memory_mb: Override memory (optional).
+        power_on: Power on each clone.
+        baseline_snapshot: Create a new snapshot on each clone (optional).
+        target: Optional vCenter/ESXi target name from config.
+    """
+    si = _get_connection(target)
+    return vm_deploy.batch_linked_clone(
+        si, source_vm_name=source_vm_name, snapshot_name=snapshot_name,
+        vm_names=vm_names, cpu=cpu, memory_mb=memory_mb,
+        power_on=power_on, baseline_snapshot=baseline_snapshot,
+    )
+
+
+@mcp.tool()
+def batch_deploy_from_spec(
+    spec_path: str,
+    target: str | None = None,
+) -> list[dict]:
+    """Batch deploy VMs from a YAML specification file.
+
+    The YAML spec supports all provisioning channels:
+    - source: clone from a VM
+    - template: clone from a vSphere template
+    - linked_clone: instant clone from a snapshot
+    - Per-VM ova: deploy from OVA file
+    - Fallback: create empty VMs (optionally with ISO)
+
+    Args:
+        spec_path: Path to the deploy.yaml specification file.
+        target: Optional vCenter/ESXi target name from config.
+    """
+    si = _get_connection(target)
+    return vm_deploy.batch_deploy(si, spec_path)
 
 
 # ---------------------------------------------------------------------------

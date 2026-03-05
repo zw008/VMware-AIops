@@ -1,6 +1,6 @@
 {
   "name": "vmware-ops",
-  "version": "0.5.5",
+  "version": "0.6.0",
   "description": "VMware vCenter/ESXi AI-powered operations plugin. Full operations including inventory, health monitoring, and VM lifecycle management. / VMware AI 运维插件。完整运维功能，包含资产查询、健康监控及 VM 生命周期管理。",
   "author": {
     "name": "Wei Zhou / 周崴",

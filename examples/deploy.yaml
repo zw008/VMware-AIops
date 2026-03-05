@@ -1,0 +1,85 @@
+# VM Batch Deployment Specification
+# Usage: vmware-aiops deploy batch deploy.yaml
+#
+# Provisioning channels (pick one at top level):
+#   source: vm-name          → Full clone from VM
+#   template: template-name  → Clone from vSphere template
+#   linked_clone:            → Linked clone from snapshot (fastest)
+#     source: vm-name
+#     snapshot: snap-name
+#   (none)                   → Create empty VMs (with optional ISO per VM)
+
+# ─── Example 1: Linked Clone (fastest, sandbox use case) ─────────────────────
+
+# linked_clone:
+#   source: sandbox-golden
+#   snapshot: clean-slate
+#
+# defaults:
+#   cpu: 4
+#   memory_mb: 8192
+#   snapshot: baseline
+#   power_on: true
+#
+# vms:
+#   - name: sandbox-01
+#   - name: sandbox-02
+#   - name: sandbox-03
+#     cpu: 8
+#     memory_mb: 16384
+
+# ─── Example 2: Template deploy ──────────────────────────────────────────────
+
+# template: ubuntu-24.04-template
+#
+# defaults:
+#   cpu: 4
+#   memory_mb: 8192
+#   datastore: datastore1
+#   snapshot: clean-slate
+#   power_on: true
+#
+# vms:
+#   - name: dev-vm-01
+#   - name: dev-vm-02
+
+# ─── Example 3: Full clone from gold image ──────────────────────────────────
+
+# source: golden-ubuntu
+#
+# defaults:
+#   cpu: 2
+#   memory_mb: 4096
+#   snapshot: baseline
+#
+# vms:
+#   - name: test-01
+#   - name: test-02
+
+# ─── Example 4: Mixed - empty VMs with ISO/OVA ──────────────────────────────
+
+defaults:
+  cpu: 4
+  memory_mb: 8192
+  disk_gb: 100
+  network: "VM Network"
+  datastore: datastore1
+  snapshot: clean-slate
+  power_on: false
+
+vms:
+  # Linux VM with ISO
+  - name: sandbox-linux-01
+    iso: "[datastore1] iso/ubuntu-24.04-server.iso"
+
+  # Windows VM with ISO
+  - name: sandbox-win-01
+    cpu: 8
+    memory_mb: 16384
+    disk_gb: 200
+    guest_id: windows2019srv_64Guest
+    iso: "[datastore1] iso/windows-server-2022.iso"
+
+  # VM from OVA (per-VM override)
+  - name: sandbox-appliance-01
+    ova: /tmp/my-appliance.ova
