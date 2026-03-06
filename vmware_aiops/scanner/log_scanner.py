@@ -9,6 +9,7 @@ output from untrusted vSphere data.
 
 from __future__ import annotations
 
+import logging
 import re
 from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING
@@ -20,6 +21,8 @@ from vmware_aiops.ops.health import CRITICAL_EVENTS, WARNING_EVENTS
 
 if TYPE_CHECKING:
     from pyVmomi.vim import ServiceInstance
+
+_log = logging.getLogger("vmware-aiops.log-scanner")
 
 # Regex to strip ALL control characters (C0, C1, DEL) except newline/tab
 _CONTROL_CHAR_RE = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f]")
@@ -115,6 +118,7 @@ def scan_host_logs(
                     key=log_key, start=max(1, lines)
                 )
             except Exception:
+                _log.debug("Failed to browse %s log on %s", log_key, host.name, exc_info=True)
                 continue
 
             if not log_data or not log_data.lineText:
@@ -167,5 +171,5 @@ def _safe_entity_name(event) -> str:
         if hasattr(event, "ds") and event.ds:
             return event.ds.name
     except Exception:
-        pass
+        _log.debug("Failed to extract entity name from event", exc_info=True)
     return "N/A"

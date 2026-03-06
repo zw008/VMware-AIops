@@ -45,6 +45,11 @@ _log = logging.getLogger("vmware-aiops.deploy")
 # ─── OVA Deploy ──────────────────────────────────────────────────────────────
 
 
+def _safe_tar_member(member: tarfile.TarInfo) -> bool:
+    """Reject tar members with path traversal attempts (CVE-2007-4559)."""
+    return not (member.name.startswith("/") or ".." in member.name)
+
+
 def _read_ovf_from_ova(ova_path: str) -> tuple[str, dict[str, int]]:
     """Extract OVF descriptor and disk file info from an OVA (tar archive).
 
@@ -59,6 +64,9 @@ def _read_ovf_from_ova(ova_path: str) -> tuple[str, dict[str, int]]:
 
     with tarfile.open(ova_path, "r") as tar:
         for member in tar.getmembers():
+            if not _safe_tar_member(member):
+                _log.warning("Skipping unsafe tar member: %s", member.name)
+                continue
             if member.name.endswith(".ovf"):
                 f = tar.extractfile(member)
                 if f:
@@ -82,11 +90,17 @@ def _upload_disk(
     """Upload a VMDK from an OVA to the vSphere HTTP NFC lease URL."""
     with tarfile.open(ova_path, "r") as tar:
         member = tar.getmember(disk_name)
+        if not _safe_tar_member(member):
+            raise ValueError(f"Unsafe tar member path: {disk_name}")
         f = tar.extractfile(member)
         if f is None:
             raise ValueError(f"Cannot extract {disk_name} from OVA")
 
         data = f.read()
+
+    # Validate upload URL scheme — only HTTPS allowed (B310)
+    if not upload_url.lower().startswith("https://"):
+        raise ValueError(f"Refusing non-HTTPS upload URL: {upload_url}")
 
     req = Request(
         upload_url,
@@ -98,12 +112,13 @@ def _upload_disk(
         },
     )
 
+    # SSL verification disabled for ESXi self-signed certificates only
     import ssl
     ctx = ssl.create_default_context()
     ctx.check_hostname = False
-    ctx.verify_mode = ssl.CERT_NONE
+    ctx.verify_mode = ssl.CERT_NONE  # nosec B501 — ESXi self-signed certs
 
-    urlopen(req, context=ctx)
+    urlopen(req, context=ctx)  # nosec B310 — scheme validated above
 
 
 def deploy_ova(
