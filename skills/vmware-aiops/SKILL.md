@@ -9,6 +9,7 @@ description: >
 installer:
   kind: uv
   package: vmware-aiops
+metadata: {"openclaw":{"requires":{"env":["VMWARE_AIOPS_CONFIG"],"bins":["vmware-aiops"],"config":["~/.vmware-aiops/config.yaml"]},"primaryEnv":"VMWARE_AIOPS_CONFIG"}}
 ---
 
 # VMware AIops
