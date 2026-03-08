@@ -1,3 +1,4 @@
+<!-- mcp-name: io.github.zw008/vmware-aiops -->
 # VMware AIops
 
 English | [中文](README-CN.md)
@@ -241,6 +242,30 @@ ESXi Standalone Host ──→ VM
 | Skill system | SKILL.md | Extension | SKILL.md | — | Rules | Rules | SKILL.md |
 | MCP support | Native | Native | Via Skills | Third-party | Native | — | — |
 | Free tier | — | 60 req/min | — | Self-hosted | Self-hosted | — | — |
+
+### MCP Server Integrations
+
+The vmware-aiops MCP server works with **any MCP-compatible agent or tool**. Ready-to-use configuration templates are in [`examples/mcp-configs/`](examples/mcp-configs/).
+
+| Agent / Tool | Local Model Support | Config Template |
+|-------------|:-------------------:|-----------------|
+| **[Goose](https://github.com/block/goose)** | ✅ Ollama, LM Studio | [`goose.json`](examples/mcp-configs/goose.json) |
+| **[LocalCowork](https://github.com/Liquid4All/localcowork)** | ✅ Fully offline | [`localcowork.json`](examples/mcp-configs/localcowork.json) |
+| **[mcp-agent](https://github.com/lastmile-ai/mcp-agent)** | ✅ Ollama, vLLM | [`mcp-agent.yaml`](examples/mcp-configs/mcp-agent.yaml) |
+| **VS Code Copilot** | — | [`.vscode/mcp.json`](examples/mcp-configs/vscode-copilot.json) |
+| **Cursor** | — | [`cursor.json`](examples/mcp-configs/cursor.json) |
+| **Continue** | ✅ Ollama | [`continue.yaml`](examples/mcp-configs/continue.yaml) |
+| **Claude Code** | — | [`claude-code.json`](examples/mcp-configs/claude-code.json) |
+
+**Fully local operation** (no cloud API required):
+
+```bash
+# Aider + Ollama + vmware-aiops (via AGENTS.md)
+aider --conventions codex-skill/AGENTS.md --model ollama/qwen2.5-coder:32b
+
+# Any MCP agent + local model + vmware-aiops MCP server
+# See examples/mcp-configs/ for your agent's config format
+```
 
 ---
 
