@@ -301,8 +301,11 @@ VMWARE_{TARGET_NAME_UPPER}_PASSWORD
 - **NEVER** pass passwords as command-line arguments (visible in `ps`)
 - **ALWAYS** use `~/.vmware-aiops/.env` with `chmod 600`
 - **ALWAYS** configure connections via `config.yaml` — credentials are loaded from `.env` automatically
+- **Config File Contents**: `config.yaml` stores target hostnames, ports, and a reference to the `.env` file. It does **not** contain passwords or tokens. All secrets are stored exclusively in `.env`
 - **TLS**: Enabled by default. Disable only for ESXi hosts with self-signed certificates in isolated lab environments
-- **Webhook**: Sends notifications to your own configured URL only — no data sent to third-party services by default
+- **Webhook**: Disabled by default. When enabled, sends monitoring summaries to your own configured URL only — payloads contain no credentials, IPs, or PII, only aggregated alert metadata. No data sent to third-party services
+- **Least Privilege**: Use a dedicated vCenter service account with minimal permissions. For monitoring-only use cases, prefer the read-only [VMware-Monitor](https://github.com/zw008/VMware-Monitor)
+- **Prompt Injection Protection**: All vSphere-sourced content is truncated, stripped of control characters, and wrapped in boundary markers before output
 - **Code Review**: We recommend reviewing the [source code](https://github.com/zw008/VMware-AIops) and commit history before deploying in production
 
 ### Step 3: Connect Your AI Tool
