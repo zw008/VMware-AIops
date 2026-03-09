@@ -44,6 +44,8 @@ from vmware_aiops.ops.inventory import (
     list_hosts,
     list_vms,
 )
+from vmware_aiops.ops.plan_executor import apply_plan, rollback_plan
+from vmware_aiops.ops.planner import create_plan, list_plans
 from vmware_aiops.ops.vm_lifecycle import (
     get_vm_info,
     power_off_vm,
@@ -574,6 +576,100 @@ def vm_clean_slate(
     from vmware_aiops.ops.vm_lifecycle import clean_slate
     si = _get_connection(target)
     return clean_slate(si, vm_name, snapshot_name=snapshot_name)
+
+
+# ---------------------------------------------------------------------------
+# Plan → Apply tools
+# ---------------------------------------------------------------------------
+
+
+@mcp.tool()
+def vm_create_plan(
+    operations: list[dict[str, Any]],
+    target: str | None = None,
+) -> dict:
+    """Create an execution plan for multi-step VM operations.
+
+    Auto-triggered when operations involve 2+ steps or 2+ VMs.
+    Validates actions, checks target existence in vSphere, and generates
+    a plan with rollback info for each step.
+
+    Each operation is a dict with "action" key plus action-specific params.
+    Allowed actions: power_on, power_off, reset, suspend, create_vm,
+    delete_vm, reconfigure, create_snapshot, delete_snapshot,
+    revert_snapshot, clone, migrate, deploy_ova, deploy_template,
+    linked_clone, attach_iso, convert_to_template.
+
+    Example:
+        operations=[
+            {"action": "power_off", "vm_name": "test-1"},
+            {"action": "revert_snapshot", "vm_name": "test-1", "snapshot_name": "baseline"},
+            {"action": "power_on", "vm_name": "test-1"}
+        ]
+
+    Returns plan dict with plan_id, steps, summary (vms_affected,
+    irreversible_steps, rollback_available). Show to user for confirmation
+    before calling vm_apply_plan.
+
+    Args:
+        operations: List of operation dicts, each with "action" + params.
+        target: Optional vCenter/ESXi target name from config.
+    """
+    si = _get_connection(target)
+    return create_plan(si, operations, target=target)
+
+
+@mcp.tool()
+def vm_apply_plan(plan_id: str, target: str | None = None) -> dict:
+    """Execute a previously created plan step by step.
+
+    Steps run sequentially. On failure: stops immediately, keeps the plan
+    file with per-step results, and returns rollback_available flag.
+    On success: deletes the plan file.
+
+    If a step fails and rollback_available is true, ask the user whether
+    to rollback, then call vm_rollback_plan if confirmed.
+
+    Args:
+        plan_id: The plan ID returned by vm_create_plan.
+        target: Optional vCenter/ESXi target name from config.
+    """
+    si = _get_connection(target)
+    result = apply_plan(si, plan_id)
+
+    # If failed with rollback available, hint to the agent
+    if result.get("status") == "failed" and result.get("rollback_available"):
+        result["hint"] = (
+            "Plan failed. Ask the user: 'Do you want to rollback the "
+            "already-executed steps?' If yes, call vm_rollback_plan."
+        )
+    return result
+
+
+@mcp.tool()
+def vm_rollback_plan(plan_id: str, target: str | None = None) -> dict:
+    """Rollback executed steps of a failed plan in reverse order.
+
+    Only call this after vm_apply_plan returns status='failed' and the
+    user confirms they want to rollback. Irreversible steps (delete_vm,
+    revert_snapshot, etc.) are skipped with a warning.
+
+    Args:
+        plan_id: The plan ID of the failed plan.
+        target: Optional vCenter/ESXi target name from config.
+    """
+    si = _get_connection(target)
+    return rollback_plan(si, plan_id)
+
+
+@mcp.tool()
+def vm_list_plans() -> list[dict]:
+    """List all pending/failed plans.
+
+    Returns plan summaries (plan_id, created_at, status, steps count,
+    VMs affected). Stale plans (>24h) are auto-cleaned.
+    """
+    return list_plans()
 
 
 # ---------------------------------------------------------------------------

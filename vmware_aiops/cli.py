@@ -1270,6 +1270,40 @@ def daemon_stop() -> None:
     pid_file.unlink(missing_ok=True)
 
 
+# ─── Plan ─────────────────────────────────────────────────────────────────────
+
+
+plan_app = typer.Typer(help="Plan → Apply: view and manage operation plans.")
+app.add_typer(plan_app, name="plan")
+
+
+@plan_app.command("list")
+def plan_list() -> None:
+    """List all pending/failed operation plans."""
+    from vmware_aiops.ops.planner import list_plans
+
+    plans = list_plans()
+    if not plans:
+        console.print("[dim]No plans found.[/dim]")
+        return
+    table = Table(title="Operation Plans")
+    table.add_column("Plan ID", style="cyan")
+    table.add_column("Created", style="dim")
+    table.add_column("Status")
+    table.add_column("Steps", justify="right")
+    table.add_column("VMs Affected")
+    for p in plans:
+        status_style = "green" if p["status"] == "pending" else "red"
+        table.add_row(
+            p["plan_id"],
+            p["created_at"],
+            f"[{status_style}]{p['status']}[/]",
+            str(p["total_steps"]),
+            ", ".join(p["vms_affected"]),
+        )
+    console.print(table)
+
+
 # ─── MCP Config Generator ────────────────────────────────────────────────────
 
 mcp_config_app = typer.Typer(help="Generate MCP server config for local AI agents.")
