@@ -1,6 +1,6 @@
 {
   "name": "vmware-aiops",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "description": "VMware vCenter/ESXi AI-powered monitoring and operations",
   "contextFileName": "GEMINI.md"
 }
