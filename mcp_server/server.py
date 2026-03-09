@@ -44,6 +44,7 @@ from vmware_aiops.ops.inventory import (
     list_hosts,
     list_vms,
 )
+from vmware_aiops.ops.guest_ops import guest_download, guest_exec, guest_upload
 from vmware_aiops.ops.plan_executor import apply_plan, rollback_plan
 from vmware_aiops.ops.planner import create_plan, list_plans
 from vmware_aiops.ops.vm_lifecycle import (
@@ -576,6 +577,98 @@ def vm_clean_slate(
     from vmware_aiops.ops.vm_lifecycle import clean_slate
     si = _get_connection(target)
     return clean_slate(si, vm_name, snapshot_name=snapshot_name)
+
+
+# ---------------------------------------------------------------------------
+# Guest Operations tools
+# ---------------------------------------------------------------------------
+
+
+@mcp.tool()
+def vm_guest_exec(
+    vm_name: str,
+    command: str,
+    arguments: str = "",
+    username: str = "root",
+    password: str = "",
+    working_directory: str | None = None,
+    target: str | None = None,
+) -> dict:
+    """Execute a command inside a VM via VMware Tools.
+
+    Requires VMware Tools running in the guest OS.
+    Returns exit_code, stdout, stderr, and timed_out flag.
+
+    Note: VMware Guest Ops API does not capture stdout/stderr directly.
+    To capture output, redirect to a file and use vm_guest_download:
+        command="/bin/bash", arguments="-c 'ls -la /tmp > /tmp/output.txt'"
+        Then download /tmp/output.txt.
+
+    Args:
+        vm_name: Target VM name.
+        command: Full path to program (e.g. "/bin/bash", "C:\\Windows\\System32\\cmd.exe").
+        arguments: Command arguments (e.g. "-c 'whoami'").
+        username: Guest OS username (default "root").
+        password: Guest OS password.
+        working_directory: Working directory inside guest (optional).
+        target: Optional vCenter/ESXi target name from config.
+    """
+    si = _get_connection(target)
+    return guest_exec(
+        si, vm_name, command, username, password,
+        arguments=arguments,
+        working_directory=working_directory,
+    )
+
+
+@mcp.tool()
+def vm_guest_upload(
+    vm_name: str,
+    local_path: str,
+    guest_path: str,
+    username: str = "root",
+    password: str = "",
+    target: str | None = None,
+) -> str:
+    """Upload a file from local machine to a VM via VMware Tools.
+
+    Requires VMware Tools running in the guest OS.
+
+    Args:
+        vm_name: Target VM name.
+        local_path: Local file path to upload.
+        guest_path: Destination path inside the guest.
+        username: Guest OS username (default "root").
+        password: Guest OS password.
+        target: Optional vCenter/ESXi target name from config.
+    """
+    si = _get_connection(target)
+    return guest_upload(si, vm_name, local_path, guest_path, username, password)
+
+
+@mcp.tool()
+def vm_guest_download(
+    vm_name: str,
+    guest_path: str,
+    local_path: str,
+    username: str = "root",
+    password: str = "",
+    target: str | None = None,
+) -> str:
+    """Download a file from a VM to local machine via VMware Tools.
+
+    Requires VMware Tools running in the guest OS.
+
+    Args:
+        vm_name: Target VM name.
+        guest_path: File path inside the guest to download.
+        local_path: Local destination path.
+        username: Guest OS username (default "root").
+        password: Guest OS password.
+        target: Optional vCenter/ESXi target name from config.
+    """
+    si = _get_connection(target)
+    return guest_download(si, vm_name, guest_path, local_path, username, password)
 
 
 # ---------------------------------------------------------------------------

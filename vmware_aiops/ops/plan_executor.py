@@ -35,6 +35,7 @@ def _dispatch(si: ServiceInstance, action: str, params: dict[str, Any]) -> str:
         revert_to_snapshot,
         suspend_vm,
     )
+    from vmware_aiops.ops.guest_ops import guest_download, guest_exec, guest_upload
     from vmware_aiops.ops.vm_deploy import (
         attach_iso,
         convert_to_template,
@@ -104,6 +105,20 @@ def _dispatch(si: ServiceInstance, action: str, params: dict[str, Any]) -> str:
         ),
         "attach_iso": lambda: attach_iso(si, params["vm_name"], params["iso_ds_path"]),
         "convert_to_template": lambda: convert_to_template(si, params["vm_name"]),
+        "guest_exec": lambda: guest_exec(
+            si, params["vm_name"], params["command"],
+            params["username"], params["password"],
+            arguments=params.get("arguments", ""),
+            working_directory=params.get("working_directory"),
+        ),
+        "guest_upload": lambda: guest_upload(
+            si, params["vm_name"], params["local_path"],
+            params["guest_path"], params["username"], params["password"],
+        ),
+        "guest_download": lambda: guest_download(
+            si, params["vm_name"], params["guest_path"],
+            params["local_path"], params["username"], params["password"],
+        ),
     }
 
     handler = dispatch_table.get(action)

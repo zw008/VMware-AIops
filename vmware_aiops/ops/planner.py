@@ -116,6 +116,21 @@ _ACTION_SCHEMA: dict[str, dict[str, Any]] = {
         "optional": [],
         "rollback": None,
     },
+    "guest_exec": {
+        "required": ["vm_name", "command", "username", "password"],
+        "optional": ["arguments", "working_directory"],
+        "rollback": None,
+    },
+    "guest_upload": {
+        "required": ["vm_name", "local_path", "guest_path", "username", "password"],
+        "optional": [],
+        "rollback": None,
+    },
+    "guest_download": {
+        "required": ["vm_name", "guest_path", "local_path", "username", "password"],
+        "optional": [],
+        "rollback": None,
+    },
 }
 
 
