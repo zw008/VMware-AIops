@@ -23,6 +23,7 @@ def _get_objects(si: ServiceInstance, obj_type: list, recursive: bool = True) ->
 
 
 _VM_SORT_KEYS = {"name", "cpu", "memory_mb", "power_state"}
+_COMPACT_FIELDS = ("name", "power_state", "cpu", "memory_mb")
 
 
 def list_vms(
@@ -31,17 +32,29 @@ def list_vms(
     sort_by: str = "name",
     power_state: str | None = None,
     fields: list[str] | None = None,
-) -> list[dict]:
+    compact_threshold: int = 50,
+) -> dict:
     """List virtual machines with optional filtering, sorting, and field selection.
+
+    Returns a dict with keys:
+        total   - total VMs after filtering
+        mode    - "full" or "compact" (auto-selected when total > compact_threshold)
+        vms     - list of VM dicts
+        hint    - optional suggestion when compact mode is auto-selected
+
+    Auto-compact: when no explicit limit/fields are set and total VMs exceed
+    compact_threshold (default 50), only compact fields are returned to keep
+    context manageable. Use limit or fields to override.
 
     Args:
         si: vSphere ServiceInstance.
         limit: Max number of VMs to return (None = all).
         sort_by: Sort field: "name" | "cpu" | "memory_mb" | "power_state".
         power_state: Filter by power state: "poweredOn" | "poweredOff" | "suspended".
-        fields: Return only these fields (None = all fields).
+        fields: Return only these fields (None = auto).
             Available: name, power_state, cpu, memory_mb, guest_os, ip_address,
                        host, uuid, tools_status.
+        compact_threshold: Auto-compact when VM count exceeds this (default 50).
     """
     vms = _get_objects(si, [vim.VirtualMachine])
     results = []
@@ -68,19 +81,35 @@ def list_vms(
     sort_key = sort_by if sort_by in _VM_SORT_KEYS else "name"
     results = sorted(results, key=lambda x: x[sort_key])
 
+    total = len(results)
+
     # Limit
     if limit is not None and limit > 0:
         results = results[:limit]
 
-    # Field selection
-    if fields:
-        valid = {"name", "power_state", "cpu", "memory_mb", "guest_os",
-                 "ip_address", "host", "uuid", "tools_status"}
-        keep = [f for f in fields if f in valid]
-        if keep:
-            results = [{k: r[k] for k in keep if k in r} for r in results]
+    # Determine mode and field selection
+    explicit_fields = bool(fields)
+    explicit_limit = limit is not None and limit > 0
 
-    return results
+    if not explicit_fields and not explicit_limit and total > compact_threshold:
+        # Auto-compact: large inventory, no explicit constraints
+        mode = "compact"
+        results = [{k: r[k] for k in _COMPACT_FIELDS if k in r} for r in results]
+        hint = (
+            f"Large inventory ({total} VMs): showing compact fields only. "
+            "Use --limit N or --fields to get full details."
+        )
+    else:
+        mode = "full"
+        hint = None
+        if fields:
+            valid = {"name", "power_state", "cpu", "memory_mb", "guest_os",
+                     "ip_address", "host", "uuid", "tools_status"}
+            keep = [f for f in fields if f in valid]
+            if keep:
+                results = [{k: r[k] for k in keep if k in r} for r in results]
+
+    return {"total": total, "mode": mode, "vms": results, "hint": hint}
 
 
 def list_hosts(si: ServiceInstance) -> list[dict]:

@@ -167,8 +167,15 @@ def inventory_vms(
     from vmware_aiops.ops.inventory import list_vms
 
     si, _ = _get_connection(target, config)
-    vms = list_vms(si, limit=limit, sort_by=sort_by, power_state=power_state)
-    title = "Virtual Machines"
+    result = list_vms(si, limit=limit, sort_by=sort_by, power_state=power_state)
+    vms = result["vms"]
+    total = result["total"]
+    mode = result["mode"]
+    hint = result["hint"]
+    title = f"Virtual Machines ({total} total"
+    if mode == "compact":
+        title += ", compact mode"
+    title += ")"
     if power_state:
         title += f" [{power_state}]"
     if limit:
@@ -178,19 +185,24 @@ def inventory_vms(
     table.add_column("Power")
     table.add_column("CPUs", justify="right")
     table.add_column("Memory (MB)", justify="right")
-    table.add_column("Guest OS")
-    table.add_column("IP Address")
+    if mode == "full":
+        table.add_column("Guest OS")
+        table.add_column("IP Address")
     for vm in vms:
         power_style = "green" if vm["power_state"] == "poweredOn" else "red"
-        table.add_row(
+        row = [
             vm["name"],
             f"[{power_style}]{vm['power_state']}[/]",
-            str(vm["cpu"]),
-            str(vm["memory_mb"]),
-            vm["guest_os"],
-            vm["ip_address"] or "-",
-        )
+            str(vm.get("cpu", "-")),
+            str(vm.get("memory_mb", "-")),
+        ]
+        if mode == "full":
+            row.append(vm.get("guest_os", "-"))
+            row.append(vm.get("ip_address") or "-")
+        table.add_row(*row)
     console.print(table)
+    if hint:
+        console.print(f"[yellow]ℹ {hint}[/yellow]")
 
 
 @inventory_app.command("hosts")

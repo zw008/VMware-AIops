@@ -92,19 +92,20 @@ def list_virtual_machines(
     sort_by: str = "name",
     power_state: str | None = None,
     fields: list[str] | None = None,
-) -> list[dict]:
+) -> dict:
     """List virtual machines with optional filtering, sorting, and field selection.
 
-    For large inventories, use limit + fields to keep context compact.
-    Example: limit=10, sort_by="memory_mb", fields=["name","memory_mb","power_state"]
-    returns the 10 VMs sorted by memory with only 3 fields each.
+    Returns a dict: {total, mode, vms, hint}.
+    Auto-compact: when no limit/fields are set and inventory exceeds 50 VMs,
+    returns compact fields (name, power_state, cpu, memory_mb) to keep context
+    manageable. Set limit or fields to override.
 
     Args:
         target: Optional vCenter/ESXi target name from config. Uses default if omitted.
         limit: Max number of VMs to return (None = all).
         sort_by: Sort field: "name" | "cpu" | "memory_mb" | "power_state".
         power_state: Filter by power state: "poweredOn" | "poweredOff" | "suspended".
-        fields: Return only these fields (None = all).
+        fields: Return only these fields (None = auto-select based on inventory size).
             Available: name, power_state, cpu, memory_mb, guest_os, ip_address,
                        host, uuid, tools_status.
     """
