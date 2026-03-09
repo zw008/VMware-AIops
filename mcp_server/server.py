@@ -86,14 +86,30 @@ def _get_connection(target: str | None = None) -> Any:
 
 
 @mcp.tool()
-def list_virtual_machines(target: str | None = None) -> list[dict]:
-    """List all virtual machines with name, power state, CPU, memory, guest OS, and IP.
+def list_virtual_machines(
+    target: str | None = None,
+    limit: int | None = None,
+    sort_by: str = "name",
+    power_state: str | None = None,
+    fields: list[str] | None = None,
+) -> list[dict]:
+    """List virtual machines with optional filtering, sorting, and field selection.
+
+    For large inventories, use limit + fields to keep context compact.
+    Example: limit=10, sort_by="memory_mb", fields=["name","memory_mb","power_state"]
+    returns the 10 VMs sorted by memory with only 3 fields each.
 
     Args:
         target: Optional vCenter/ESXi target name from config. Uses default if omitted.
+        limit: Max number of VMs to return (None = all).
+        sort_by: Sort field: "name" | "cpu" | "memory_mb" | "power_state".
+        power_state: Filter by power state: "poweredOn" | "poweredOff" | "suspended".
+        fields: Return only these fields (None = all).
+            Available: name, power_state, cpu, memory_mb, guest_os, ip_address,
+                       host, uuid, tools_status.
     """
     si = _get_connection(target)
-    return list_vms(si)
+    return list_vms(si, limit=limit, sort_by=sort_by, power_state=power_state, fields=fields)
 
 
 @mcp.tool()

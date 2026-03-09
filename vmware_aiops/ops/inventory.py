@@ -22,13 +22,32 @@ def _get_objects(si: ServiceInstance, obj_type: list, recursive: bool = True) ->
         container.Destroy()
 
 
-def list_vms(si: ServiceInstance) -> list[dict]:
-    """List all virtual machines with basic info."""
+_VM_SORT_KEYS = {"name", "cpu", "memory_mb", "power_state"}
+
+
+def list_vms(
+    si: ServiceInstance,
+    limit: int | None = None,
+    sort_by: str = "name",
+    power_state: str | None = None,
+    fields: list[str] | None = None,
+) -> list[dict]:
+    """List virtual machines with optional filtering, sorting, and field selection.
+
+    Args:
+        si: vSphere ServiceInstance.
+        limit: Max number of VMs to return (None = all).
+        sort_by: Sort field: "name" | "cpu" | "memory_mb" | "power_state".
+        power_state: Filter by power state: "poweredOn" | "poweredOff" | "suspended".
+        fields: Return only these fields (None = all fields).
+            Available: name, power_state, cpu, memory_mb, guest_os, ip_address,
+                       host, uuid, tools_status.
+    """
     vms = _get_objects(si, [vim.VirtualMachine])
     results = []
     for vm in vms:
         config = vm.config
-        results.append({
+        entry = {
             "name": vm.name,
             "power_state": str(vm.runtime.powerState),
             "cpu": config.hardware.numCPU if config else 0,
@@ -38,8 +57,30 @@ def list_vms(si: ServiceInstance) -> list[dict]:
             "host": vm.runtime.host.name if vm.runtime.host else "N/A",
             "uuid": config.uuid if config else "N/A",
             "tools_status": str(vm.guest.toolsRunningStatus) if vm.guest else "N/A",
-        })
-    return sorted(results, key=lambda x: x["name"])
+        }
+        results.append(entry)
+
+    # Filter by power state
+    if power_state:
+        results = [r for r in results if power_state.lower() in r["power_state"].lower()]
+
+    # Sort
+    sort_key = sort_by if sort_by in _VM_SORT_KEYS else "name"
+    results = sorted(results, key=lambda x: x[sort_key])
+
+    # Limit
+    if limit is not None and limit > 0:
+        results = results[:limit]
+
+    # Field selection
+    if fields:
+        valid = {"name", "power_state", "cpu", "memory_mb", "guest_os",
+                 "ip_address", "host", "uuid", "tools_status"}
+        keep = [f for f in fields if f in valid]
+        if keep:
+            results = [{k: r[k] for k in keep if k in r} for r in results]
+
+    return results
 
 
 def list_hosts(si: ServiceInstance) -> list[dict]:

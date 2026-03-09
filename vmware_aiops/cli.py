@@ -156,13 +156,24 @@ def _double_confirm(action: str, vm_name: str, target: str = "default") -> None:
 
 
 @inventory_app.command("vms")
-def inventory_vms(target: TargetOption = None, config: ConfigOption = None) -> None:
-    """List all virtual machines."""
+def inventory_vms(
+    target: TargetOption = None,
+    config: ConfigOption = None,
+    limit: Annotated[int | None, typer.Option("--limit", "-n", help="Max VMs to show")] = None,
+    sort_by: Annotated[str, typer.Option("--sort-by", help="Sort by: name|cpu|memory_mb|power_state")] = "name",
+    power_state: Annotated[str | None, typer.Option("--power-state", help="Filter: poweredOn|poweredOff|suspended")] = None,
+) -> None:
+    """List virtual machines."""
     from vmware_aiops.ops.inventory import list_vms
 
     si, _ = _get_connection(target, config)
-    vms = list_vms(si)
-    table = Table(title="Virtual Machines")
+    vms = list_vms(si, limit=limit, sort_by=sort_by, power_state=power_state)
+    title = "Virtual Machines"
+    if power_state:
+        title += f" [{power_state}]"
+    if limit:
+        title += f" (top {limit})"
+    table = Table(title=title)
     table.add_column("Name", style="cyan")
     table.add_column("Power")
     table.add_column("CPUs", justify="right")
@@ -1335,6 +1346,20 @@ def mcp_config_list() -> None:
     for agent_name, template in sorted(_AGENT_TEMPLATES.items()):
         table.add_row(agent_name, template)
     console.print(table)
+
+
+@app.command("doctor")
+def doctor_cmd(
+    skip_auth: Annotated[
+        bool,
+        typer.Option("--skip-auth", help="Skip vSphere authentication check (faster)"),
+    ] = False,
+) -> None:
+    """Check environment, config, connectivity, and daemon status."""
+    import sys
+    from vmware_aiops.doctor import run_doctor
+    exit_code = run_doctor(skip_auth=skip_auth)
+    raise typer.Exit(exit_code)
 
 
 if __name__ == "__main__":
