@@ -49,6 +49,17 @@ clawhub install vmware-aiops
 
 ## 功能总览
 
+### CLI vs MCP：如何选择
+
+| 场景 | 推荐模式 | 原因 |
+|------|:-------:|------|
+| **本地/小模型**（Ollama、Qwen <32B） | **CLI** | 上下文占用 ~2K tokens vs MCP ~10K；小模型难以处理 31 个工具 schema |
+| **Token 敏感场景** | **CLI** | SKILL.md + Bash = 最小开销 |
+| **云端大模型**（Claude、GPT-4o） | 均可 | MCP 提供结构化 JSON 输入输出 |
+| **自动化管道 / Agent 链式调用** | **MCP** | 类型安全参数，结构化输出，无需 Shell 解析 |
+
+> **经验法则**：追求成本和兼容性选 CLI，追求结构化自动化选 MCP。
+
 ### 架构
 
 ```
@@ -114,6 +125,24 @@ ESXi 独立主机 ──→ VM
 | **取消 TTL** | `vm cancel-ttl <name>` | — | ✅ | ✅ |
 | **列出 TTL** | `vm list-ttl` | — | ✅ | ✅ |
 | **Clean Slate** | `vm clean-slate <name> [--snapshot baseline]` | 双重 | ✅ | ✅ |
+| **Guest 执行** | `vm guest-exec <name> --cmd /bin/bash --args "..."` | — | ✅ | ✅ |
+| **Guest 上传** | `vm guest-upload <name> --local f.sh --guest /tmp/f.sh` | — | ✅ | ✅ |
+| **Guest 下载** | `vm guest-download <name> --guest /var/log/syslog --local ./syslog` | — | ✅ | ✅ |
+
+> Guest Operations 需要 VM 内运行 VMware Tools。
+
+### Plan → Apply（多步操作编排）
+
+当操作涉及 2+ 步骤或 2+ 台 VM 时，自动使用 plan/apply 工作流：
+
+| 步骤 | 说明 |
+|------|------|
+| 1. **创建 Plan** | AI 调用 `vm_create_plan` — 校验操作、检查 vSphere 中目标是否存在、生成带回滚信息的 plan |
+| 2. **审查** | AI 展示 plan 给用户：步骤、影响的 VM、不可逆操作警告 |
+| 3. **执行** | `vm_apply_plan` 按顺序执行；某步失败立即停止 |
+| 4. **回滚**（如失败） | 询问用户是否回滚，`vm_rollback_plan` 逆序撤销已执行步骤（不可逆操作跳过） |
+
+Plan 存储在 `~/.vmware-aiops/plans/`，成功后自动删除，超过 24 小时自动清理。
 
 ### 4. VM 部署与制备
 
@@ -471,6 +500,14 @@ vmware-aiops vm set-ttl <name> --minutes 60     # 60 分钟后自动删除
 vmware-aiops vm cancel-ttl <name>              # 取消 TTL
 vmware-aiops vm list-ttl                       # 查看所有 TTL
 vmware-aiops vm clean-slate <name> --snapshot baseline  # 恢复基线快照（双重确认）
+
+# Guest Operations（需要 VMware Tools）
+vmware-aiops vm guest-exec my-vm --cmd /bin/bash --args "-c 'whoami'" --user root
+vmware-aiops vm guest-upload my-vm --local ./script.sh --guest /tmp/script.sh --user root
+vmware-aiops vm guest-download my-vm --guest /var/log/syslog --local ./syslog.txt --user root
+
+# Plan → Apply（多步操作编排）
+vmware-aiops plan list                                # 查看待执行/失败的 plan
 
 # 部署
 vmware-aiops deploy ova ./ubuntu.ova --name my-vm --datastore ds1      # 从 OVA 部署

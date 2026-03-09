@@ -41,6 +41,17 @@ clawhub install vmware-aiops
 
 ## Capabilities Overview
 
+### CLI vs MCP: Which Mode to Use
+
+| Scenario | Recommended | Why |
+|----------|:-----------:|-----|
+| **Local/small models** (Ollama, Qwen <32B) | **CLI** | ~2K tokens context vs ~10K for MCP; small models struggle with 31 tool schemas |
+| **Token-sensitive workflows** | **CLI** | SKILL.md + Bash tool = minimal overhead |
+| **Cloud models** (Claude, GPT-4o) | Either | Both work; MCP gives structured JSON I/O |
+| **Automated pipelines / Agent chaining** | **MCP** | Type-safe parameters, structured output, no shell parsing |
+
+> **Rule of thumb**: Use CLI for cost efficiency and small models. Use MCP for structured automation with large models.
+
 ### Architecture
 
 ```
@@ -120,6 +131,24 @@ ESXi Standalone Host ──→ VM
 | **Cancel TTL** | `vm cancel-ttl <name>` | — | ✅ | ✅ |
 | **List TTLs** | `vm list-ttl` | — | ✅ | ✅ |
 | **Clean Slate** | `vm clean-slate <name> [--snapshot baseline]` | Double | ✅ | ✅ |
+| **Guest Exec** | `vm guest-exec <name> --cmd /bin/bash --args "..."` | — | ✅ | ✅ |
+| **Guest Upload** | `vm guest-upload <name> --local f.sh --guest /tmp/f.sh` | — | ✅ | ✅ |
+| **Guest Download** | `vm guest-download <name> --guest /var/log/syslog --local ./syslog` | — | ✅ | ✅ |
+
+> Guest Operations require VMware Tools running inside the guest OS.
+
+### Plan → Apply (Multi-step Operations)
+
+For complex operations involving 2+ steps or 2+ VMs, use the plan/apply workflow instead of executing individually:
+
+| Step | What Happens |
+|------|-------------|
+| 1. **Create Plan** | AI calls `vm_create_plan` — validates actions, checks targets in vSphere, generates plan with rollback info |
+| 2. **Review** | AI shows plan to user: steps, affected VMs, irreversible warnings |
+| 3. **Apply** | `vm_apply_plan` executes sequentially; stops on failure |
+| 4. **Rollback** (if failed) | Asks user whether to rollback, then `vm_rollback_plan` reverses executed steps (irreversible steps skipped) |
+
+Plans stored in `~/.vmware-aiops/plans/`, auto-deleted on success, auto-cleaned after 24h.
 
 ### 4. VM Deployment & Provisioning
 
@@ -770,6 +799,14 @@ vmware-aiops vm set-ttl my-vm --minutes 60                     # Auto-delete in 
 vmware-aiops vm cancel-ttl my-vm                               # Cancel TTL
 vmware-aiops vm list-ttl                                       # Show all TTLs
 vmware-aiops vm clean-slate my-vm --snapshot baseline          # Revert to baseline (2x confirm)
+
+# Guest Operations (requires VMware Tools in guest)
+vmware-aiops vm guest-exec my-vm --cmd /bin/bash --args "-c 'whoami'" --user root
+vmware-aiops vm guest-upload my-vm --local ./script.sh --guest /tmp/script.sh --user root
+vmware-aiops vm guest-download my-vm --guest /var/log/syslog --local ./syslog.txt --user root
+
+# Plan → Apply (multi-step operations)
+vmware-aiops plan list                                        # List pending/failed plans
 
 # Deploy
 vmware-aiops deploy ova ./ubuntu.ova --name my-vm --datastore ds1      # Deploy from OVA
