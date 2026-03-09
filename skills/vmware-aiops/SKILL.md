@@ -276,6 +276,25 @@ ESXi Standalone ──→ VMs
 | MCP Server | ✅ MCP Protocol | `mcp_server/` |
 | Python CLI | ✅ Standalone | N/A |
 
+### MCP Server — Local Agent Compatibility
+
+The MCP server works with any MCP-compatible agent via stdio transport. Config templates in `examples/mcp-configs/`:
+
+| Agent | Local Models | Config Template |
+|-------|:----------:|-----------------|
+| Goose (Block) | ✅ Ollama, LM Studio | `goose.json` |
+| LocalCowork (Liquid AI) | ✅ Fully offline | `localcowork.json` |
+| mcp-agent (LastMile AI) | ✅ Ollama, vLLM | `mcp-agent.yaml` |
+| VS Code Copilot | — | `vscode-copilot.json` |
+| Cursor | — | `cursor.json` |
+| Continue | ✅ Ollama | `continue.yaml` |
+| Claude Code | — | `claude-code.json` |
+
+```bash
+# Example: Aider + Ollama (fully local, no cloud API)
+aider --conventions codex-skill/AGENTS.md --model ollama/qwen2.5-coder:32b
+```
+
 ## CLI Reference
 
 ```bash
