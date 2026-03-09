@@ -116,6 +116,10 @@ ESXi Standalone Host ──→ VM
 | Delete Snapshot | `vm snapshot-delete <name> --name <snap>` | — | ✅ | ✅ |
 | Clone VM | `vm clone <name> --new-name <new>` | — | ✅ | ✅ |
 | vMotion | `vm migrate <name> --to-host <host>` | — | ✅ | ❌ |
+| **Set TTL** | `vm set-ttl <name> --minutes <n>` | — | ✅ | ✅ |
+| **Cancel TTL** | `vm cancel-ttl <name>` | — | ✅ | ✅ |
+| **List TTLs** | `vm list-ttl` | — | ✅ | ✅ |
+| **Clean Slate** | `vm clean-slate <name> [--snapshot baseline]` | Double | ✅ | ✅ |
 
 ### 4. VM Deployment & Provisioning
 
@@ -727,8 +731,19 @@ User → Aider CLI → Ollama (localhost:11434) → Qwen / DeepSeek local model
 ## CLI Reference
 
 ```bash
+# Diagnostics
+vmware-aiops doctor                   # Check environment, config, connectivity
+vmware-aiops doctor --skip-auth       # Skip vSphere auth check (faster)
+
+# MCP Config Generator
+vmware-aiops mcp-config generate --agent goose        # Generate config for Goose
+vmware-aiops mcp-config generate --agent claude-code  # Generate config for Claude Code
+vmware-aiops mcp-config list                          # List all supported agents
+
 # Inventory
 vmware-aiops inventory vms                          # List VMs
+vmware-aiops inventory vms --limit 10 --sort-by memory_mb  # Top 10 VMs by memory
+vmware-aiops inventory vms --power-state poweredOn  # Only powered-on VMs
 vmware-aiops inventory hosts --target prod-vcenter  # List hosts
 vmware-aiops inventory datastores                   # List datastores
 vmware-aiops inventory clusters                     # List clusters
@@ -751,6 +766,10 @@ vmware-aiops vm snapshot-revert my-vm --name "before-upgrade"  # Revert snapshot
 vmware-aiops vm snapshot-delete my-vm --name "before-upgrade"  # Delete snapshot
 vmware-aiops vm clone my-vm --new-name my-vm-clone             # Clone VM
 vmware-aiops vm migrate my-vm --to-host esxi-02                # vMotion
+vmware-aiops vm set-ttl my-vm --minutes 60                     # Auto-delete in 60 min
+vmware-aiops vm cancel-ttl my-vm                               # Cancel TTL
+vmware-aiops vm list-ttl                                       # Show all TTLs
+vmware-aiops vm clean-slate my-vm --snapshot baseline          # Revert to baseline (2x confirm)
 
 # Deploy
 vmware-aiops deploy ova ./ubuntu.ova --name my-vm --datastore ds1      # Deploy from OVA

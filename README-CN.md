@@ -110,6 +110,10 @@ ESXi 独立主机 ──→ VM
 | 恢复快照 | `vm snapshot-revert <name> --name <snap>` | — | ✅ | ✅ |
 | 克隆 | `vm clone <name> --new-name <new>` | — | ✅ | ✅ |
 | 迁移 | `vm migrate <name> --to-host <host>` | — | ✅ | ❌ |
+| **设置 TTL** | `vm set-ttl <name> --minutes <n>` | — | ✅ | ✅ |
+| **取消 TTL** | `vm cancel-ttl <name>` | — | ✅ | ✅ |
+| **列出 TTL** | `vm list-ttl` | — | ✅ | ✅ |
+| **Clean Slate** | `vm clean-slate <name> [--snapshot baseline]` | 双重 | ✅ | ✅ |
 
 ### 4. VM 部署与制备
 
@@ -437,8 +441,19 @@ aider --conventions codex-skill/AGENTS.md --model ollama/qwen2.5-coder:32b
 ## CLI 命令参考
 
 ```bash
+# 环境诊断
+vmware-aiops doctor                   # 检查环境、配置、连通性
+vmware-aiops doctor --skip-auth       # 跳过 vSphere 认证检查（更快）
+
+# MCP 配置生成
+vmware-aiops mcp-config generate --agent goose        # 生成 Goose 配置
+vmware-aiops mcp-config generate --agent claude-code  # 生成 Claude Code 配置
+vmware-aiops mcp-config list                          # 列出所有支持的 Agent
+
 # 资源清单
 vmware-aiops inventory vms|hosts|datastores|clusters [--target <name>]
+vmware-aiops inventory vms --limit 10 --sort-by memory_mb  # 按内存排序 Top 10
+vmware-aiops inventory vms --power-state poweredOn         # 只显示开机 VM
 
 # 健康检查
 vmware-aiops health alarms [--target <name>]
@@ -452,6 +467,10 @@ vmware-aiops vm reconfigure <name> --cpu 4 --memory 8192
 vmware-aiops vm snapshot-create|snapshot-list|snapshot-revert|snapshot-delete <name>
 vmware-aiops vm clone <name> --new-name <new>
 vmware-aiops vm migrate <name> --to-host <host>
+vmware-aiops vm set-ttl <name> --minutes 60     # 60 分钟后自动删除
+vmware-aiops vm cancel-ttl <name>              # 取消 TTL
+vmware-aiops vm list-ttl                       # 查看所有 TTL
+vmware-aiops vm clean-slate <name> --snapshot baseline  # 恢复基线快照（双重确认）
 
 # 部署
 vmware-aiops deploy ova ./ubuntu.ova --name my-vm --datastore ds1      # 从 OVA 部署
