@@ -289,6 +289,7 @@ chmod 600 ~/.vmware-aiops/.env
 - **TLS**：默认启用。仅在使用自签名证书的隔离实验环境中才禁用
 - **Webhook**：仅向您自己配置的 URL 发送通知，默认不向第三方服务发送数据
 - **代码审查**：建议在生产部署前审查[源代码](https://github.com/zw008/VMware-AIops)和提交历史
+- **生产环境安全**：生产环境建议使用只读的 [VMware-Monitor](https://github.com/zw008/VMware-Monitor)。AI Agent 可能误解上下文并执行非预期的破坏性操作 — 已有真实案例表明，缺乏隔离的 AI 驱动基础设施工具可能删除生产数据库和整个环境。VMware-Monitor 在代码级别消除此风险：代码库中不存在任何破坏性函数
 
 ### 第 3 步：连接 AI 工具
 
