@@ -52,20 +52,22 @@ clawhub install vmware-aiops
 
 ## Usage Mode
 
-Choose the best mode based on your AI tool:
+Choose the best mode based on your environment:
 
-| Platform | Recommended Mode | Why |
+| Scenario | Recommended Mode | Why |
 |----------|-----------------|-----|
-| Claude Code, Cursor | **MCP** | Structured tool calls, no interactive confirmation needed, seamless experience |
-| Aider, Codex, Gemini CLI, Continue | **CLI** | Lightweight, low context overhead, universal compatibility |
-| Ollama + local models | **CLI** | Minimal context usage, works with any model size |
+| **Cloud models** (Claude, GPT-4o, Gemini) | MCP or CLI | Both work well; MCP gives structured JSON I/O |
+| **Local/small models** (Ollama, Llama, Qwen <32B) | **CLI** | Lower token cost (~2K vs ~10K), higher accuracy — small models struggle with 31 MCP tool schemas |
+| **Token-sensitive workflows** | **CLI** | CLI via SKILL.md uses ~2K tokens; MCP loads ~10K tokens of tool definitions into every conversation |
+| **Automated pipelines / Agent chaining** | **MCP** | Structured JSON input/output, type-safe parameters, no shell parsing |
 
 ### Calling Priority
 
 - **MCP-native tools** (Claude Code, Cursor): MCP first, CLI fallback
-- **All other tools**: CLI first (MCP not needed)
+- **Local models / Token-sensitive**: CLI first (MCP not needed)
+- **All other tools**: CLI first
 
-> **Tip**: If your AI tool supports MCP, check whether `vmware-aiops` MCP server is loaded (`/mcp` in Claude Code). If not, configure it first — MCP provides the best hands-free experience.
+> **Tip**: For token-sensitive scenarios, use CLI mode — the AI reads SKILL.md (~2K tokens) and calls commands via Bash. MCP mode loads all 31 tool schemas (~10K tokens) into context on every conversation turn.
 
 ### CLI Examples
 
@@ -104,9 +106,19 @@ For Claude Code / Cursor users who prefer structured tool calls, add to `~/.clau
 }
 ```
 
-MCP exposes 25 tools: `list_virtual_machines`, `list_esxi_hosts`, `list_all_datastores`, `list_all_clusters`, `get_alarms`, `get_events`, `vm_info`, `vm_power_on`, `vm_power_off`, `browse_datastore`, `scan_datastore_images`, `list_cached_images`, `deploy_vm_from_ova`, `deploy_vm_from_template`, `deploy_linked_clone`, `attach_iso_to_vm`, `convert_vm_to_template`, `batch_clone_vms`, `batch_linked_clone_vms`, `batch_deploy_from_spec`, `vm_set_ttl`, `vm_cancel_ttl`, `vm_list_ttl`, `vm_clean_slate`. All accept optional `target` parameter.
+MCP exposes 31 tools across 6 categories. All accept optional `target` parameter.
 
-`list_virtual_machines` supports `limit`, `sort_by`, `power_state`, `fields` for compact context in large inventories.
+| Category | Tools |
+|----------|-------|
+| Inventory | `list_virtual_machines`, `list_esxi_hosts`, `list_all_datastores`, `list_all_clusters` |
+| Health | `get_alarms`, `get_events`, `vm_info` |
+| VM Lifecycle | `vm_power_on`, `vm_power_off`, `vm_set_ttl`, `vm_cancel_ttl`, `vm_list_ttl`, `vm_clean_slate` |
+| Deployment | `deploy_vm_from_ova`, `deploy_vm_from_template`, `deploy_linked_clone`, `attach_iso_to_vm`, `convert_vm_to_template`, `batch_clone_vms`, `batch_linked_clone_vms`, `batch_deploy_from_spec` |
+| Guest Operations | `vm_guest_exec`, `vm_guest_upload`, `vm_guest_download` |
+| Plan → Apply | `vm_create_plan`, `vm_apply_plan`, `vm_rollback_plan`, `vm_list_plans` |
+| Datastore | `browse_datastore`, `scan_datastore_images`, `list_cached_images` |
+
+`list_virtual_machines` auto-compacts when inventory exceeds 50 VMs (returns compact fields only). Use `limit` or `fields` to override.
 
 ## Architecture
 
@@ -178,6 +190,24 @@ ESXi Standalone ──→ VMs
 | Cancel TTL | `vm cancel-ttl <name>` | — | ✅ | ✅ |
 | List TTLs | `vm list-ttl` | — | ✅ | ✅ |
 | Clean Slate | `vm clean-slate <name> [--snapshot baseline]` | Double | ✅ | ✅ |
+| Guest Exec | `vm guest-exec <name> --cmd /bin/bash --args "-c 'whoami'"` | — | ✅ | ✅ |
+| Guest Upload | `vm guest-upload <name> --local f.sh --guest /tmp/f.sh` | — | ✅ | ✅ |
+| Guest Download | `vm guest-download <name> --guest /var/log/syslog --local ./syslog` | — | ✅ | ✅ |
+
+> Guest Operations require VMware Tools running inside the guest OS.
+
+### Plan → Apply (Multi-step Operations)
+
+For complex operations involving 2+ steps or 2+ VMs, use the plan/apply workflow:
+
+| Step | MCP Tool / CLI | Description |
+|------|---------------|-------------|
+| 1. Create Plan | `vm_create_plan` | Validates actions, checks targets in vSphere, generates plan with rollback info |
+| 2. Review | — | AI shows plan to user: steps, affected VMs, irreversible warnings |
+| 3. Apply | `vm_apply_plan` | Executes sequentially; stops on failure |
+| 4. Rollback (if failed) | `vm_rollback_plan` | Asks user, then reverses executed steps (skips irreversible) |
+
+Plans are stored in `~/.vmware-aiops/plans/`, deleted on success, auto-cleaned after 24h.
 
 ### 4. VM Deployment & Provisioning
 
@@ -338,6 +368,14 @@ vmware-aiops vm set-ttl <vm-name> --minutes <n>
 vmware-aiops vm cancel-ttl <vm-name>
 vmware-aiops vm list-ttl
 vmware-aiops vm clean-slate <vm-name> [--snapshot baseline]
+
+# Guest Operations (requires VMware Tools)
+vmware-aiops vm guest-exec <vm-name> --cmd /bin/bash --args "-c 'ls -la /tmp'" --user root
+vmware-aiops vm guest-upload <vm-name> --local ./script.sh --guest /tmp/script.sh --user root
+vmware-aiops vm guest-download <vm-name> --guest /var/log/syslog --local ./syslog.txt --user root
+
+# Plan → Apply (multi-step operations)
+vmware-aiops plan list
 
 # Deploy
 vmware-aiops deploy ova <path> --name <vm-name> [--datastore <ds>] [--network <net>]
