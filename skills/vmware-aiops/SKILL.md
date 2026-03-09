@@ -104,7 +104,9 @@ For Claude Code / Cursor users who prefer structured tool calls, add to `~/.clau
 }
 ```
 
-MCP exposes 20 tools: `list_virtual_machines`, `list_esxi_hosts`, `list_all_datastores`, `list_all_clusters`, `get_alarms`, `get_events`, `vm_info`, `vm_power_on`, `vm_power_off`, `browse_datastore`, `scan_datastore_images`, `list_cached_images`, `deploy_vm_from_ova`, `deploy_vm_from_template`, `deploy_linked_clone`, `attach_iso_to_vm`, `convert_vm_to_template`, `batch_clone_vms`, `batch_linked_clone_vms`, `batch_deploy_from_spec`. All accept optional `target` parameter.
+MCP exposes 25 tools: `list_virtual_machines`, `list_esxi_hosts`, `list_all_datastores`, `list_all_clusters`, `get_alarms`, `get_events`, `vm_info`, `vm_power_on`, `vm_power_off`, `browse_datastore`, `scan_datastore_images`, `list_cached_images`, `deploy_vm_from_ova`, `deploy_vm_from_template`, `deploy_linked_clone`, `attach_iso_to_vm`, `convert_vm_to_template`, `batch_clone_vms`, `batch_linked_clone_vms`, `batch_deploy_from_spec`, `vm_set_ttl`, `vm_cancel_ttl`, `vm_list_ttl`, `vm_clean_slate`. All accept optional `target` parameter.
+
+`list_virtual_machines` supports `limit`, `sort_by`, `power_state`, `fields` for compact context in large inventories.
 
 ## Architecture
 
@@ -172,6 +174,10 @@ ESXi Standalone ──→ VMs
 | Delete Snapshot | `vm snapshot-delete <name> --name <snap>` | — | ✅ | ✅ |
 | Clone VM | `vm clone <name> --new-name <new>` | — | ✅ | ✅ |
 | vMotion | `vm migrate <name> --to-host <host>` | — | ✅ | ❌ |
+| Set TTL | `vm set-ttl <name> --minutes <n>` | — | ✅ | ✅ |
+| Cancel TTL | `vm cancel-ttl <name>` | — | ✅ | ✅ |
+| List TTLs | `vm list-ttl` | — | ✅ | ✅ |
+| Clean Slate | `vm clean-slate <name> [--snapshot baseline]` | Double | ✅ | ✅ |
 
 ### 4. VM Deployment & Provisioning
 
@@ -298,8 +304,15 @@ aider --conventions codex-skill/AGENTS.md --model ollama/qwen2.5-coder:32b
 ## CLI Reference
 
 ```bash
+# Diagnostics
+vmware-aiops doctor [--skip-auth]
+
+# MCP Config Generator
+vmware-aiops mcp-config generate --agent <goose|cursor|claude-code|continue|vscode-copilot|localcowork|mcp-agent>
+vmware-aiops mcp-config list
+
 # Inventory
-vmware-aiops inventory vms [--target <name>]
+vmware-aiops inventory vms [--target <name>] [--limit <n>] [--sort-by name|cpu|memory_mb|power_state] [--power-state poweredOn|poweredOff]
 vmware-aiops inventory hosts [--target <name>]
 vmware-aiops inventory datastores [--target <name>]
 vmware-aiops inventory clusters [--target <name>]
@@ -321,6 +334,10 @@ vmware-aiops vm snapshot-revert <vm-name> --name <snap-name>
 vmware-aiops vm snapshot-delete <vm-name> --name <snap-name>
 vmware-aiops vm clone <vm-name> --new-name <name>
 vmware-aiops vm migrate <vm-name> --to-host <host>
+vmware-aiops vm set-ttl <vm-name> --minutes <n>
+vmware-aiops vm cancel-ttl <vm-name>
+vmware-aiops vm list-ttl
+vmware-aiops vm clean-slate <vm-name> [--snapshot baseline]
 
 # Deploy
 vmware-aiops deploy ova <path> --name <vm-name> [--datastore <ds>] [--network <net>]
