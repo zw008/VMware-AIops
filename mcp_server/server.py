@@ -492,6 +492,74 @@ def batch_deploy_from_spec(
 
 
 # ---------------------------------------------------------------------------
+# TTL & Clean Slate
+# ---------------------------------------------------------------------------
+
+
+@mcp.tool()
+def vm_set_ttl(
+    vm_name: str,
+    minutes: int,
+    target: str | None = None,
+) -> str:
+    """Set a Time-To-Live (TTL) for a VM. The daemon auto-deletes it when expired.
+
+    The scheduler daemon must be running (`vmware-aiops daemon start`) for
+    automatic deletion. TTLs are persisted in ~/.vmware-aiops/ttl.json.
+
+    Args:
+        vm_name: Name of the VM to auto-delete.
+        minutes: Minutes until deletion (minimum 1).
+        target: Optional vCenter/ESXi target name from config.
+    """
+    from vmware_aiops.ops.ttl import set_ttl as _set_ttl
+    return _set_ttl(vm_name, minutes, target=target)
+
+
+@mcp.tool()
+def vm_cancel_ttl(vm_name: str) -> str:
+    """Cancel an existing TTL for a VM (prevents auto-deletion).
+
+    Args:
+        vm_name: Name of the VM whose TTL should be cancelled.
+    """
+    from vmware_aiops.ops.ttl import cancel_ttl as _cancel_ttl
+    return _cancel_ttl(vm_name)
+
+
+@mcp.tool()
+def vm_list_ttl() -> list[dict]:
+    """List all VMs with TTLs registered, including expiry time and status.
+
+    Returns a list of TTL entries with remaining_minutes and expired flag.
+    """
+    from vmware_aiops.ops.ttl import list_ttl as _list_ttl
+    return _list_ttl()
+
+
+@mcp.tool()
+def vm_clean_slate(
+    vm_name: str,
+    snapshot_name: str = "baseline",
+    target: str | None = None,
+) -> str:
+    """Revert a VM to its baseline snapshot (Clean Slate).
+
+    Powers off the VM first if it is running, then reverts to the named
+    snapshot. Use this to reset a lab/dev VM to a clean starting state
+    after a task completes.
+
+    Args:
+        vm_name: Name of the VM to revert.
+        snapshot_name: Snapshot name to revert to (default: "baseline").
+        target: Optional vCenter/ESXi target name from config.
+    """
+    from vmware_aiops.ops.vm_lifecycle import clean_slate
+    si = _get_connection(target)
+    return clean_slate(si, vm_name, snapshot_name=snapshot_name)
+
+
+# ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
 

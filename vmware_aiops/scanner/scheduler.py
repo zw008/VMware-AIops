@@ -15,6 +15,8 @@ from vmware_aiops.config import AppConfig, load_config
 from vmware_aiops.connection import ConnectionManager
 from vmware_aiops.notify.logger import ScanLogger
 from vmware_aiops.notify.webhook import WebhookNotifier
+from vmware_aiops.ops.ttl import get_expired_entries, remove_entry
+from vmware_aiops.ops.vm_lifecycle import delete_vm
 from vmware_aiops.scanner.alarm_scanner import scan_alarms
 from vmware_aiops.scanner.log_scanner import scan_host_logs, scan_logs
 
@@ -80,6 +82,25 @@ def _run_scan(config: AppConfig, conn_mgr: ConnectionManager) -> None:
         logger.info("Scan complete: all clear")
 
 
+def _run_ttl_check(conn_mgr: ConnectionManager) -> None:
+    """Check for expired VM TTLs and delete them."""
+    expired = get_expired_entries()
+    if not expired:
+        return
+
+    for entry in expired:
+        target = entry.target
+        vm_name = entry.vm_name
+        try:
+            si = conn_mgr.connect(target)
+            result = delete_vm(si, vm_name)
+            logger.info("TTL expired: %s", result)
+        except Exception as e:
+            logger.error("TTL deletion failed for VM '%s': %s", vm_name, e)
+        finally:
+            remove_entry(vm_name)
+
+
 def start_scheduler(config_path: Path | None = None) -> None:
     """Start the blocking scheduler daemon."""
     logging.basicConfig(
@@ -107,6 +128,14 @@ def start_scheduler(config_path: Path | None = None) -> None:
         name="VMware AIops Scanner",
         max_instances=1,
         next_run_time=None,  # Scheduler interval starts after manual first run below
+    )
+    scheduler.add_job(
+        _run_ttl_check,
+        trigger=IntervalTrigger(minutes=1),
+        args=[conn_mgr],
+        id="vmware_ttl",
+        name="VMware AIops TTL Check",
+        max_instances=1,
     )
 
     # Run first scan immediately, then scheduler takes over

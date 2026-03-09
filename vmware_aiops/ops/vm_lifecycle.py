@@ -441,3 +441,34 @@ def migrate_vm(si: ServiceInstance, vm_name: str, target_host_name: str) -> str:
     task = vm.Relocate(spec=relocate_spec)
     _wait_for_task(task, timeout=600)
     return f"VM '{vm_name}' migrated from '{current_host}' to '{target_host_name}'."
+
+
+# ─── Clean Slate ──────────────────────────────────────────────────────────────
+
+
+def clean_slate(
+    si: ServiceInstance,
+    vm_name: str,
+    snapshot_name: str = "baseline",
+) -> str:
+    """Revert VM to a baseline snapshot (Clean Slate).
+
+    Powers off the VM first if it is running, then reverts to the named
+    snapshot.  Intended for lab/dev VMs where you want a clean starting
+    state after a task.
+
+    Args:
+        si: vSphere ServiceInstance.
+        vm_name: Name of the VM to revert.
+        snapshot_name: Snapshot to revert to (default: "baseline").
+    """
+    vm = _require_vm(si, vm_name)
+
+    # Power off if running — revert is more predictable on a powered-off VM
+    if vm.runtime.powerState == vim.VirtualMachine.PowerState.poweredOn:
+        task = vm.PowerOff()
+        _wait_for_task(task)
+
+    # Revert to named snapshot
+    result = revert_to_snapshot(si, vm_name, snapshot_name)
+    return f"Clean Slate: {result}"

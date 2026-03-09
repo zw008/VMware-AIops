@@ -738,6 +738,101 @@ def vm_migrate(
     )
 
 
+# ─── TTL & Clean Slate ────────────────────────────────────────────────────────
+
+
+@vm_app.command("set-ttl")
+def vm_set_ttl(
+    vm_name: str,
+    minutes: Annotated[int, typer.Option("--minutes", "-m", help="Minutes until auto-deletion")],
+    target: TargetOption = None,
+    config: ConfigOption = None,
+) -> None:
+    """Set a TTL for a VM. The daemon will auto-delete it when time expires."""
+    from vmware_aiops.ops.ttl import set_ttl
+
+    result = set_ttl(vm_name, minutes, target=target)
+    console.print(f"[green]{result}[/]")
+    _audit.log(
+        target=_resolve_target(target),
+        operation="vm_set_ttl",
+        resource=vm_name,
+        parameters={"minutes": minutes},
+        result=result,
+    )
+
+
+@vm_app.command("cancel-ttl")
+def vm_cancel_ttl(vm_name: str) -> None:
+    """Cancel an existing TTL for a VM."""
+    from vmware_aiops.ops.ttl import cancel_ttl
+
+    result = cancel_ttl(vm_name)
+    console.print(f"[yellow]{result}[/]")
+
+
+@vm_app.command("list-ttl")
+def vm_list_ttl() -> None:
+    """List all VMs with TTLs registered."""
+    from vmware_aiops.ops.ttl import list_ttl
+
+    entries = list_ttl()
+    if not entries:
+        console.print("[yellow]No TTLs registered.[/]")
+        return
+    table = Table(title="VM TTL Registry")
+    table.add_column("VM Name", style="cyan")
+    table.add_column("Expires At (UTC)")
+    table.add_column("Remaining (min)", justify="right")
+    table.add_column("Target")
+    table.add_column("Status")
+    for e in entries:
+        status = "[red]EXPIRED[/]" if e["expired"] else "[green]active[/]"
+        table.add_row(
+            e["vm_name"],
+            e["expires_at"],
+            str(e["remaining_minutes"]),
+            e["target"] or "(default)",
+            status,
+        )
+    console.print(table)
+
+
+@vm_app.command("clean-slate")
+def vm_clean_slate(
+    vm_name: str,
+    snapshot: Annotated[str, typer.Option("--snapshot", "-s", help="Snapshot name")] = "baseline",
+    target: TargetOption = None,
+    config: ConfigOption = None,
+    dry_run: DryRunOption = False,
+) -> None:
+    """Revert VM to baseline snapshot (Clean Slate). Powers off first if needed."""
+    from vmware_aiops.ops.vm_lifecycle import clean_slate, get_vm_info
+
+    if dry_run:
+        _dry_run_print(
+            target=_resolve_target(target), vm_name=vm_name, operation="clean_slate",
+            api_call="vim.VirtualMachine.PowerOff() + RevertToSnapshot_Task()",
+            parameters={"snapshot": snapshot},
+        )
+        return
+    si, _ = _get_connection(target, config)
+    before = get_vm_info(si, vm_name)
+    _show_state_preview(before, "Clean Slate (恢复基线快照)", vm_name)
+    console.print(f"[bold yellow]  Snapshot: {snapshot}[/]")
+    _double_confirm(f"恢复基线快照 '{snapshot}'", vm_name, _resolve_target(target))
+    result = clean_slate(si, vm_name, snapshot_name=snapshot)
+    console.print(f"[green]{result}[/]")
+    _audit.log(
+        target=_resolve_target(target),
+        operation="clean_slate",
+        resource=vm_name,
+        parameters={"snapshot": snapshot},
+        before_state={"power_state": before.get("power_state")},
+        result=result,
+    )
+
+
 # ─── Datastore ───────────────────────────────────────────────────────────────
 
 
@@ -1150,6 +1245,96 @@ def daemon_stop() -> None:
         console.print(f"[red]Failed to stop daemon: {e}[/]")
         return
     pid_file.unlink(missing_ok=True)
+
+
+# ─── MCP Config Generator ────────────────────────────────────────────────────
+
+mcp_config_app = typer.Typer(help="Generate MCP server config for local AI agents.")
+app.add_typer(mcp_config_app, name="mcp-config")
+
+_AGENT_TEMPLATES = {
+    "goose": "goose.json",
+    "cursor": "cursor.json",
+    "claude-code": "claude-code.json",
+    "continue": "continue.yaml",
+    "vscode-copilot": "vscode-copilot.json",
+    "localcowork": "localcowork.json",
+    "mcp-agent": "mcp-agent.yaml",
+}
+
+_TEMPLATES_DIR = Path(__file__).parent.parent / "examples" / "mcp-configs"
+
+
+@mcp_config_app.command("generate")
+def mcp_config_generate(
+    agent: Annotated[
+        str,
+        typer.Option(
+            "--agent",
+            "-a",
+            help=(
+                "Target agent: goose, cursor, claude-code, continue, "
+                "vscode-copilot, localcowork, mcp-agent"
+            ),
+        ),
+    ],
+    install_path: Annotated[
+        str | None,
+        typer.Option("--path", help="Absolute path to VMware-AIops install dir"),
+    ] = None,
+    output: Annotated[
+        Path | None,
+        typer.Option("--output", "-o", help="Write config to this file path"),
+    ] = None,
+) -> None:
+    """Generate MCP server config for a local AI agent.
+
+    Prints the ready-to-use config to stdout (or writes to --output file).
+    Replace /path/to/VMware-AIops with your actual installation directory.
+
+    Example:
+        vmware-aiops mcp-config generate --agent goose
+    """
+    agent_lower = agent.lower()
+    if agent_lower not in _AGENT_TEMPLATES:
+        available = ", ".join(sorted(_AGENT_TEMPLATES.keys()))
+        console.print(f"[red]Unknown agent '{agent}'. Available: {available}[/]")
+        raise typer.Exit(1)
+
+    template_file = _TEMPLATES_DIR / _AGENT_TEMPLATES[agent_lower]
+    if not template_file.exists():
+        console.print(f"[red]Template file not found: {template_file}[/]")
+        raise typer.Exit(1)
+
+    content = template_file.read_text()
+
+    # Replace placeholder with actual path if provided
+    if install_path:
+        abs_path = str(Path(install_path).resolve())
+        content = content.replace("/path/to/VMware-AIops", abs_path)
+    else:
+        # Try to resolve from package location
+        pkg_dir = Path(__file__).parent.parent.resolve()
+        # Only substitute if it looks like a real install (has pyproject.toml)
+        if (pkg_dir / "pyproject.toml").exists():
+            content = content.replace("/path/to/VMware-AIops", str(pkg_dir))
+
+    if output:
+        output.write_text(content)
+        console.print(f"[green]Config written to: {output}[/]")
+    else:
+        console.print(content)
+
+
+@mcp_config_app.command("list")
+def mcp_config_list() -> None:
+    """List all supported agents."""
+    table = Table(title="Supported Agents")
+    table.add_column("Agent", style="cyan")
+    table.add_column("Template File")
+    for agent_name, template in sorted(_AGENT_TEMPLATES.items()):
+        table.add_row(agent_name, template)
+    console.print(table)
 
 
 if __name__ == "__main__":
