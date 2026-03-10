@@ -11,7 +11,7 @@ license = "MIT"
 requires-python = ">=3.10"
 authors = [{ name = "Wei Zhou / 周崴" }]
 dependencies = [
-    "pyvmomi>=8.0.3.0,<9.0",
+    "pyvmomi>=8.0.3.0,<10.0",
     "pyaml>=24.0,<27.0",
     "typer>=0.12,<1.0",
     "rich>=13.0,<15.0",
@@ -23,7 +23,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
-    "pytest>=8.0,<9.0",
+    "pytest>=8.0,<10.0",
     "pytest-cov>=5.0,<8.0",
     "ruff>=0.5,<1.0",
 ]
