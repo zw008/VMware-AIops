@@ -24,6 +24,19 @@ npx skills add zw008/VMware-AIops
 clawhub install vmware-aiops
 ```
 
+### PyPI Install (No GitHub Access Required)
+
+```bash
+# Install via uv (recommended)
+uv tool install vmware-aiops
+
+# Or via pip
+pip install vmware-aiops
+
+# China mainland mirror (faster)
+pip install vmware-aiops -i https://pypi.tuna.tsinghua.edu.cn/simple
+```
+
 ### Claude Code Plugin Install
 
 ```bash
