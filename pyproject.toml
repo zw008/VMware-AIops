@@ -12,7 +12,7 @@ requires-python = ">=3.10"
 authors = [{ name = "Wei Zhou / 周崴" }]
 dependencies = [
     "pyvmomi>=8.0.3.0,<9.0",
-    "pyaml>=24.0,<26.0",
+    "pyaml>=24.0,<27.0",
     "typer>=0.12,<1.0",
     "rich>=13.0,<14.0",
     "apscheduler>=3.10,<4.0",
