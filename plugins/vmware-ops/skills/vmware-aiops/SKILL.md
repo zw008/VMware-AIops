@@ -9,7 +9,7 @@ description: >
 installer:
   kind: uv
   package: vmware-aiops
-metadata: {"openclaw":{"requires":{"env":["VMWARE_AIOPS_CONFIG"],"bins":["vmware-aiops"],"config":["~/.vmware-aiops/config.yaml"]},"primaryEnv":"VMWARE_AIOPS_CONFIG","homepage":"https://github.com/zw008/VMware-AIops"}}
+metadata: {"openclaw":{"requires":{"env":["VMWARE_AIOPS_CONFIG"],"bins":["vmware-aiops"],"config":["~/.vmware-aiops/config.yaml"]},"primaryEnv":"VMWARE_AIOPS_CONFIG","homepage":"https://github.com/zw008/VMware-AIops","emoji":"🖥️","os":["macos","linux"]}}
 ---
 
 # VMware AIops
@@ -32,14 +32,17 @@ AI-powered VMware vCenter and ESXi operations tool. Manage your entire VMware in
 
 ## Quick Install
 
-Works with Claude Code, Cursor, Codex, Gemini CLI, Trae, Kimi, and 30+ AI agents:
+All install methods fetch from the same source: [github.com/zw008/VMware-AIops](https://github.com/zw008/VMware-AIops) (MIT licensed). We recommend reviewing the source code before installing.
 
 ```bash
-# Via Skills.sh
+# Via Skills.sh (fetches from GitHub)
 npx skills add zw008/VMware-AIops
 
-# Via ClawHub
+# Via ClawHub (fetches from ClawHub registry snapshot of GitHub)
 clawhub install vmware-aiops
+
+# Via PyPI (recommended for version pinning)
+uv tool install vmware-aiops==0.6.0
 ```
 
 ### Claude Code
@@ -419,16 +422,22 @@ vmware-aiops daemon status
 ## Setup
 
 ```bash
-# 1. Install via uv (recommended) or pip
+# 1. Install from PyPI (source: github.com/zw008/VMware-AIops)
 uv tool install vmware-aiops
-# Or: pip install vmware-aiops
 
-# 2. Configure
+# 2. Verify installation source
+vmware-aiops --version  # confirms installed version
+
+# 3. Configure
 mkdir -p ~/.vmware-aiops
 vmware-aiops init  # generates config.yaml and .env templates
 chmod 600 ~/.vmware-aiops/.env
 # Edit ~/.vmware-aiops/config.yaml and .env with your target details
 ```
+
+### What Gets Installed
+
+The `vmware-aiops` package installs a Python CLI binary and its dependencies (pyVmomi, Click, Rich, APScheduler, python-dotenv). No background services, daemons, or system-level changes are made during installation. The scheduled scanner (`daemon start`) only runs when explicitly started by the user.
 
 ### Development Install
 
@@ -441,9 +450,14 @@ uv pip install -e .
 
 ## Security
 
-- **Source Code**: This skill is fully open source at [github.com/zw008/VMware-AIops](https://github.com/zw008/VMware-AIops). The `uv` installer (`vmware-aiops`) installs from this repository. We recommend reviewing the source code and commit history before deploying in production.
-- **TLS Verification**: Enabled by default. The `disableSslCertValidation` option exists solely for ESXi hosts using self-signed certificates (common in home labs). In production, always use CA-signed certificates with full TLS verification.
-- **Config File Contents**: `~/.vmware-aiops/config.yaml` stores target hostnames, ports, and a reference to the `.env` file. It does **not** contain passwords or tokens. All secrets (vCenter username/password) are stored exclusively in `~/.vmware-aiops/.env` (`chmod 600`), loaded via `python-dotenv`. We recommend using a least-privilege vCenter service account — read-only if you only need monitoring.
+- **Source Code**: Fully open source at [github.com/zw008/VMware-AIops](https://github.com/zw008/VMware-AIops) (MIT). The `uv` installer fetches the `vmware-aiops` package from PyPI, which is built from this GitHub repository. We recommend reviewing the source code and commit history before deploying in production.
+- **TLS Verification**: Enabled by default. The `disableSslCertValidation` option exists solely for ESXi hosts using self-signed certificates in isolated lab/home environments. In production, always use CA-signed certificates with full TLS verification.
+- **Credentials & Config**: This skill requires the following secrets, all stored in `~/.vmware-aiops/.env` (`chmod 600`, loaded via `python-dotenv`):
+  - `VSPHERE_USER` — vCenter/ESXi service account username
+  - `VSPHERE_PASSWORD` — service account password
+  - (Optional) Webhook URLs for Slack/Discord notifications
+
+  The config file `~/.vmware-aiops/config.yaml` stores only target hostnames, ports, and a reference to the `.env` file — it does **not** contain passwords or tokens. The env var `VMWARE_AIOPS_CONFIG` points to this YAML file.
 - **Webhook Data Scope**: Webhook notifications are **disabled by default**. When enabled, they send infrastructure health summaries (alarm counts, event types, host status) to **user-configured URLs only** (Slack, Discord, or any HTTP endpoint you control). No data is sent to third-party services. Webhook payloads contain no credentials, IPs, or personally identifiable information — only aggregated alert metadata.
 - **Prompt Injection Protection**: All vSphere-sourced content (event messages, host logs) is truncated, stripped of control characters, and wrapped in boundary markers (`[VSPHERE_EVENT]`/`[VSPHERE_HOST_LOG]`) before output to prevent prompt injection when consumed by LLM agents.
 - **Least Privilege**: Use a dedicated vCenter service account with minimal permissions. For monitoring-only use cases, prefer the read-only [VMware-Monitor](https://github.com/zw008/VMware-Monitor) skill which has zero destructive code paths.
