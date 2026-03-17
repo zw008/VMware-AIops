@@ -4,7 +4,8 @@ description: >
   AI-powered VMware vCenter/ESXi monitoring and operations.
   Manage infrastructure via natural language: inventory queries, health monitoring,
   VM lifecycle (create, delete, power, snapshot, clone, migrate), VM deployment
-  (OVA, template, linked clone, batch), datastore browsing, vSAN management,
+  (OVA, template, linked clone, batch), cluster management (create, HA/DRS),
+  iSCSI configuration, datastore browsing, vSAN management,
   Aria Operations analytics, Kubernetes clusters, and scheduled log scanning.
 installer:
   kind: uv
@@ -24,6 +25,8 @@ AI-powered VMware vCenter and ESXi operations tool. Manage your entire VMware in
 - Check health status, active alarms, hardware sensors, and event logs
 - Perform VM lifecycle operations: power on/off, create, delete, snapshot, clone, migrate
 - Deploy VMs from OVA, templates, linked clones, or batch specs
+- Create and manage clusters: HA/DRS configuration, add/remove hosts
+- Configure iSCSI storage: enable adapter, add/remove targets, rescan
 - Browse datastores and discover ISO/OVA/VMDK images
 - Monitor vSAN health, capacity, disk groups, and performance
 - Access Aria Operations (VCF Operations) for historical metrics, anomaly detection, and capacity planning
@@ -109,7 +112,7 @@ For Claude Code / Cursor users who prefer structured tool calls, add to `~/.clau
 }
 ```
 
-MCP exposes 31 tools across 6 categories. All accept optional `target` parameter.
+MCP exposes 43 tools across 8 categories. All accept optional `target` parameter.
 
 | Category | Tools |
 |----------|-------|
@@ -120,6 +123,8 @@ MCP exposes 31 tools across 6 categories. All accept optional `target` parameter
 | Guest Operations | `vm_guest_exec`, `vm_guest_upload`, `vm_guest_download` |
 | Plan → Apply | `vm_create_plan`, `vm_apply_plan`, `vm_rollback_plan`, `vm_list_plans` |
 | Datastore | `browse_datastore`, `scan_datastore_images`, `list_cached_images` |
+| Cluster | `cluster_create`, `cluster_delete`, `cluster_add_host`, `cluster_remove_host`, `cluster_configure`, `cluster_info` |
+| Storage / iSCSI | `storage_iscsi_enable`, `storage_iscsi_status`, `storage_iscsi_add_target`, `storage_iscsi_remove_target`, `storage_rescan` |
 
 `list_virtual_machines` auto-compacts when inventory exceeds 50 VMs (returns compact fields only). Use `limit` or `fields` to override.
 
@@ -266,7 +271,28 @@ Plans are stored in `~/.vmware-aiops/plans/`, deleted on success, auto-cleaned a
 
 > Kubernetes-native API via kubectl/kubeconfig. VKS 3.6+ uses Cluster API specification.
 
-### 9. Scheduled Scanning & Notifications
+### 9. Cluster Management
+
+| Operation | Command | Confirmation | vCenter | ESXi |
+|-----------|---------|:------------:|:-------:|:----:|
+| Cluster Info | `cluster info <name>` | — | ✅ | ❌ |
+| Create Cluster | `cluster create <name> [--ha] [--drs]` | — | ✅ | ❌ |
+| Delete Cluster | `cluster delete <name>` | Double | ✅ | ❌ |
+| Add Host | `cluster add-host <cluster> --host <host>` | Double | ✅ | ❌ |
+| Remove Host | `cluster remove-host <cluster> --host <host>` | Double | ✅ | ❌ |
+| Configure HA/DRS | `cluster configure <name> [--ha/--no-ha] [--drs/--no-drs]` | Double | ✅ | ❌ |
+
+### 10. Storage / iSCSI Configuration
+
+| Operation | Command | Confirmation | vCenter | ESXi |
+|-----------|---------|:------------:|:-------:|:----:|
+| Enable iSCSI | `storage iscsi-enable <host>` | Double | ✅ | ✅ |
+| iSCSI Status | `storage iscsi-status <host>` | — | ✅ | ✅ |
+| Add Target | `storage iscsi-add-target <host> --address <ip> [--port 3260]` | Double | ✅ | ✅ |
+| Remove Target | `storage iscsi-remove-target <host> --address <ip> [--port 3260]` | Double | ✅ | ✅ |
+| Rescan Storage | `storage rescan <host>` | — | ✅ | ✅ |
+
+### 11. Scheduled Scanning & Notifications
 
 | Feature | Details |
 |---------|---------|
@@ -388,6 +414,21 @@ vmware-aiops deploy iso <vm-name> --iso "[datastore] path/file.iso"
 vmware-aiops deploy mark-template <vm-name>
 vmware-aiops deploy batch-clone --source <vm> --count <n> [--prefix <prefix>]
 vmware-aiops deploy batch <spec.yaml>
+
+# Cluster
+vmware-aiops cluster info <name>
+vmware-aiops cluster create <name> [--ha] [--drs] [--drs-behavior fullyAutomated|partiallyAutomated|manual] [--datacenter <dc>]
+vmware-aiops cluster delete <name>
+vmware-aiops cluster add-host <cluster> --host <hostname>
+vmware-aiops cluster remove-host <cluster> --host <hostname>
+vmware-aiops cluster configure <name> [--ha/--no-ha] [--drs/--no-drs] [--drs-behavior <behavior>]
+
+# Storage / iSCSI
+vmware-aiops storage iscsi-enable <host>
+vmware-aiops storage iscsi-status <host>
+vmware-aiops storage iscsi-add-target <host> --address <ip> [--port 3260]
+vmware-aiops storage iscsi-remove-target <host> --address <ip> [--port 3260]
+vmware-aiops storage rescan <host>
 
 # Datastore
 vmware-aiops datastore browse <ds-name> [--path <subdir>]

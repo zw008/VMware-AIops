@@ -28,6 +28,8 @@ health_app = typer.Typer(help="Health checks: alarms, hardware, services.")
 vm_app = typer.Typer(help="VM lifecycle: power, snapshot, clone, migrate.")
 deploy_app = typer.Typer(help="VM deployment: OVA, template, linked clone, batch.")
 datastore_app = typer.Typer(help="Datastore browsing and image discovery.")
+cluster_app = typer.Typer(help="Cluster management: create, delete, configure HA/DRS.")
+storage_app = typer.Typer(help="Storage operations: iSCSI configuration, rescan.")
 scan_app = typer.Typer(help="Log and alarm scanning.")
 daemon_app = typer.Typer(help="Scanner daemon management.")
 
@@ -36,6 +38,8 @@ app.add_typer(health_app, name="health")
 app.add_typer(vm_app, name="vm")
 app.add_typer(deploy_app, name="deploy")
 app.add_typer(datastore_app, name="datastore")
+app.add_typer(cluster_app, name="cluster")
+app.add_typer(storage_app, name="storage")
 app.add_typer(scan_app, name="scan")
 app.add_typer(daemon_app, name="daemon")
 
@@ -59,11 +63,12 @@ def _dry_run_print(
     parameters: dict | None = None,
     before_state: dict | None = None,
     expected_after: dict | None = None,
+    resource_label: str = "VM",
 ) -> None:
     """Print a dry-run preview of the API call that would be made."""
     console.print("\n[bold magenta][DRY-RUN] No changes will be made.[/]")
     console.print(f"[magenta]  Target:    {target}[/]")
-    console.print(f"[magenta]  VM:        {vm_name}[/]")
+    console.print(f"[magenta]  {resource_label}:        {vm_name}[/]")
     console.print(f"[magenta]  Operation: {operation}[/]")
     console.print(f"[magenta]  API Call:  {api_call}[/]")
     if parameters:
@@ -133,12 +138,17 @@ def _validate_vm_params(
         raise typer.BadParameter(f"Disk size must be 1-65536 GB, got {disk_gb}.")
 
 
-def _double_confirm(action: str, vm_name: str, target: str = "default") -> None:
+def _double_confirm(
+    action: str,
+    vm_name: str,
+    target: str = "default",
+    resource_type: str = "VM",
+) -> None:
     """Require two confirmations for destructive operations.
 
     Logs a 'rejected' audit entry if the user declines at either step.
     """
-    console.print(f"[bold yellow]⚠️  即将执行: {action} VM '{vm_name}'[/]")
+    console.print(f"[bold yellow]⚠️  即将执行: {action} {resource_type} '{vm_name}'[/]")
     try:
         typer.confirm(f"第 1 次确认: 确定要{action} '{vm_name}'?", abort=True)
         typer.confirm(f"第 2 次确认: 再次确认{action} '{vm_name}'，此操作不可撤销?", abort=True)
@@ -1278,6 +1288,346 @@ def deploy_iso_cmd(
     _audit.log(
         target=_resolve_target(target), operation="attach_iso",
         resource=vm_name, parameters={"iso": iso}, result=result,
+    )
+
+
+# ─── Cluster ──────────────────────────────────────────────────────────────────
+
+
+@cluster_app.command("info")
+def cluster_info_cmd(
+    name: str,
+    target: TargetOption = None,
+    config: ConfigOption = None,
+) -> None:
+    """Show detailed cluster info."""
+    from vmware_aiops.ops.cluster_mgmt import get_cluster_info
+
+    si, _ = _get_connection(target, config)
+    info = get_cluster_info(si, name)
+    console.print(f"\n[bold cyan]Cluster '{name}':[/]")
+    for k, v in info.items():
+        if k == "hosts":
+            console.print(f"  [cyan]hosts:[/]")
+            for h in v:
+                state_style = "green" if h["connection_state"] == "connected" else "red"
+                maint = " [yellow](maintenance)[/]" if h["maintenance_mode"] else ""
+                console.print(
+                    f"    - {h['name']} [{state_style}]{h['connection_state']}[/]{maint}"
+                )
+        else:
+            console.print(f"  [cyan]{k}:[/] {v}")
+
+
+@cluster_app.command("create")
+def cluster_create_cmd(
+    name: str,
+    ha: Annotated[bool, typer.Option("--ha", help="Enable HA")] = False,
+    drs: Annotated[bool, typer.Option("--drs", help="Enable DRS")] = False,
+    drs_behavior: Annotated[
+        str, typer.Option("--drs-behavior", help="DRS behavior: fullyAutomated|partiallyAutomated|manual")
+    ] = "fullyAutomated",
+    datacenter: Annotated[str, typer.Option(help="Datacenter name")] = "",
+    target: TargetOption = None,
+    config: ConfigOption = None,
+    dry_run: DryRunOption = False,
+) -> None:
+    """Create a new cluster."""
+    from vmware_aiops.ops.cluster_mgmt import create_cluster
+
+    if dry_run:
+        _dry_run_print(
+            target=_resolve_target(target), vm_name=name, operation="create_cluster",
+            api_call="datacenter.hostFolder.CreateClusterEx()",
+            parameters={"ha": ha, "drs": drs, "drs_behavior": drs_behavior},
+            resource_label="Cluster",
+        )
+        return
+    si, _ = _get_connection(target, config)
+    result = create_cluster(
+        si, cluster_name=name, datacenter_name=datacenter or None,
+        ha_enabled=ha, drs_enabled=drs, drs_behavior=drs_behavior,
+    )
+    console.print(f"[green]{result}[/]")
+    _audit.log(
+        target=_resolve_target(target), operation="create_cluster",
+        resource=name, parameters={"ha": ha, "drs": drs, "drs_behavior": drs_behavior},
+        result=result,
+    )
+
+
+@cluster_app.command("delete")
+def cluster_delete_cmd(
+    name: str,
+    target: TargetOption = None,
+    config: ConfigOption = None,
+    dry_run: DryRunOption = False,
+) -> None:
+    """Delete an empty cluster (destructive!)."""
+    from vmware_aiops.ops.cluster_mgmt import get_cluster_info, delete_cluster
+
+    si, _ = _get_connection(target, config)
+    info = get_cluster_info(si, name)
+    if dry_run:
+        _dry_run_print(
+            target=_resolve_target(target), vm_name=name, operation="delete_cluster",
+            api_call="cluster.Destroy_Task()",
+            before_state={"host_count": info["host_count"], "ha": info["ha_enabled"], "drs": info["drs_enabled"]},
+            resource_label="Cluster",
+        )
+        return
+    _double_confirm("删除集群", name, _resolve_target(target), resource_type="Cluster")
+    result = delete_cluster(si, name)
+    console.print(f"[green]{result}[/]")
+    _audit.log(
+        target=_resolve_target(target), operation="delete_cluster",
+        resource=name, before_state=info, result=result,
+    )
+
+
+@cluster_app.command("add-host")
+def cluster_add_host_cmd(
+    name: str,
+    host: Annotated[str, typer.Option("--host", help="Host name to add")],
+    target: TargetOption = None,
+    config: ConfigOption = None,
+    dry_run: DryRunOption = False,
+) -> None:
+    """Move a host into a cluster."""
+    from vmware_aiops.ops.cluster_mgmt import add_host_to_cluster
+
+    if dry_run:
+        _dry_run_print(
+            target=_resolve_target(target), vm_name=name, operation="cluster_add_host",
+            api_call="cluster.MoveInto_Task()",
+            parameters={"host": host},
+            resource_label="Cluster",
+        )
+        return
+    si, _ = _get_connection(target, config)
+    _double_confirm("添加主机到集群", f"{host} → {name}", _resolve_target(target), resource_type="Host")
+    result = add_host_to_cluster(si, cluster_name=name, host_name=host)
+    console.print(f"[green]{result}[/]")
+    _audit.log(
+        target=_resolve_target(target), operation="cluster_add_host",
+        resource=name, parameters={"host": host}, result=result,
+    )
+
+
+@cluster_app.command("remove-host")
+def cluster_remove_host_cmd(
+    name: str,
+    host: Annotated[str, typer.Option("--host", help="Host name to remove")],
+    target: TargetOption = None,
+    config: ConfigOption = None,
+    dry_run: DryRunOption = False,
+) -> None:
+    """Remove a host from a cluster (host must be in maintenance mode)."""
+    from vmware_aiops.ops.cluster_mgmt import remove_host_from_cluster
+
+    if dry_run:
+        _dry_run_print(
+            target=_resolve_target(target), vm_name=name, operation="cluster_remove_host",
+            api_call="datacenter.hostFolder.MoveInto_Task()",
+            parameters={"host": host},
+            resource_label="Cluster",
+        )
+        return
+    si, _ = _get_connection(target, config)
+    _double_confirm("从集群移除主机", f"{host} ← {name}", _resolve_target(target), resource_type="Host")
+    result = remove_host_from_cluster(si, cluster_name=name, host_name=host)
+    console.print(f"[green]{result}[/]")
+    _audit.log(
+        target=_resolve_target(target), operation="cluster_remove_host",
+        resource=name, parameters={"host": host}, result=result,
+    )
+
+
+@cluster_app.command("configure")
+def cluster_configure_cmd(
+    name: str,
+    ha: Annotated[bool | None, typer.Option("--ha/--no-ha", help="Enable/disable HA")] = None,
+    drs: Annotated[bool | None, typer.Option("--drs/--no-drs", help="Enable/disable DRS")] = None,
+    drs_behavior: Annotated[
+        str, typer.Option("--drs-behavior", help="DRS behavior: fullyAutomated|partiallyAutomated|manual")
+    ] = "",
+    target: TargetOption = None,
+    config: ConfigOption = None,
+    dry_run: DryRunOption = False,
+) -> None:
+    """Configure cluster HA/DRS settings."""
+    from vmware_aiops.ops.cluster_mgmt import configure_cluster, get_cluster_info
+
+    params = {}
+    if ha is not None:
+        params["ha_enabled"] = ha
+    if drs is not None:
+        params["drs_enabled"] = drs
+    if drs_behavior:
+        params["drs_behavior"] = drs_behavior
+
+    si, _ = _get_connection(target, config)
+    if dry_run:
+        before = get_cluster_info(si, name)
+        _dry_run_print(
+            target=_resolve_target(target), vm_name=name, operation="configure_cluster",
+            api_call="cluster.ReconfigureComputeResource_Task()",
+            parameters=params,
+            before_state={"ha": before["ha_enabled"], "drs": before["drs_enabled"], "drs_behavior": before["drs_behavior"]},
+            resource_label="Cluster",
+        )
+        return
+    _double_confirm("重新配置集群", name, _resolve_target(target), resource_type="Cluster")
+    result = configure_cluster(si, cluster_name=name, **params)
+    console.print(f"[green]{result}[/]")
+    _audit.log(
+        target=_resolve_target(target), operation="configure_cluster",
+        resource=name, parameters=params, result=result,
+    )
+
+
+# ─── Storage (iSCSI) ─────────────────────────────────────────────────────────
+
+
+@storage_app.command("iscsi-enable")
+def storage_iscsi_enable_cmd(
+    host: Annotated[str, typer.Argument(help="ESXi host name")],
+    target: TargetOption = None,
+    config: ConfigOption = None,
+    dry_run: DryRunOption = False,
+) -> None:
+    """Enable the software iSCSI adapter on a host."""
+    from vmware_aiops.ops.iscsi_config import enable_software_iscsi
+
+    if dry_run:
+        _dry_run_print(
+            target=_resolve_target(target), vm_name=host, operation="iscsi_enable",
+            api_call="storageSystem.UpdateSoftwareInternetScsiEnabled(True)",
+            resource_label="Host",
+        )
+        return
+    si, _ = _get_connection(target, config)
+    _double_confirm("启用 iSCSI", host, _resolve_target(target), resource_type="Host")
+    result = enable_software_iscsi(si, host)
+    console.print(f"[green]{result}[/]")
+    _audit.log(
+        target=_resolve_target(target), operation="iscsi_enable",
+        resource=host, result=result,
+    )
+
+
+@storage_app.command("iscsi-status")
+def storage_iscsi_status_cmd(
+    host: Annotated[str, typer.Argument(help="ESXi host name")],
+    target: TargetOption = None,
+    config: ConfigOption = None,
+) -> None:
+    """Show iSCSI adapter status and targets for a host."""
+    from vmware_aiops.ops.iscsi_config import get_iscsi_status
+
+    si, _ = _get_connection(target, config)
+    status = get_iscsi_status(si, host)
+    console.print(f"\n[bold cyan]iSCSI Status for '{host}':[/]")
+    if not status["enabled"]:
+        console.print("  [red]Software iSCSI: DISABLED[/]")
+        return
+    console.print(f"  [green]Software iSCSI: ENABLED[/]")
+    console.print(f"  [cyan]HBA Device:[/] {status['hba_device']}")
+    console.print(f"  [cyan]IQN:[/] {status['iqn']}")
+    if status["send_targets"]:
+        table = Table(title="Send Targets")
+        table.add_column("Address", style="cyan")
+        table.add_column("Port", justify="right")
+        for t in status["send_targets"]:
+            table.add_row(t["address"], str(t["port"]))
+        console.print(table)
+    else:
+        console.print("  [yellow]No send targets configured.[/]")
+
+
+@storage_app.command("iscsi-add-target")
+def storage_iscsi_add_target_cmd(
+    host: Annotated[str, typer.Argument(help="ESXi host name")],
+    address: Annotated[str, typer.Option("--address", help="iSCSI target IP address")],
+    port: Annotated[int, typer.Option("--port", help="iSCSI target port")] = 3260,
+    target: TargetOption = None,
+    config: ConfigOption = None,
+    dry_run: DryRunOption = False,
+) -> None:
+    """Add an iSCSI send target to a host."""
+    from vmware_aiops.ops.iscsi_config import add_iscsi_target
+
+    if dry_run:
+        _dry_run_print(
+            target=_resolve_target(target), vm_name=host, operation="iscsi_add_target",
+            api_call="storageSystem.AddInternetScsiSendTargets()",
+            parameters={"address": address, "port": port},
+            resource_label="Host",
+        )
+        return
+    si, _ = _get_connection(target, config)
+    _double_confirm("添加 iSCSI 目标", f"{address}:{port} → {host}", _resolve_target(target), resource_type="Host")
+    result = add_iscsi_target(si, host, address=address, port=port)
+    console.print(f"[green]{result}[/]")
+    _audit.log(
+        target=_resolve_target(target), operation="iscsi_add_target",
+        resource=host, parameters={"address": address, "port": port}, result=result,
+    )
+
+
+@storage_app.command("iscsi-remove-target")
+def storage_iscsi_remove_target_cmd(
+    host: Annotated[str, typer.Argument(help="ESXi host name")],
+    address: Annotated[str, typer.Option("--address", help="iSCSI target IP address")],
+    port: Annotated[int, typer.Option("--port", help="iSCSI target port")] = 3260,
+    target: TargetOption = None,
+    config: ConfigOption = None,
+    dry_run: DryRunOption = False,
+) -> None:
+    """Remove an iSCSI send target from a host."""
+    from vmware_aiops.ops.iscsi_config import remove_iscsi_target
+
+    if dry_run:
+        _dry_run_print(
+            target=_resolve_target(target), vm_name=host, operation="iscsi_remove_target",
+            api_call="storageSystem.RemoveInternetScsiSendTargets()",
+            parameters={"address": address, "port": port},
+            resource_label="Host",
+        )
+        return
+    si, _ = _get_connection(target, config)
+    _double_confirm("移除 iSCSI 目标", f"{address}:{port} ← {host}", _resolve_target(target), resource_type="Host")
+    result = remove_iscsi_target(si, host, address=address, port=port)
+    console.print(f"[green]{result}[/]")
+    _audit.log(
+        target=_resolve_target(target), operation="iscsi_remove_target",
+        resource=host, parameters={"address": address, "port": port}, result=result,
+    )
+
+
+@storage_app.command("rescan")
+def storage_rescan_cmd(
+    host: Annotated[str, typer.Argument(help="ESXi host name")],
+    target: TargetOption = None,
+    config: ConfigOption = None,
+    dry_run: DryRunOption = False,
+) -> None:
+    """Rescan all HBAs and VMFS on a host."""
+    from vmware_aiops.ops.iscsi_config import rescan_storage
+
+    if dry_run:
+        _dry_run_print(
+            target=_resolve_target(target), vm_name=host, operation="rescan_storage",
+            api_call="storageSystem.RescanAllHba() + RescanVmfs()",
+            resource_label="Host",
+        )
+        return
+    si, _ = _get_connection(target, config)
+    result = rescan_storage(si, host)
+    console.print(f"[green]{result}[/]")
+    _audit.log(
+        target=_resolve_target(target), operation="rescan_storage",
+        resource=host, result=result,
     )
 
 

@@ -512,6 +512,209 @@ def batch_deploy_from_spec(
 
 
 # ---------------------------------------------------------------------------
+# Cluster tools
+# ---------------------------------------------------------------------------
+
+
+@mcp.tool()
+def cluster_create(
+    name: str,
+    datacenter: str | None = None,
+    ha: bool = False,
+    drs: bool = False,
+    drs_behavior: str = "fullyAutomated",
+    target: str | None = None,
+) -> str:
+    """Create a new cluster with optional HA and DRS configuration.
+
+    Args:
+        name: Name for the new cluster.
+        datacenter: Datacenter name (uses first datacenter if omitted).
+        ha: Enable vSphere HA (default False).
+        drs: Enable DRS (default False).
+        drs_behavior: DRS behavior: "fullyAutomated", "partiallyAutomated", or "manual".
+        target: Optional vCenter target name from config.
+    """
+    from vmware_aiops.ops.cluster_mgmt import create_cluster
+    si = _get_connection(target)
+    return create_cluster(
+        si, cluster_name=name, datacenter_name=datacenter,
+        ha_enabled=ha, drs_enabled=drs, drs_behavior=drs_behavior,
+    )
+
+
+@mcp.tool()
+def cluster_delete(name: str, target: str | None = None) -> str:
+    """Delete an empty cluster (no hosts must remain).
+
+    Args:
+        name: Name of the cluster to delete.
+        target: Optional vCenter target name from config.
+    """
+    from vmware_aiops.ops.cluster_mgmt import delete_cluster
+    si = _get_connection(target)
+    return delete_cluster(si, name)
+
+
+@mcp.tool()
+def cluster_add_host(
+    cluster_name: str,
+    host_name: str,
+    target: str | None = None,
+) -> str:
+    """Move a host into a cluster.
+
+    Args:
+        cluster_name: Target cluster name.
+        host_name: ESXi host name to move into the cluster.
+        target: Optional vCenter target name from config.
+    """
+    from vmware_aiops.ops.cluster_mgmt import add_host_to_cluster
+    si = _get_connection(target)
+    return add_host_to_cluster(si, cluster_name=cluster_name, host_name=host_name)
+
+
+@mcp.tool()
+def cluster_remove_host(
+    cluster_name: str,
+    host_name: str,
+    target: str | None = None,
+) -> str:
+    """Remove a host from a cluster (host must be in maintenance mode).
+
+    Args:
+        cluster_name: Cluster to remove the host from.
+        host_name: ESXi host name to remove.
+        target: Optional vCenter target name from config.
+    """
+    from vmware_aiops.ops.cluster_mgmt import remove_host_from_cluster
+    si = _get_connection(target)
+    return remove_host_from_cluster(si, cluster_name=cluster_name, host_name=host_name)
+
+
+@mcp.tool()
+def cluster_configure(
+    name: str,
+    ha: bool | None = None,
+    drs: bool | None = None,
+    drs_behavior: str | None = None,
+    target: str | None = None,
+) -> str:
+    """Reconfigure cluster HA/DRS settings.
+
+    Args:
+        name: Cluster name.
+        ha: Enable (True) or disable (False) HA, or None to leave unchanged.
+        drs: Enable (True) or disable (False) DRS, or None to leave unchanged.
+        drs_behavior: DRS behavior: "fullyAutomated", "partiallyAutomated", or "manual".
+        target: Optional vCenter target name from config.
+    """
+    from vmware_aiops.ops.cluster_mgmt import configure_cluster
+    si = _get_connection(target)
+    return configure_cluster(
+        si, cluster_name=name,
+        ha_enabled=ha, drs_enabled=drs, drs_behavior=drs_behavior,
+    )
+
+
+@mcp.tool()
+def cluster_info(name: str, target: str | None = None) -> dict:
+    """Get detailed cluster information (hosts, HA/DRS config, resources).
+
+    Args:
+        name: Cluster name.
+        target: Optional vCenter target name from config.
+    """
+    from vmware_aiops.ops.cluster_mgmt import get_cluster_info
+    si = _get_connection(target)
+    return get_cluster_info(si, name)
+
+
+# ---------------------------------------------------------------------------
+# Storage / iSCSI tools
+# ---------------------------------------------------------------------------
+
+
+@mcp.tool()
+def storage_iscsi_enable(host_name: str, target: str | None = None) -> str:
+    """Enable the software iSCSI adapter on an ESXi host.
+
+    Args:
+        host_name: ESXi host name.
+        target: Optional vCenter/ESXi target name from config.
+    """
+    from vmware_aiops.ops.iscsi_config import enable_software_iscsi
+    si = _get_connection(target)
+    return enable_software_iscsi(si, host_name)
+
+
+@mcp.tool()
+def storage_iscsi_status(host_name: str, target: str | None = None) -> dict:
+    """Get iSCSI adapter status, IQN, and configured send targets.
+
+    Args:
+        host_name: ESXi host name.
+        target: Optional vCenter/ESXi target name from config.
+    """
+    from vmware_aiops.ops.iscsi_config import get_iscsi_status
+    si = _get_connection(target)
+    return get_iscsi_status(si, host_name)
+
+
+@mcp.tool()
+def storage_iscsi_add_target(
+    host_name: str,
+    address: str,
+    port: int = 3260,
+    target: str | None = None,
+) -> str:
+    """Add an iSCSI send target to a host and rescan storage.
+
+    Args:
+        host_name: ESXi host name.
+        address: iSCSI target IP address.
+        port: iSCSI target port (default 3260).
+        target: Optional vCenter/ESXi target name from config.
+    """
+    from vmware_aiops.ops.iscsi_config import add_iscsi_target
+    si = _get_connection(target)
+    return add_iscsi_target(si, host_name, address=address, port=port)
+
+
+@mcp.tool()
+def storage_iscsi_remove_target(
+    host_name: str,
+    address: str,
+    port: int = 3260,
+    target: str | None = None,
+) -> str:
+    """Remove an iSCSI send target from a host and rescan storage.
+
+    Args:
+        host_name: ESXi host name.
+        address: iSCSI target IP address.
+        port: iSCSI target port (default 3260).
+        target: Optional vCenter/ESXi target name from config.
+    """
+    from vmware_aiops.ops.iscsi_config import remove_iscsi_target
+    si = _get_connection(target)
+    return remove_iscsi_target(si, host_name, address=address, port=port)
+
+
+@mcp.tool()
+def storage_rescan(host_name: str, target: str | None = None) -> str:
+    """Rescan all HBAs and VMFS volumes on a host.
+
+    Args:
+        host_name: ESXi host name.
+        target: Optional vCenter/ESXi target name from config.
+    """
+    from vmware_aiops.ops.iscsi_config import rescan_storage
+    si = _get_connection(target)
+    return rescan_storage(si, host_name)
+
+
+# ---------------------------------------------------------------------------
 # TTL & Clean Slate
 # ---------------------------------------------------------------------------
 

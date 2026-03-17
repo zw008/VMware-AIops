@@ -211,3 +211,25 @@ def find_datastore_by_name(
         if ds.name == ds_name:
             return ds
     return None
+
+
+def find_cluster_by_name(
+    si: ServiceInstance, cluster_name: str
+) -> vim.ClusterComputeResource | None:
+    """Find a cluster by exact name. Returns None if not found."""
+    clusters = _get_objects(si, [vim.ClusterComputeResource])
+    for cluster in clusters:
+        if cluster.name == cluster_name:
+            return cluster
+    return None
+
+
+def find_datacenter_by_name(
+    si: ServiceInstance, dc_name: str
+) -> vim.Datacenter | None:
+    """Find a datacenter by exact name. Returns None if not found."""
+    datacenters = _get_objects(si, [vim.Datacenter])
+    for dc in datacenters:
+        if dc.name == dc_name:
+            return dc
+    return None

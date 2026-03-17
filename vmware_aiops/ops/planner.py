@@ -131,6 +131,54 @@ _ACTION_SCHEMA: dict[str, dict[str, Any]] = {
         "optional": [],
         "rollback": None,
     },
+    # Cluster operations
+    "create_cluster": {
+        "required": ["cluster_name"],
+        "optional": ["datacenter_name", "ha_enabled", "drs_enabled", "drs_behavior"],
+        "rollback": "delete_cluster",
+        "rollback_vm_key": "cluster_name",
+    },
+    "delete_cluster": {
+        "required": ["cluster_name"],
+        "optional": [],
+        "rollback": None,
+    },
+    "configure_cluster": {
+        "required": ["cluster_name"],
+        "optional": ["ha_enabled", "drs_enabled", "drs_behavior"],
+        "rollback": None,
+    },
+    "cluster_add_host": {
+        "required": ["cluster_name", "host_name"],
+        "optional": [],
+        "rollback": "cluster_remove_host",
+    },
+    "cluster_remove_host": {
+        "required": ["cluster_name", "host_name"],
+        "optional": [],
+        "rollback": "cluster_add_host",
+    },
+    # iSCSI / Storage operations
+    "iscsi_enable": {
+        "required": ["host_name"],
+        "optional": [],
+        "rollback": None,
+    },
+    "iscsi_add_target": {
+        "required": ["host_name", "address"],
+        "optional": ["port"],
+        "rollback": "iscsi_remove_target",
+    },
+    "iscsi_remove_target": {
+        "required": ["host_name", "address"],
+        "optional": ["port"],
+        "rollback": "iscsi_add_target",
+    },
+    "storage_rescan": {
+        "required": ["host_name"],
+        "optional": [],
+        "rollback": None,
+    },
 }
 
 
@@ -204,6 +252,30 @@ def _build_rollback(action: str, params: dict[str, Any]) -> tuple[str | None, di
             "vm_name": params["vm_name"],
             "snapshot_name": params["snapshot_name"],
         }
+    elif rollback_action == "delete_cluster":
+        return rollback_action, {"cluster_name": params["cluster_name"]}
+    elif rollback_action == "cluster_remove_host":
+        return rollback_action, {
+            "cluster_name": params["cluster_name"],
+            "host_name": params["host_name"],
+        }
+    elif rollback_action == "cluster_add_host":
+        return rollback_action, {
+            "cluster_name": params["cluster_name"],
+            "host_name": params["host_name"],
+        }
+    elif rollback_action == "iscsi_remove_target":
+        return rollback_action, {
+            "host_name": params["host_name"],
+            "address": params["address"],
+            "port": params.get("port", 3260),
+        }
+    elif rollback_action == "iscsi_add_target":
+        return rollback_action, {
+            "host_name": params["host_name"],
+            "address": params["address"],
+            "port": params.get("port", 3260),
+        }
     return rollback_action, {"vm_name": vm_name}
 
 
@@ -248,8 +320,11 @@ def precheck_targets(si: ServiceInstance, operations: list[dict[str, Any]]) -> l
         action = op["action"]
         vm_name = op.get("vm_name")
 
-        # Skip existence check for create operations
-        if action in ("create_vm", "deploy_ova"):
+        # Skip existence check for create operations and non-VM operations
+        if action in ("create_vm", "deploy_ova", "create_cluster", "delete_cluster",
+                       "configure_cluster", "cluster_add_host", "cluster_remove_host",
+                       "iscsi_enable", "iscsi_add_target", "iscsi_remove_target",
+                       "storage_rescan"):
             continue
 
         # Check VM existence
@@ -340,8 +415,9 @@ def create_plan(
             rollback_params=rollback_params,
         ))
 
-        # Track affected VMs
-        for key in ("vm_name", "new_name", "source_vm_name", "template_name"):
+        # Track affected resources (VMs, clusters, hosts)
+        for key in ("vm_name", "new_name", "source_vm_name", "template_name",
+                     "cluster_name", "host_name"):
             if key in params:
                 vms_affected.add(params[key])
 

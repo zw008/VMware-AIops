@@ -119,6 +119,17 @@ def _dispatch(si: ServiceInstance, action: str, params: dict[str, Any]) -> str:
             si, params["vm_name"], params["guest_path"],
             params["local_path"], params["username"], params["password"],
         ),
+        # Cluster operations
+        "create_cluster": lambda: _cluster_create(si, params),
+        "delete_cluster": lambda: _cluster_delete(si, params),
+        "configure_cluster": lambda: _cluster_configure(si, params),
+        "cluster_add_host": lambda: _cluster_add_host(si, params),
+        "cluster_remove_host": lambda: _cluster_remove_host(si, params),
+        # iSCSI / Storage operations
+        "iscsi_enable": lambda: _iscsi_enable(si, params),
+        "iscsi_add_target": lambda: _iscsi_add_target(si, params),
+        "iscsi_remove_target": lambda: _iscsi_remove_target(si, params),
+        "storage_rescan": lambda: _storage_rescan(si, params),
     }
 
     handler = dispatch_table.get(action)
@@ -126,6 +137,72 @@ def _dispatch(si: ServiceInstance, action: str, params: dict[str, Any]) -> str:
         raise ValueError(f"Unknown action: {action}")
     result = handler()
     return str(result) if result is not None else "OK"
+
+
+# ---------------------------------------------------------------------------
+# Cluster dispatch helpers
+# ---------------------------------------------------------------------------
+
+
+def _cluster_create(si: ServiceInstance, params: dict[str, Any]) -> str:
+    from vmware_aiops.ops.cluster_mgmt import create_cluster
+    return create_cluster(
+        si, cluster_name=params["cluster_name"],
+        datacenter_name=params.get("datacenter_name"),
+        ha_enabled=params.get("ha_enabled", False),
+        drs_enabled=params.get("drs_enabled", False),
+        drs_behavior=params.get("drs_behavior", "fullyAutomated"),
+    )
+
+
+def _cluster_delete(si: ServiceInstance, params: dict[str, Any]) -> str:
+    from vmware_aiops.ops.cluster_mgmt import delete_cluster
+    return delete_cluster(si, params["cluster_name"])
+
+
+def _cluster_configure(si: ServiceInstance, params: dict[str, Any]) -> str:
+    from vmware_aiops.ops.cluster_mgmt import configure_cluster
+    return configure_cluster(
+        si, cluster_name=params["cluster_name"],
+        ha_enabled=params.get("ha_enabled"),
+        drs_enabled=params.get("drs_enabled"),
+        drs_behavior=params.get("drs_behavior"),
+    )
+
+
+def _cluster_add_host(si: ServiceInstance, params: dict[str, Any]) -> str:
+    from vmware_aiops.ops.cluster_mgmt import add_host_to_cluster
+    return add_host_to_cluster(si, cluster_name=params["cluster_name"], host_name=params["host_name"])
+
+
+def _cluster_remove_host(si: ServiceInstance, params: dict[str, Any]) -> str:
+    from vmware_aiops.ops.cluster_mgmt import remove_host_from_cluster
+    return remove_host_from_cluster(si, cluster_name=params["cluster_name"], host_name=params["host_name"])
+
+
+# ---------------------------------------------------------------------------
+# iSCSI dispatch helpers
+# ---------------------------------------------------------------------------
+
+
+def _iscsi_enable(si: ServiceInstance, params: dict[str, Any]) -> str:
+    from vmware_aiops.ops.iscsi_config import enable_software_iscsi
+    return enable_software_iscsi(si, params["host_name"])
+
+
+def _iscsi_add_target(si: ServiceInstance, params: dict[str, Any]) -> str:
+    from vmware_aiops.ops.iscsi_config import add_iscsi_target
+    return add_iscsi_target(si, params["host_name"], address=params["address"], port=params.get("port", 3260))
+
+
+def _iscsi_remove_target(si: ServiceInstance, params: dict[str, Any]) -> str:
+    from vmware_aiops.ops.iscsi_config import remove_iscsi_target
+    return remove_iscsi_target(si, params["host_name"], address=params["address"], port=params.get("port", 3260))
+
+
+def _storage_rescan(si: ServiceInstance, params: dict[str, Any]) -> str:
+    from vmware_aiops.ops.iscsi_config import rescan_storage
+    return rescan_storage(si, params["host_name"])
 
 
 # ---------------------------------------------------------------------------
