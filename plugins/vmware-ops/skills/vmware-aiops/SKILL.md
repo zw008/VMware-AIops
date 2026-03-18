@@ -10,7 +10,7 @@ description: >
 installer:
   kind: uv
   package: vmware-aiops
-metadata: {"openclaw":{"requires":{"env":["VMWARE_AIOPS_CONFIG"],"bins":["vmware-aiops"],"config":["~/.vmware-aiops/config.yaml"]},"primaryEnv":"VMWARE_AIOPS_CONFIG","homepage":"https://github.com/zw008/VMware-AIops","emoji":"🖥️","os":["macos","linux"]}}
+metadata: {"openclaw":{"requires":{"env":["VMWARE_AIOPS_CONFIG","SLACK_WEBHOOK_URL","DISCORD_WEBHOOK_URL"],"bins":["vmware-aiops"],"config":["~/.vmware-aiops/config.yaml","~/.vmware-aiops/.env"]},"primaryEnv":"VMWARE_AIOPS_CONFIG","homepage":"https://github.com/zw008/VMware-AIops","emoji":"🖥️","os":["macos","linux"]}}
 ---
 
 # VMware AIops
@@ -45,7 +45,7 @@ npx skills add zw008/VMware-AIops
 clawhub install vmware-aiops
 
 # Via PyPI (recommended for version pinning)
-uv tool install vmware-aiops==0.6.0
+uv tool install vmware-aiops==1.0.15
 ```
 
 ### Claude Code
