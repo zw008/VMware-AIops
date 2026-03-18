@@ -10,7 +10,7 @@
     {
       "name": "vmware-ops",
       "description": "VMware vCenter/ESXi AI operations plugin — full operations including inventory, health monitoring, VM lifecycle (power, create, delete, snapshot, clone, migrate). Invoke: /vmware-ops:vmware-aiops. For read-only monitoring, see https://github.com/zw008/VMware-Monitor / VMware AI 运维插件 — 完整运维功能（资产查询、健康监控、VM 生命周期管理）。命令：/vmware-ops:vmware-aiops。只读监控请见 VMware-Monitor 仓库",
-      "version": "0.7.0",
+      "version": "1.0.15",
       "source": "./plugins/vmware-ops",
       "category": "automation",
       "homepage": "https://github.com/zw008/VMware-AIops",
