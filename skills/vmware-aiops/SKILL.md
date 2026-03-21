@@ -112,7 +112,7 @@ For Claude Code / Cursor users who prefer structured tool calls, add to `~/.clau
 }
 ```
 
-MCP exposes 43 tools across 8 categories. All accept optional `target` parameter.
+MCP exposes 32 tools across 8 categories. All accept optional `target` parameter.
 
 | Category | Tools |
 |----------|-------|
@@ -120,11 +120,13 @@ MCP exposes 43 tools across 8 categories. All accept optional `target` parameter
 | Health | `get_alarms`, `get_events`, `vm_info` |
 | VM Lifecycle | `vm_power_on`, `vm_power_off`, `vm_set_ttl`, `vm_cancel_ttl`, `vm_list_ttl`, `vm_clean_slate` |
 | Deployment | `deploy_vm_from_ova`, `deploy_vm_from_template`, `deploy_linked_clone`, `attach_iso_to_vm`, `convert_vm_to_template`, `batch_clone_vms`, `batch_linked_clone_vms`, `batch_deploy_from_spec` |
-| Guest Operations | `vm_guest_exec`, `vm_guest_upload`, `vm_guest_download` |
+| Guest Operations | `vm_guest_exec`, `vm_guest_exec_output`, `vm_guest_upload`, `vm_guest_download` |
 | Plan → Apply | `vm_create_plan`, `vm_apply_plan`, `vm_rollback_plan`, `vm_list_plans` |
 | Datastore | `browse_datastore`, `scan_datastore_images`, `list_cached_images` |
-| Cluster | `cluster_create`, `cluster_delete`, `cluster_add_host`, `cluster_remove_host`, `cluster_configure`, `cluster_info` |
+| Cluster | `list_all_clusters` |
 | Storage / iSCSI | `storage_iscsi_enable`, `storage_iscsi_status`, `storage_iscsi_add_target`, `storage_iscsi_remove_target`, `storage_rescan` |
+
+`vm_guest_exec_output` — execute a shell command and **capture stdout/stderr** automatically. OS auto-detected (Linux/Windows) via `vm.guest.guestFamily`. No manual redirection needed.
 
 `list_virtual_machines` auto-compacts when inventory exceeds 50 VMs (returns compact fields only). Use `limit` or `fields` to override.
 

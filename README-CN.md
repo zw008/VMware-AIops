@@ -139,6 +139,7 @@ ESXi 独立主机 ──→ VM
 | **列出 TTL** | `vm list-ttl` | — | ✅ | ✅ |
 | **Clean Slate** | `vm clean-slate <name> [--snapshot baseline]` | 双重 | ✅ | ✅ |
 | **Guest 执行** | `vm guest-exec <name> --cmd /bin/bash --args "..."` | — | ✅ | ✅ |
+| **Guest 执行（含输出）** | `vm guest-exec-output <name> --cmd "df -h"` | — | ✅ | ✅ |
 | **Guest 上传** | `vm guest-upload <name> --local f.sh --guest /tmp/f.sh` | — | ✅ | ✅ |
 | **Guest 下载** | `vm guest-download <name> --guest /var/log/syslog --local ./syslog` | — | ✅ | ✅ |
 

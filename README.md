@@ -145,10 +145,11 @@ ESXi Standalone Host ──→ VM
 | **List TTLs** | `vm list-ttl` | — | ✅ | ✅ |
 | **Clean Slate** | `vm clean-slate <name> [--snapshot baseline]` | Double | ✅ | ✅ |
 | **Guest Exec** | `vm guest-exec <name> --cmd /bin/bash --args "..."` | — | ✅ | ✅ |
+| **Guest Exec (with output)** | `vm guest-exec-output <name> --cmd "df -h"` | — | ✅ | ✅ |
 | **Guest Upload** | `vm guest-upload <name> --local f.sh --guest /tmp/f.sh` | — | ✅ | ✅ |
 | **Guest Download** | `vm guest-download <name> --guest /var/log/syslog --local ./syslog` | — | ✅ | ✅ |
 
-> Guest Operations require VMware Tools running inside the guest OS.
+> Guest Operations require VMware Tools running inside the guest OS. `guest-exec-output` auto-detects Linux/Windows shell and captures stdout/stderr.
 
 ### Plan → Apply (Multi-step Operations)
 
@@ -299,7 +300,7 @@ The vmware-aiops MCP server works with **any MCP-compatible agent or tool**. Rea
 | **[LocalCowork](https://github.com/Liquid4All/localcowork)** | ✅ Fully offline | [`localcowork.json`](examples/mcp-configs/localcowork.json) | [Guide](docs/integrations/localcowork.md) |
 | **[mcp-agent](https://github.com/lastmile-ai/mcp-agent)** | ✅ Ollama, vLLM | [`mcp-agent.yaml`](examples/mcp-configs/mcp-agent.yaml) | [Guide](docs/integrations/mcp-agent.md) |
 | **VS Code Copilot** | — | [`vscode-copilot.json`](examples/mcp-configs/vscode-copilot.json) | [Guide](docs/integrations/vscode-copilot.md) |
-| **Cursor** | — | [`cursor.json`](examples/mcp-configs/cursor.json) | — |
+| **[Cursor](https://www.cursor.com)** | — | [`cursor.json`](examples/mcp-configs/cursor.json) | [Guide](docs/integrations/cursor.md) |
 | **Continue** | ✅ Ollama | [`continue.yaml`](examples/mcp-configs/continue.yaml) | [Guide](docs/integrations/continue.md) |
 | **Claude Code** | — | [`claude-code.json`](examples/mcp-configs/claude-code.json) | — |
 

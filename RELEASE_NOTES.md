@@ -2,6 +2,40 @@
 
 ---
 
+## v1.2.0 — 2026-03-21
+
+### Guest Exec with Output Capture / Guest 命令输出捕获
+
+- **`vm_guest_exec_output`** (32nd MCP tool) — Execute a shell command inside a VM and automatically capture stdout + stderr.
+  在 VM 内执行 shell 命令并自动捕获 stdout + stderr，无需手动重定向和下载。
+  - Auto-detects OS: Linux/Windows shell selected by `vm.guest.guestFamily` / 自动检测操作系统，无需用户指定 shell
+  - Redirects output to a temp file, downloads it, cleans up automatically / 自动重定向到临时文件、下载、清理，一步返回结果
+  - Returns `{exit_code, stdout, stderr, timed_out, os_family}` / 返回结构化输出
+
+### mcp-config install — Auto-write Agent Config / 自动写入 Agent 配置
+
+- **`vmware-aiops mcp-config install --agent <name>`** — Directly writes MCP server config into the target agent's config file.
+  直接将 MCP server 配置写入目标 Agent 的配置文件，无需手动编辑 JSON/YAML。
+  - Supports: claude-code, cursor, goose, continue, vscode, localcowork, mcp-agent / 支持 7 种 Agent
+  - JSON merge (non-destructive) + auto-backup on conflict / JSON 合并（非破坏性）+ 冲突时自动备份
+  - Use `--yes` to skip confirmation prompt / 使用 `--yes` 跳过确认提示
+
+### Docker One-Command Launch / Docker 一键启动
+
+- **Dockerfile + docker-compose.yml** — Run MCP server without installing Python or venv.
+  无需安装 Python 或 venv，一条命令启动 MCP Server。
+  ```bash
+  docker compose up -d
+  ```
+  Config dir `~/.vmware-aiops` mounted read-only into container. / 配置目录以只读方式挂载到容器。
+
+### Cursor Integration Guide / Cursor 集成文档
+
+- **`docs/integrations/cursor.md`** — Full guide for using vmware-aiops as a Cursor MCP server.
+  完整的 Cursor 集成指南，包含自动安装、手动配置、32 个工具说明、使用示例和排障指南。
+
+---
+
 ## v1.1.0 — 2026-03-21
 
 > **Version unification release / 版本统一发布**
