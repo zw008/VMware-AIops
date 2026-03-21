@@ -2,6 +2,80 @@
 
 ---
 
+## v1.1.0 — 2026-03-21
+
+> **Version unification release / 版本统一发布**
+> All platforms (PyPI, GitHub Release, MCP Registry, Skills.sh, ClawHub, Smithery) now share the same version number starting from v1.1.0.
+> 所有平台（PyPI、GitHub Release、MCP Registry、Skills.sh、ClawHub、Smithery）从 v1.1.0 起统一版本号。
+
+### Cluster Management & iSCSI Configuration (Closes #8) / 集群管理与 iSCSI 配置
+
+- **Cluster operations / 集群操作**: List clusters, DRS/HA status, resource pool info.
+  列出集群、DRS/HA 状态、资源池信息。
+- **iSCSI adapter configuration / iSCSI 适配器配置**: Enable iSCSI adapter, add/remove targets, rescan storage — directly from CLI without switching to ESXi Host Client or vCenter UI.
+  启用 iSCSI 适配器、添加/移除目标、重新扫描存储——无需切换到 ESXi Host Client 或 vCenter UI。
+
+### Guest Operations API (3 MCP tools + CLI) / Guest Operations API
+
+- `vm_guest_exec` — Execute commands inside VMs via VMware Tools / 在 VM 内执行命令
+- `vm_guest_upload` — Upload files to VMs / 上传文件到 VM
+- `vm_guest_download` — Download files from VMs / 从 VM 下载文件
+
+### Plan → Apply Mode (4 MCP tools) / 计划→执行模式
+
+Terraform-style plan/apply for multi-step operations:
+类似 Terraform 的多步骤操作计划/执行模式：
+
+- `vm_create_plan` — Validate & generate plan with rollback info / 生成带回滚信息的操作计划
+- `vm_apply_plan` — Execute sequentially, stop on failure / 顺序执行，失败即停
+- `vm_rollback_plan` — Reverse executed steps / 回滚已执行步骤
+- `vm_list_plans` — List pending/failed plans / 列出待执行/失败的计划
+
+### TTL Auto-Destroy / VM 自动过期销毁
+
+- `vm_set_ttl` / `vm_cancel_ttl` / `vm_list_ttl` — Assign time-to-live to VMs, auto-delete on expiry.
+  为 VM 设置存活时间，到期自动删除，防止资源泄漏。
+
+### Clean Slate / 一键重置
+
+- `vm_clean_slate` — Revert VM to baseline snapshot in one command.
+  一键恢复 VM 到基线快照。
+
+### VM Deploy & Datastore Browser / VM 部署与数据存储浏览
+
+- `vm_deploy` — Deploy VMs from OVA/OVF templates / 从 OVA/OVF 模板部署 VM
+- `datastore_browse` — Browse datastore file system / 浏览数据存储文件系统
+
+### Doctor & MCP Config Generator / 诊断与配置生成
+
+- `vmware-aiops doctor` — 8-check environment diagnostic / 8 项环境诊断
+- `vmware-aiops mcp-config generate --agent <name>` — Generate config for 7 local AI agents / 为 7 种本地 AI Agent 生成配置
+
+### Inventory Enhancements / 资源清单增强
+
+- `list_vms` with limit/sort_by/power_state/fields filtering / 支持过滤、排序、字段选择
+- Auto-tiered response for large inventories (>50 VMs) / 大规模环境自动精简返回
+
+### Security Hardening / 安全加固
+
+- Prompt injection protection with boundary markers / Prompt 注入防护（边界标记）
+- Double confirmation for all destructive operations / 所有破坏性操作双重确认
+- Dry-run mode for all destructive commands / 所有破坏性命令支持预演模式
+- Audit logging (JSONL) for all operations / 全操作审计日志
+- `.env` file permission check at startup / 启动时检查 .env 文件权限
+- Bandit security scan: 0 issues / Bandit 安全扫描零问题
+
+### Platform & Integration / 平台与集成
+
+- MCP tools: 9 → 31
+- MCP Registry, Skills.sh, ClawHub, Smithery, Glama, mcp.so, Cline Marketplace published
+- Local agent config templates for 7 agents (Claude Code, Cursor, Goose, LocalCowork, mcp-agent, Continue, VS Code Copilot)
+- Ollama end-to-end setup guide
+
+**PyPI**: `uv tool install vmware-aiops==1.1.0`
+
+---
+
 ## v0.5.5 — 2026-03-05
 
 ### Usage Mode Optimization / 使用模式优化
