@@ -1,0 +1,13 @@
+services:
+  vmware-aiops-mcp:
+    build: .
+    image: vmware-aiops:latest
+    stdin_open: true
+    tty: true
+    volumes:
+      # Mount your config and credentials
+      - ~/.vmware-aiops:/root/.vmware-aiops:ro
+    environment:
+      - VMWARE_AIOPS_CONFIG=/root/.vmware-aiops/config.yaml
+      # Add your password env vars here, e.g.:
+      # - VMWARE_MY_VCENTER_PASSWORD=secret

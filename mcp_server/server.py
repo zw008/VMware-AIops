@@ -44,7 +44,7 @@ from vmware_aiops.ops.inventory import (
     list_hosts,
     list_vms,
 )
-from vmware_aiops.ops.guest_ops import guest_download, guest_exec, guest_upload
+from vmware_aiops.ops.guest_ops import guest_download, guest_exec, guest_exec_with_output, guest_upload
 from vmware_aiops.ops.plan_executor import apply_plan, rollback_plan
 from vmware_aiops.ops.planner import create_plan, list_plans
 from vmware_aiops.ops.vm_lifecycle import (
@@ -822,6 +822,35 @@ def vm_guest_exec(
         arguments=arguments,
         working_directory=working_directory,
     )
+
+
+@mcp.tool()
+def vm_guest_exec_output(
+    vm_name: str,
+    command: str,
+    username: str = "root",
+    password: str = "",
+    timeout: int = 300,
+    target: str | None = None,
+) -> dict:
+    """Execute a shell command inside a VM and capture stdout + stderr.
+
+    Automatically detects guest OS (Linux/Windows) and selects the correct
+    shell. Output is captured by redirecting to a temp file, downloading it,
+    then cleaning up — no manual redirection needed.
+
+    Returns exit_code, stdout, stderr, timed_out, os_family.
+
+    Args:
+        vm_name: Target VM name.
+        command: Shell command (e.g. "df -h", "ls /etc", "ipconfig").
+        username: Guest OS username (default "root").
+        password: Guest OS password.
+        timeout: Max wait seconds (default 300).
+        target: Optional vCenter/ESXi target name from config.
+    """
+    si = _get_connection(target)
+    return guest_exec_with_output(si, vm_name, command, username, password, timeout=timeout)
 
 
 @mcp.tool()

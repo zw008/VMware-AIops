@@ -6,9 +6,10 @@ Uses the GuestOperationsManager API (VIX-like, over SOAP).
 
 from __future__ import annotations
 
-import base64
 import logging
+import tempfile
 import time
+import uuid
 from typing import TYPE_CHECKING
 
 from pyVmomi import vim
@@ -23,6 +24,10 @@ logger = logging.getLogger(__name__)
 
 _POLL_INTERVAL = 2  # seconds
 _EXEC_TIMEOUT = 300  # seconds
+
+# Guest OS family constants (vm.guest.guestFamily)
+_FAMILY_WINDOWS = "windowsGuest"
+_FAMILY_LINUX = "linuxGuest"
 
 
 class GuestOpsError(Exception):
@@ -45,6 +50,14 @@ def _require_vm_with_tools(
             f"(status: {tools_status}). Guest operations require running Tools."
         )
     return vm
+
+
+def _detect_shell(vm: vim.VirtualMachine) -> tuple[str, str]:
+    """Detect guest OS shell from guestFamily. Returns (program_path, shell_flag)."""
+    family = vm.guest.guestFamily if vm.guest else None
+    if family == _FAMILY_WINDOWS:
+        return ("C:\\Windows\\System32\\cmd.exe", "/c")
+    return ("/bin/sh", "-c")
 
 
 def _guest_auth(username: str, password: str) -> vim.vm.guest.NamePasswordAuthentication:
@@ -141,6 +154,91 @@ def guest_exec(
         "timed_out": False,
         "command": f"{command} {arguments}".strip(),
         "pid": pid,
+    }
+
+
+def guest_exec_with_output(
+    si: ServiceInstance,
+    vm_name: str,
+    command: str,
+    username: str,
+    password: str,
+    timeout: int = _EXEC_TIMEOUT,
+) -> dict:
+    """Execute a shell command inside a VM and capture stdout + stderr.
+
+    Automatically detects guest OS (Linux/Windows) and uses the appropriate
+    shell. Captures output by redirecting to a temp file, downloading it,
+    then cleaning up.
+
+    Args:
+        si: vSphere ServiceInstance.
+        vm_name: Target VM name.
+        command: Shell command to run (e.g. "df -h" or "dir C:\\").
+        username: Guest OS username.
+        password: Guest OS password.
+        timeout: Max wait time in seconds (default 300).
+
+    Returns:
+        dict with keys: exit_code, stdout, stderr, timed_out, command, os_family.
+    """
+    vm = _require_vm_with_tools(si, vm_name)
+    family = vm.guest.guestFamily if vm.guest else None
+    program, flag = _detect_shell(vm)
+
+    # Temp file paths inside the guest
+    run_id = uuid.uuid4().hex[:8]
+    if family == _FAMILY_WINDOWS:
+        tmp_out = f"C:\\Windows\\Temp\\vmops_{run_id}.txt"
+        wrapped = f"{command} > {tmp_out} 2>&1"
+    else:
+        tmp_out = f"/tmp/.vmops_{run_id}.txt"
+        wrapped = f"{command} > {tmp_out} 2>&1"
+
+    # Run command with output redirection
+    result = guest_exec(
+        si, vm_name, program, username, password,
+        arguments=f"{flag} \"{wrapped}\"",
+        timeout=timeout,
+    )
+    exit_code = result["exit_code"]
+    timed_out = result["timed_out"]
+
+    # Download the output file
+    stdout = ""
+    with tempfile.NamedTemporaryFile(mode="wb", suffix=".txt", delete=False) as tf:
+        local_tmp = tf.name
+
+    try:
+        guest_download(si, vm_name, tmp_out, local_tmp, username, password)
+        with open(local_tmp, "r", errors="replace") as f:
+            stdout = f.read()
+    except Exception as e:
+        logger.warning("Could not retrieve output file from guest: %s", e)
+    finally:
+        import os as _os
+        try:
+            _os.unlink(local_tmp)
+        except OSError:
+            pass
+        # Best-effort cleanup of temp file in guest
+        try:
+            if family == _FAMILY_WINDOWS:
+                guest_exec(si, vm_name, "C:\\Windows\\System32\\cmd.exe",
+                           username, password, arguments=f"/c del {tmp_out}")
+            else:
+                guest_exec(si, vm_name, "/bin/sh", username, password,
+                           arguments=f"-c 'rm -f {tmp_out}'")
+        except Exception:
+            pass
+
+    return {
+        "exit_code": exit_code,
+        "stdout": stdout.strip(),
+        "stderr": "",
+        "timed_out": timed_out,
+        "command": command,
+        "os_family": family or "unknown",
     }
 
 
