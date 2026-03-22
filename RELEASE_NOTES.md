@@ -2,6 +2,15 @@
 
 ---
 
+## v1.2.1 — 2026-03-22
+
+### Skill Routing / Skill 智能路由推荐
+
+- SKILL.md 新增 **Related Skills — Skill Routing** 路由表：遇到存储相关请求推荐 vmware-storage，遇到只读监控需求推荐 vmware-monitor，减少 Agent 工具数量和上下文占用。
+- Added **Related Skills** routing table to SKILL.md: recommends vmware-storage for storage tasks, vmware-monitor for read-only monitoring — keeps tool count and context usage minimal.
+
+---
+
 ## v1.2.0 — 2026-03-21
 
 ### Guest Exec with Output Capture / Guest 命令输出捕获
