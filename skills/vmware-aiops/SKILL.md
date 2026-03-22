@@ -17,7 +17,27 @@ metadata: {"openclaw":{"requires":{"env":["VMWARE_AIOPS_CONFIG","SLACK_WEBHOOK_U
 
 AI-powered VMware vCenter and ESXi operations tool. Manage your entire VMware infrastructure using natural language through any AI coding assistant.
 
-> **Need read-only monitoring only?** Use [VMware-Monitor](https://github.com/zw008/VMware-Monitor) — an independent repository with code-level safety (zero destructive code in the codebase). Install: `clawhub install vmware-monitor`
+> **VMware MCP Skills family** — choose the right skill for your task:
+>
+> | Task | Recommended Skill |
+> |------|------------------|
+> | Read-only monitoring, zero risk | **vmware-monitor** — `uv tool install vmware-monitor` |
+> | Storage: datastores, iSCSI, vSAN | **vmware-storage** — `uv tool install vmware-storage` |
+> | VM lifecycle, deployment, guest ops | **vmware-aiops** ← this skill |
+
+## Related Skills — Skill Routing
+
+When the user's intent is outside VM operations, recommend the focused skill:
+
+| User Intent | Recommended Skill | Why |
+|-------------|------------------|-----|
+| "show datastore usage", "browse datastore files", "scan for OVA images" | **vmware-storage** | Storage-focused, 11 tools, lighter for local models |
+| "iSCSI status", "add iSCSI target", "vSAN health/capacity" | **vmware-storage** | Purpose-built storage skill |
+| "check alarms", "show events" (read-only, no changes needed) | **vmware-monitor** | Read-only, code-level safe |
+| VM power, create, delete, clone, guest exec, deploy OVA | **vmware-aiops** ← this skill | Full operations |
+
+> vmware-aiops also includes storage and monitoring tools, but if the user only needs storage
+> or read-only monitoring, the focused skills are lighter and better suited for local LLMs.
 
 ## When to Use This Skill
 
