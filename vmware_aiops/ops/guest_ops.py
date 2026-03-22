@@ -242,6 +242,121 @@ def guest_exec_with_output(
     }
 
 
+def guest_provision(
+    si: "ServiceInstance",
+    vm_name: str,
+    username: str,
+    password: str,
+    steps: list[dict],
+    timeout: int = 300,
+) -> dict:
+    """Provision a VM by running a sequence of guest operations.
+
+    Each step is a dict with a ``type`` key:
+
+    - ``{"type": "exec", "command": "apt-get install -y nginx"}``
+      Run a shell command (uses guest_exec_with_output).
+
+    - ``{"type": "upload", "local_path": "/tmp/id_rsa.pub", "guest_path": "/root/.ssh/authorized_keys"}``
+      Upload a local file into the guest.
+
+    - ``{"type": "service", "name": "nginx", "action": "start"}``
+      Start/stop/restart/enable a systemd service (Linux only).
+
+    Steps are executed in order. Execution stops on the first failure
+    (non-zero exit code or exception).
+
+    Args:
+        si: vSphere ServiceInstance.
+        vm_name: Target VM name.
+        username: Guest OS username.
+        password: Guest OS password.
+        steps: List of step dicts (see above).
+        timeout: Per-step timeout in seconds (default 300).
+
+    Returns:
+        dict with keys:
+          - success (bool)
+          - completed_steps (int)
+          - total_steps (int)
+          - results (list of per-step dicts)
+          - error (str or None)
+    """
+    results = []
+    for i, step in enumerate(steps):
+        step_type = step.get("type")
+        step_result: dict = {"step": i + 1, "type": step_type, "success": False}
+        try:
+            if step_type == "exec":
+                command = step["command"]
+                step_result["command"] = command
+                out = guest_exec_with_output(si, vm_name, command, username, password, timeout=timeout)
+                step_result["exit_code"] = out["exit_code"]
+                step_result["stdout"] = out["stdout"]
+                step_result["timed_out"] = out["timed_out"]
+                step_result["success"] = out["exit_code"] == 0 and not out["timed_out"]
+
+            elif step_type == "upload":
+                local_path = step["local_path"]
+                guest_path = step["guest_path"]
+                step_result["local_path"] = local_path
+                step_result["guest_path"] = guest_path
+                msg = guest_upload(si, vm_name, local_path, guest_path, username, password)
+                step_result["message"] = msg
+                step_result["success"] = True
+
+            elif step_type == "service":
+                name = step["name"]
+                action = step.get("action", "start")
+                step_result["service"] = name
+                step_result["action"] = action
+                command = f"systemctl {action} {name}"
+                out = guest_exec_with_output(si, vm_name, command, username, password, timeout=timeout)
+                step_result["exit_code"] = out["exit_code"]
+                step_result["stdout"] = out["stdout"]
+                step_result["success"] = out["exit_code"] == 0
+
+            else:
+                step_result["error"] = f"Unknown step type: '{step_type}'"
+                results.append(step_result)
+                return {
+                    "success": False,
+                    "completed_steps": i,
+                    "total_steps": len(steps),
+                    "results": results,
+                    "error": f"Step {i + 1}: unknown type '{step_type}'",
+                }
+
+        except Exception as exc:
+            step_result["error"] = str(exc)
+            results.append(step_result)
+            return {
+                "success": False,
+                "completed_steps": i,
+                "total_steps": len(steps),
+                "results": results,
+                "error": f"Step {i + 1} ({step_type}) failed: {exc}",
+            }
+
+        results.append(step_result)
+        if not step_result["success"]:
+            return {
+                "success": False,
+                "completed_steps": i,
+                "total_steps": len(steps),
+                "results": results,
+                "error": f"Step {i + 1} ({step_type}) failed with exit_code={step_result.get('exit_code')}",
+            }
+
+    return {
+        "success": True,
+        "completed_steps": len(steps),
+        "total_steps": len(steps),
+        "results": results,
+        "error": None,
+    }
+
+
 def guest_upload(
     si: ServiceInstance,
     vm_name: str,

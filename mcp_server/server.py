@@ -44,7 +44,7 @@ from vmware_aiops.ops.inventory import (
     list_hosts,
     list_vms,
 )
-from vmware_aiops.ops.guest_ops import guest_download, guest_exec, guest_exec_with_output, guest_upload
+from vmware_aiops.ops.guest_ops import guest_download, guest_exec, guest_exec_with_output, guest_provision, guest_upload
 from vmware_aiops.ops.plan_executor import apply_plan, rollback_plan
 from vmware_aiops.ops.planner import create_plan, list_plans
 from vmware_aiops.ops.vm_lifecycle import (
@@ -901,6 +901,49 @@ def vm_guest_download(
     """
     si = _get_connection(target)
     return guest_download(si, vm_name, guest_path, local_path, username, password)
+
+
+@mcp.tool()
+def vm_guest_provision(
+    vm_name: str,
+    username: str,
+    password: str,
+    steps: list[dict],
+    timeout: int = 300,
+    target: str | None = None,
+) -> dict:
+    """Provision a VM by running a sequence of guest operations (exec / upload / service).
+
+    Combines key injection, software installation, and service startup into a
+    single call. Steps execute in order; stops on first failure.
+
+    Step types:
+      - exec:    {"type": "exec", "command": "apt-get install -y nginx"}
+      - upload:  {"type": "upload", "local_path": "/tmp/id_rsa.pub", "guest_path": "/root/.ssh/authorized_keys"}
+      - service: {"type": "service", "name": "nginx", "action": "start"}
+
+    Args:
+        vm_name: Target VM name.
+        username: Guest OS username.
+        password: Guest OS password.
+        steps: Ordered list of step dicts.
+        timeout: Per-step timeout in seconds (default 300).
+        target: Optional vCenter/ESXi target name from config.
+
+    Returns:
+        dict with success, completed_steps, total_steps, results, error.
+
+    Example:
+        steps = [
+            {"type": "upload", "local_path": "~/.ssh/id_rsa.pub", "guest_path": "/root/.ssh/authorized_keys"},
+            {"type": "exec", "command": "chmod 600 /root/.ssh/authorized_keys"},
+            {"type": "exec", "command": "apt-get install -y nginx"},
+            {"type": "service", "name": "nginx", "action": "enable"},
+            {"type": "service", "name": "nginx", "action": "start"},
+        ]
+    """
+    si = _get_connection(target)
+    return guest_provision(si, vm_name, username, password, steps, timeout=timeout)
 
 
 # ---------------------------------------------------------------------------
