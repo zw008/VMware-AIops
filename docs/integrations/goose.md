@@ -32,7 +32,15 @@
 
 ## Adding to Goose
 
-### Option A: goose configure (Interactive)
+### Option A: Auto-install (recommended)
+
+```bash
+vmware-aiops mcp-config install --agent goose
+```
+
+This writes the extension config directly into `~/.config/goose/config.yaml`.
+
+### Option B: goose configure (Interactive)
 
 ```bash
 goose configure
@@ -43,7 +51,7 @@ goose configure
 # Env: VMWARE_AIOPS_CONFIG=~/.vmware-aiops/config.yaml
 ```
 
-### Option B: config.yaml (Manual)
+### Option C: config.yaml (Manual)
 
 Add to `~/.config/goose/config.yaml`:
 
@@ -64,24 +72,7 @@ extensions:
 
 Replace `/path/to/VMware-AIops` with your actual clone path (e.g. `~/myskills/VMware-AIops`).
 
-### Option C: JSON config
-
-Use the template at `examples/mcp-configs/goose.json`:
-
-```json
-{
-  "name": "vmware-aiops",
-  "description": "VMware vCenter/ESXi AI-powered monitoring and operations",
-  "command": "python",
-  "args": ["-m", "mcp_server"],
-  "cwd": "/path/to/VMware-AIops",
-  "env": {
-    "VMWARE_AIOPS_CONFIG": "~/.vmware-aiops/config.yaml"
-  }
-}
-```
-
-## Available MCP Tools (31 tools)
+## Available MCP Tools (32 tools)
 
 | Category | Tools |
 |----------|-------|
@@ -89,7 +80,7 @@ Use the template at `examples/mcp-configs/goose.json`:
 | Health | `get_alarms`, `get_events`, `vm_info` |
 | VM Lifecycle | `vm_power_on`, `vm_power_off`, `vm_set_ttl`, `vm_cancel_ttl`, `vm_list_ttl`, `vm_clean_slate` |
 | Deployment | `deploy_vm_from_ova`, `deploy_vm_from_template`, `deploy_linked_clone`, `attach_iso_to_vm`, `convert_vm_to_template`, `batch_clone_vms`, `batch_linked_clone_vms`, `batch_deploy_from_spec` |
-| Guest Operations | `vm_guest_exec`, `vm_guest_upload`, `vm_guest_download` |
+| Guest Operations | `vm_guest_exec`, `vm_guest_exec_output`, `vm_guest_upload`, `vm_guest_download` |
 | Plan → Apply | `vm_create_plan`, `vm_apply_plan`, `vm_rollback_plan`, `vm_list_plans` |
 | Datastore | `browse_datastore`, `scan_datastore_images`, `list_cached_images` |
 
@@ -119,19 +110,34 @@ Step 2/3: Deploying web05... ✓
 Step 3/3: Deploying web06... ✓
 ```
 
-**Example 3: Guest operations**
+**Example 3: Guest operations with output capture**
 ```
 You: Run "df -h" on vm-linux01 and show disk usage
 
-Goose: [calls vm_guest_exec]
+Goose: [calls vm_guest_exec_output]
 Filesystem      Size  Used Avail Use%
 /dev/sda1        50G   32G   18G  64%
 /dev/sdb1       200G  180G   20G  90% ← nearing capacity
 ```
 
+**Example 4: Natural language query**
+```
+You: Which VMs have been powered off for more than 7 days?
+
+Goose: [calls list_virtual_machines, get_events]
+Found 4 powered-off VMs idle > 7 days:
+- vm-test-old (14 days), vm-dev-unused (21 days) ...
+```
+
 ## Local Model Support (Ollama)
 
-`vmware-aiops` works with local models via Goose + Ollama. For smaller models (< 32B parameters), use CLI mode instead of MCP to reduce token overhead:
+`vmware-aiops` works with local models via Goose + Ollama. Recommended models for tool-calling:
+
+| Model | Size | Tool-calling |
+|-------|------|:------------:|
+| qwen2.5:32b | 32B | ✅ Reliable |
+| qwen2.5:14b | 14B | ✅ Good |
+| llama3.1:8b | 8B | ⚠️ Basic |
 
 ```yaml
 # ~/.config/goose/config.yaml
@@ -148,6 +154,8 @@ extensions:
       VMWARE_AIOPS_CONFIG: ~/.vmware-aiops/config.yaml
 ```
 
+For models < 14B, consider using `vmware-monitor` (8 read-only tools) instead to reduce context overhead.
+
 See [examples/ollama-local-setup.md](../../examples/ollama-local-setup.md) for full local model setup.
 
 ## Troubleshooting
@@ -158,3 +166,4 @@ See [examples/ollama-local-setup.md](../../examples/ollama-local-setup.md) for f
 | Auth failure | Run `vmware-aiops doctor` to verify vCenter connectivity |
 | Tool call timeout | Large inventories may take 10–30s; Goose default timeout may need increasing |
 | `VMWARE_AIOPS_CONFIG` not found | Use absolute path, not `~` expansion in config |
+| Local model misses tool calls | Switch to a larger model (32B+) or use `vmware-monitor` (fewer tools) |
