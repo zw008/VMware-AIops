@@ -2,6 +2,15 @@
 
 ---
 
+## v1.2.2 — 2026-03-22
+
+### Security / 安全修复
+
+- Fix: webhook URLs (`SLACK_WEBHOOK_URL`, `DISCORD_WEBHOOK_URL`) moved from `required` to `optional` in OpenClaw metadata — resolves ClawHub "Suspicious" security flag.
+- 修复：将 webhook URL 从 OpenClaw metadata 的 `required` 移至 `optional`，消除 ClawHub 安全告警。
+
+---
+
 ## v1.2.1 — 2026-03-22
 
 ### Skill Routing / Skill 智能路由推荐
