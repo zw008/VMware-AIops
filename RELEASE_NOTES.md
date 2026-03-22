@@ -2,6 +2,14 @@
 
 ---
 
+## v1.2.3 — 2026-03-22
+
+### Docs / SKILL.md restructure
+
+- Reorder SKILL.md: "What This Skill Does" table and Quick Install first, routing table last — improves Skills.sh/ClawHub page readability.
+
+---
+
 ## v1.2.2 — 2026-03-22
 
 ### Security / 安全修复
