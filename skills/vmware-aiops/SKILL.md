@@ -15,36 +15,35 @@ metadata: {"openclaw":{"requires":{"env":["VMWARE_AIOPS_CONFIG"],"bins":["vmware
 
 # VMware AIops
 
-AI-powered VMware vCenter and ESXi operations tool. Manage your entire VMware infrastructure using natural language through any AI coding assistant.
+AI-powered VMware vCenter and ESXi operations tool. Manage your entire VMware infrastructure using natural language — 33 MCP tools covering VM lifecycle, deployment, guest ops, storage, vSAN, clusters, and more.
 
-> **VMware MCP Skills family** — choose the right skill for your task:
->
-> | Task | Recommended Skill |
-> |------|------------------|
-> | Read-only monitoring, zero risk | **vmware-monitor** — `uv tool install vmware-monitor` |
-> | Storage: datastores, iSCSI, vSAN | **vmware-storage** — `uv tool install vmware-storage` |
-> | VM lifecycle, deployment, guest ops | **vmware-aiops** ← this skill |
+## What This Skill Does
 
-## Related Skills — Skill Routing
+| Category | Examples |
+|----------|---------|
+| **VM Lifecycle** | power on/off, create, delete, snapshot, clone, migrate |
+| **Deployment** | deploy from OVA/template/linked clone, batch deploy |
+| **Guest Ops** | run commands inside VM, upload/download files, provision |
+| **Health & Alarms** | active alarms, events, hardware sensors, host logs |
+| **Inventory** | list VMs, hosts, datastores, clusters, networks |
+| **Storage / iSCSI** | enable adapter, add/remove targets, rescan, vSAN health |
+| **Cluster** | create cluster, HA/DRS config, add/remove hosts |
+| **Scheduled Scan** | daemon + Slack/Discord webhook notifications |
 
-When the user's intent is outside VM operations, recommend the focused skill:
+## Quick Install
 
-| User Intent | Recommended Skill | Why |
-|-------------|------------------|-----|
-| "show datastore usage", "browse datastore files", "scan for OVA images" | **vmware-storage** | Storage-focused, 11 tools, lighter for local models |
-| "iSCSI status", "add iSCSI target", "vSAN health/capacity" | **vmware-storage** | Purpose-built storage skill |
-| "check alarms", "show events" (read-only, no changes needed) | **vmware-monitor** | Read-only, code-level safe |
-| VM power, create, delete, clone, guest exec, deploy OVA | **vmware-aiops** ← this skill | Full operations |
-
-> vmware-aiops also includes storage and monitoring tools, but if the user only needs storage
-> or read-only monitoring, the focused skills are lighter and better suited for local LLMs.
+```bash
+uv tool install vmware-aiops
+vmware-aiops doctor
+```
 
 ## When to Use This Skill
 
-- Query VM, host, datastore, cluster, and network inventory
-- Check health status, active alarms, hardware sensors, and event logs
 - Perform VM lifecycle operations: power on/off, create, delete, snapshot, clone, migrate
 - Deploy VMs from OVA, templates, linked clones, or batch specs
+- Run commands or upload files inside a VM (Guest Operations)
+- Query VM, host, datastore, cluster, and network inventory
+- Check health status, active alarms, hardware sensors, and event logs
 - Create and manage clusters: HA/DRS configuration, add/remove hosts
 - Configure iSCSI storage: enable adapter, add/remove targets, rescan
 - Browse datastores and discover ISO/OVA/VMDK images
@@ -52,6 +51,16 @@ When the user's intent is outside VM operations, recommend the focused skill:
 - Access Aria Operations (VCF Operations) for historical metrics, anomaly detection, and capacity planning
 - Manage vSphere Kubernetes Service (VKS) clusters
 - Run scheduled scanning with webhook notifications (Slack, Discord)
+
+## Related Skills — Skill Routing
+
+> For storage-only or read-only tasks, use the lighter focused skills:
+
+| User Intent | Recommended Skill | Why |
+|-------------|------------------|-----|
+| Read-only monitoring, zero risk | **vmware-monitor** — `uv tool install vmware-monitor` | 8 tools, code-level safe |
+| Datastores, iSCSI, vSAN only | **vmware-storage** — `uv tool install vmware-storage` | 11 tools, lighter for local models |
+| VM lifecycle, deployment, guest ops | **vmware-aiops** ← this skill | 33 tools, full operations |
 
 ## Quick Install
 
