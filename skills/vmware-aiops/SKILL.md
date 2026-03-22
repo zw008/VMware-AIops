@@ -10,7 +10,7 @@ description: >
 installer:
   kind: uv
   package: vmware-aiops
-metadata: {"openclaw":{"requires":{"env":["VMWARE_AIOPS_CONFIG","SLACK_WEBHOOK_URL","DISCORD_WEBHOOK_URL"],"bins":["vmware-aiops"],"config":["~/.vmware-aiops/config.yaml","~/.vmware-aiops/.env"]},"primaryEnv":"VMWARE_AIOPS_CONFIG","homepage":"https://github.com/zw008/VMware-AIops","emoji":"🖥️","os":["macos","linux"]}}
+metadata: {"openclaw":{"requires":{"env":["VMWARE_AIOPS_CONFIG"],"bins":["vmware-aiops"],"config":["~/.vmware-aiops/config.yaml","~/.vmware-aiops/.env"]},"optional":{"env":["SLACK_WEBHOOK_URL","DISCORD_WEBHOOK_URL"]},"primaryEnv":"VMWARE_AIOPS_CONFIG","homepage":"https://github.com/zw008/VMware-AIops","emoji":"🖥️","os":["macos","linux"]}}
 ---
 
 # VMware AIops
