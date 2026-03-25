@@ -75,7 +75,7 @@ npx skills add zw008/VMware-AIops
 clawhub install vmware-aiops
 
 # Via PyPI (recommended for version pinning)
-uv tool install vmware-aiops==1.0.16
+uv tool install vmware-aiops==1.2.3
 ```
 
 ### Claude Code
