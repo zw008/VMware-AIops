@@ -54,13 +54,14 @@ vmware-aiops doctor
 
 ## Related Skills — Skill Routing
 
-> For storage-only or read-only tasks, use the lighter focused skills:
+> For focused tasks, use the lighter domain-specific skills:
 
 | User Intent | Recommended Skill | Why |
 |-------------|------------------|-----|
 | Read-only monitoring, zero risk | **vmware-monitor** — `uv tool install vmware-monitor` | 8 tools, code-level safe |
 | Datastores, iSCSI, vSAN only | **vmware-storage** — `uv tool install vmware-storage` | 11 tools, lighter for local models |
 | VM lifecycle, deployment, guest ops | **vmware-aiops** ← this skill | 33 tools, full operations |
+| Tanzu Namespace, TKC cluster lifecycle (vSphere 8.x+) | **vmware-vks** — `uv tool install vmware-vks` | 20 tools, full TKC lifecycle with safety guards |
 
 ## Quick Install
 
