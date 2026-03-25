@@ -2,6 +2,26 @@
 
 ---
 
+## v1.3.0 — 2026-03-25
+
+### Slimdown: Remove duplicate tools / 瘦身去重
+
+**Breaking change**: 13 MCP tools and corresponding CLI commands removed to eliminate overlap with companion skills.
+
+**Removed tools (→ use companion skill instead)**:
+- Inventory: `list_virtual_machines`, `list_esxi_hosts`, `list_all_datastores`, `list_all_clusters` → **vmware-monitor**
+- Health: `get_alarms`, `get_events`, `vm_info` → **vmware-monitor**
+- Datastore cache: `list_cached_images` → **vmware-storage**
+- Storage/iSCSI: `storage_iscsi_enable`, `storage_iscsi_status`, `storage_iscsi_add_target`, `storage_iscsi_remove_target`, `storage_rescan` → **vmware-storage**
+
+**Kept in aiops**: `browse_datastore`, `scan_datastore_images` (basic datastore browsing for deployment workflows).
+
+**Security fix**: Added `_sanitize()` prompt injection defense to `datastore_browser.py` (backported from vmware-storage).
+
+**MCP tool count**: 44 → 31 (13 removed, zero new).
+
+---
+
 ## v1.2.3 — 2026-03-22
 
 ### Docs / SKILL.md restructure

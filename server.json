@@ -2,17 +2,17 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.zw008/vmware-aiops",
   "title": "VMware AIops",
-  "description": "AI-powered VMware vCenter/ESXi monitoring and operations with 20 MCP tools.",
+  "description": "AI-powered VMware vCenter/ESXi VM lifecycle and deployment with 31 MCP tools.",
   "repository": {
     "url": "https://github.com/zw008/VMware-AIops",
     "source": "github"
   },
-  "version": "1.2.3",
+  "version": "1.3.0",
   "packages": [
     {
       "registryType": "pypi",
       "identifier": "vmware-aiops",
-      "version": "1.2.3",
+      "version": "1.3.0",
       "transport": {
         "type": "stdio"
       }

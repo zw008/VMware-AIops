@@ -23,23 +23,18 @@ app = typer.Typer(
 console = Console()
 
 # Sub-commands
-inventory_app = typer.Typer(help="Query vCenter/ESXi inventory.")
-health_app = typer.Typer(help="Health checks: alarms, hardware, services.")
+# Note: inventory/health/storage-iSCSI commands moved to vmware-monitor and vmware-storage
 vm_app = typer.Typer(help="VM lifecycle: power, snapshot, clone, migrate.")
 deploy_app = typer.Typer(help="VM deployment: OVA, template, linked clone, batch.")
 datastore_app = typer.Typer(help="Datastore browsing and image discovery.")
 cluster_app = typer.Typer(help="Cluster management: create, delete, configure HA/DRS.")
-storage_app = typer.Typer(help="Storage operations: iSCSI configuration, rescan.")
 scan_app = typer.Typer(help="Log and alarm scanning.")
 daemon_app = typer.Typer(help="Scanner daemon management.")
 
-app.add_typer(inventory_app, name="inventory")
-app.add_typer(health_app, name="health")
 app.add_typer(vm_app, name="vm")
 app.add_typer(deploy_app, name="deploy")
 app.add_typer(datastore_app, name="datastore")
 app.add_typer(cluster_app, name="cluster")
-app.add_typer(storage_app, name="storage")
 app.add_typer(scan_app, name="scan")
 app.add_typer(daemon_app, name="daemon")
 
@@ -162,205 +157,10 @@ def _double_confirm(
         raise
 
 
-# ─── Inventory ────────────────────────────────────────────────────────────────
-
-
-@inventory_app.command("vms")
-def inventory_vms(
-    target: TargetOption = None,
-    config: ConfigOption = None,
-    limit: Annotated[int | None, typer.Option("--limit", "-n", help="Max VMs to show")] = None,
-    sort_by: Annotated[str, typer.Option("--sort-by", help="Sort by: name|cpu|memory_mb|power_state")] = "name",
-    power_state: Annotated[str | None, typer.Option("--power-state", help="Filter: poweredOn|poweredOff|suspended")] = None,
-) -> None:
-    """List virtual machines."""
-    from vmware_aiops.ops.inventory import list_vms
-
-    si, _ = _get_connection(target, config)
-    result = list_vms(si, limit=limit, sort_by=sort_by, power_state=power_state)
-    vms = result["vms"]
-    total = result["total"]
-    mode = result["mode"]
-    hint = result["hint"]
-    title = f"Virtual Machines ({total} total"
-    if mode == "compact":
-        title += ", compact mode"
-    title += ")"
-    if power_state:
-        title += f" [{power_state}]"
-    if limit:
-        title += f" (top {limit})"
-    table = Table(title=title)
-    table.add_column("Name", style="cyan")
-    table.add_column("Power")
-    table.add_column("CPUs", justify="right")
-    table.add_column("Memory (MB)", justify="right")
-    if mode == "full":
-        table.add_column("Guest OS")
-        table.add_column("IP Address")
-    for vm in vms:
-        power_style = "green" if vm["power_state"] == "poweredOn" else "red"
-        row = [
-            vm["name"],
-            f"[{power_style}]{vm['power_state']}[/]",
-            str(vm.get("cpu", "-")),
-            str(vm.get("memory_mb", "-")),
-        ]
-        if mode == "full":
-            row.append(vm.get("guest_os", "-"))
-            row.append(vm.get("ip_address") or "-")
-        table.add_row(*row)
-    console.print(table)
-    if hint:
-        console.print(f"[yellow]ℹ {hint}[/yellow]")
-
-
-@inventory_app.command("hosts")
-def inventory_hosts(target: TargetOption = None, config: ConfigOption = None) -> None:
-    """List all ESXi hosts."""
-    from vmware_aiops.ops.inventory import list_hosts
-
-    si, _ = _get_connection(target, config)
-    hosts = list_hosts(si)
-    table = Table(title="ESXi Hosts")
-    table.add_column("Name", style="cyan")
-    table.add_column("State")
-    table.add_column("CPU Cores", justify="right")
-    table.add_column("Memory (GB)", justify="right")
-    table.add_column("VMs", justify="right")
-    for h in hosts:
-        state_style = "green" if h["connection_state"] == "connected" else "red"
-        table.add_row(
-            h["name"],
-            f"[{state_style}]{h['connection_state']}[/]",
-            str(h["cpu_cores"]),
-            str(h["memory_gb"]),
-            str(h["vm_count"]),
-        )
-    console.print(table)
-
-
-@inventory_app.command("datastores")
-def inventory_datastores(
-    target: TargetOption = None, config: ConfigOption = None
-) -> None:
-    """List all datastores."""
-    from vmware_aiops.ops.inventory import list_datastores
-
-    si, _ = _get_connection(target, config)
-    stores = list_datastores(si)
-    table = Table(title="Datastores")
-    table.add_column("Name", style="cyan")
-    table.add_column("Type")
-    table.add_column("Free (GB)", justify="right")
-    table.add_column("Total (GB)", justify="right")
-    table.add_column("Usage %", justify="right")
-    for ds in stores:
-        pct = ((ds["total_gb"] - ds["free_gb"]) / ds["total_gb"] * 100) if ds["total_gb"] else 0
-        pct_style = "red" if pct > 85 else "yellow" if pct > 70 else "green"
-        table.add_row(
-            ds["name"],
-            ds["type"],
-            f"{ds['free_gb']:.1f}",
-            f"{ds['total_gb']:.1f}",
-            f"[{pct_style}]{pct:.1f}%[/]",
-        )
-    console.print(table)
-
-
-@inventory_app.command("clusters")
-def inventory_clusters(
-    target: TargetOption = None, config: ConfigOption = None
-) -> None:
-    """List all clusters."""
-    from vmware_aiops.ops.inventory import list_clusters
-
-    si, _ = _get_connection(target, config)
-    clusters = list_clusters(si)
-    table = Table(title="Clusters")
-    table.add_column("Name", style="cyan")
-    table.add_column("Hosts", justify="right")
-    table.add_column("DRS")
-    table.add_column("HA")
-    for c in clusters:
-        table.add_row(
-            c["name"],
-            str(c["host_count"]),
-            "[green]ON[/]" if c["drs_enabled"] else "[red]OFF[/]",
-            "[green]ON[/]" if c["ha_enabled"] else "[red]OFF[/]",
-        )
-    console.print(table)
-
-
-# ─── Health ───────────────────────────────────────────────────────────────────
-
-
-@health_app.command("alarms")
-def health_alarms(target: TargetOption = None, config: ConfigOption = None) -> None:
-    """Show active alarms."""
-    from vmware_aiops.ops.health import get_active_alarms
-
-    si, _ = _get_connection(target, config)
-    alarms = get_active_alarms(si)
-    if not alarms:
-        console.print("[green]No active alarms.[/]")
-        return
-    table = Table(title="Active Alarms")
-    table.add_column("Severity")
-    table.add_column("Alarm", style="cyan")
-    table.add_column("Entity")
-    table.add_column("Time")
-    for a in alarms:
-        sev_style = {"red": "red", "yellow": "yellow"}.get(a["severity"], "white")
-        table.add_row(
-            f"[{sev_style}]{a['severity']}[/]",
-            a["alarm_name"],
-            a["entity_name"],
-            a["time"],
-        )
-    console.print(table)
-
-
-@health_app.command("events")
-def health_events(
-    hours: Annotated[int, typer.Option(help="Lookback hours")] = 24,
-    severity: Annotated[str, typer.Option(help="Min severity: info/warning/error")] = "warning",
-    target: TargetOption = None,
-    config: ConfigOption = None,
-) -> None:
-    """Show recent events."""
-    from vmware_aiops.ops.health import get_recent_events
-
-    si, _ = _get_connection(target, config)
-    events = get_recent_events(si, hours=hours, severity=severity)
-    if not events:
-        console.print(f"[green]No events above '{severity}' in the last {hours}h.[/]")
-        return
-    table = Table(title=f"Events (last {hours}h, >= {severity})")
-    table.add_column("Time")
-    table.add_column("Type", style="cyan")
-    table.add_column("Message")
-    for e in events:
-        table.add_row(e["time"], e["event_type"], e["message"][:120])
-    console.print(table)
-
-
 # ─── VM ───────────────────────────────────────────────────────────────────────
-
-
-@vm_app.command("info")
-def vm_info(
-    name: str,
-    target: TargetOption = None,
-    config: ConfigOption = None,
-) -> None:
-    """Show detailed info for a VM."""
-    from vmware_aiops.ops.vm_lifecycle import get_vm_info
-
-    si, _ = _get_connection(target, config)
-    info = get_vm_info(si, name)
-    for k, v in info.items():
-        console.print(f"  [cyan]{k}:[/] {v}")
+# Note: inventory (vms/hosts/datastores/clusters), health (alarms/events),
+# and vm info commands are now in vmware-monitor.
+# Storage iSCSI commands are now in vmware-storage.
 
 
 @vm_app.command("power-on")
@@ -1007,33 +807,6 @@ def ds_scan_images(
     console.print(f"[green]Registry saved. Last scan: {registry['last_scan']}[/]")
 
 
-@datastore_app.command("images")
-def ds_list_images(
-    image_type: Annotated[str, typer.Option("--type", help="Filter: ova, iso, ovf, vmdk")] = "",
-    datastore: Annotated[str, typer.Option("--ds", help="Filter by datastore")] = "",
-) -> None:
-    """List images from local registry (run scan-images first)."""
-    from vmware_aiops.ops.datastore_browser import list_images
-
-    images = list_images(
-        image_type=image_type or None,
-        datastore=datastore or None,
-    )
-    if not images:
-        console.print("[yellow]No images in registry. Run 'datastore scan-images' first.[/]")
-        return
-    table = Table(title="Available Images")
-    table.add_column("#", justify="right", style="dim")
-    table.add_column("Datastore", style="cyan")
-    table.add_column("Name")
-    table.add_column("Size (MB)", justify="right")
-    table.add_column("DS Path")
-    for i, img in enumerate(images, 1):
-        table.add_row(str(i), img["datastore"], img["name"],
-                       str(img["size_mb"]), img["ds_path"])
-    console.print(table)
-
-
 # ─── Deploy ──────────────────────────────────────────────────────────────────
 
 
@@ -1483,151 +1256,6 @@ def cluster_configure_cmd(
     _audit.log(
         target=_resolve_target(target), operation="configure_cluster",
         resource=name, parameters=params, result=result,
-    )
-
-
-# ─── Storage (iSCSI) ─────────────────────────────────────────────────────────
-
-
-@storage_app.command("iscsi-enable")
-def storage_iscsi_enable_cmd(
-    host: Annotated[str, typer.Argument(help="ESXi host name")],
-    target: TargetOption = None,
-    config: ConfigOption = None,
-    dry_run: DryRunOption = False,
-) -> None:
-    """Enable the software iSCSI adapter on a host."""
-    from vmware_aiops.ops.iscsi_config import enable_software_iscsi
-
-    if dry_run:
-        _dry_run_print(
-            target=_resolve_target(target), vm_name=host, operation="iscsi_enable",
-            api_call="storageSystem.UpdateSoftwareInternetScsiEnabled(True)",
-            resource_label="Host",
-        )
-        return
-    si, _ = _get_connection(target, config)
-    _double_confirm("启用 iSCSI", host, _resolve_target(target), resource_type="Host")
-    result = enable_software_iscsi(si, host)
-    console.print(f"[green]{result}[/]")
-    _audit.log(
-        target=_resolve_target(target), operation="iscsi_enable",
-        resource=host, result=result,
-    )
-
-
-@storage_app.command("iscsi-status")
-def storage_iscsi_status_cmd(
-    host: Annotated[str, typer.Argument(help="ESXi host name")],
-    target: TargetOption = None,
-    config: ConfigOption = None,
-) -> None:
-    """Show iSCSI adapter status and targets for a host."""
-    from vmware_aiops.ops.iscsi_config import get_iscsi_status
-
-    si, _ = _get_connection(target, config)
-    status = get_iscsi_status(si, host)
-    console.print(f"\n[bold cyan]iSCSI Status for '{host}':[/]")
-    if not status["enabled"]:
-        console.print("  [red]Software iSCSI: DISABLED[/]")
-        return
-    console.print(f"  [green]Software iSCSI: ENABLED[/]")
-    console.print(f"  [cyan]HBA Device:[/] {status['hba_device']}")
-    console.print(f"  [cyan]IQN:[/] {status['iqn']}")
-    if status["send_targets"]:
-        table = Table(title="Send Targets")
-        table.add_column("Address", style="cyan")
-        table.add_column("Port", justify="right")
-        for t in status["send_targets"]:
-            table.add_row(t["address"], str(t["port"]))
-        console.print(table)
-    else:
-        console.print("  [yellow]No send targets configured.[/]")
-
-
-@storage_app.command("iscsi-add-target")
-def storage_iscsi_add_target_cmd(
-    host: Annotated[str, typer.Argument(help="ESXi host name")],
-    address: Annotated[str, typer.Option("--address", help="iSCSI target IP address")],
-    port: Annotated[int, typer.Option("--port", help="iSCSI target port")] = 3260,
-    target: TargetOption = None,
-    config: ConfigOption = None,
-    dry_run: DryRunOption = False,
-) -> None:
-    """Add an iSCSI send target to a host."""
-    from vmware_aiops.ops.iscsi_config import add_iscsi_target
-
-    if dry_run:
-        _dry_run_print(
-            target=_resolve_target(target), vm_name=host, operation="iscsi_add_target",
-            api_call="storageSystem.AddInternetScsiSendTargets()",
-            parameters={"address": address, "port": port},
-            resource_label="Host",
-        )
-        return
-    si, _ = _get_connection(target, config)
-    _double_confirm("添加 iSCSI 目标", f"{address}:{port} → {host}", _resolve_target(target), resource_type="Host")
-    result = add_iscsi_target(si, host, address=address, port=port)
-    console.print(f"[green]{result}[/]")
-    _audit.log(
-        target=_resolve_target(target), operation="iscsi_add_target",
-        resource=host, parameters={"address": address, "port": port}, result=result,
-    )
-
-
-@storage_app.command("iscsi-remove-target")
-def storage_iscsi_remove_target_cmd(
-    host: Annotated[str, typer.Argument(help="ESXi host name")],
-    address: Annotated[str, typer.Option("--address", help="iSCSI target IP address")],
-    port: Annotated[int, typer.Option("--port", help="iSCSI target port")] = 3260,
-    target: TargetOption = None,
-    config: ConfigOption = None,
-    dry_run: DryRunOption = False,
-) -> None:
-    """Remove an iSCSI send target from a host."""
-    from vmware_aiops.ops.iscsi_config import remove_iscsi_target
-
-    if dry_run:
-        _dry_run_print(
-            target=_resolve_target(target), vm_name=host, operation="iscsi_remove_target",
-            api_call="storageSystem.RemoveInternetScsiSendTargets()",
-            parameters={"address": address, "port": port},
-            resource_label="Host",
-        )
-        return
-    si, _ = _get_connection(target, config)
-    _double_confirm("移除 iSCSI 目标", f"{address}:{port} ← {host}", _resolve_target(target), resource_type="Host")
-    result = remove_iscsi_target(si, host, address=address, port=port)
-    console.print(f"[green]{result}[/]")
-    _audit.log(
-        target=_resolve_target(target), operation="iscsi_remove_target",
-        resource=host, parameters={"address": address, "port": port}, result=result,
-    )
-
-
-@storage_app.command("rescan")
-def storage_rescan_cmd(
-    host: Annotated[str, typer.Argument(help="ESXi host name")],
-    target: TargetOption = None,
-    config: ConfigOption = None,
-    dry_run: DryRunOption = False,
-) -> None:
-    """Rescan all HBAs and VMFS on a host."""
-    from vmware_aiops.ops.iscsi_config import rescan_storage
-
-    if dry_run:
-        _dry_run_print(
-            target=_resolve_target(target), vm_name=host, operation="rescan_storage",
-            api_call="storageSystem.RescanAllHba() + RescanVmfs()",
-            resource_label="Host",
-        )
-        return
-    si, _ = _get_connection(target, config)
-    result = rescan_storage(si, host)
-    console.print(f"[green]{result}[/]")
-    _audit.log(
-        target=_resolve_target(target), operation="rescan_storage",
-        resource=host, result=result,
     )
 
 

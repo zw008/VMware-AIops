@@ -1,12 +1,13 @@
 ---
 name: vmware-aiops
 description: >
-  AI-powered VMware vCenter/ESXi monitoring and operations.
-  Manage infrastructure via natural language: inventory queries, health monitoring,
-  VM lifecycle (create, delete, power, snapshot, clone, migrate), VM deployment
-  (OVA, template, linked clone, batch), cluster management (create, HA/DRS),
-  iSCSI configuration, datastore browsing, vSAN management,
-  Aria Operations analytics, Kubernetes clusters, and scheduled log scanning.
+  AI-powered VMware vCenter/ESXi VM lifecycle and deployment operations.
+  Manage VMs via natural language: power on/off, create, delete, snapshot, clone,
+  migrate, deploy (OVA, template, linked clone, batch), guest operations
+  (exec, upload, download, provision), cluster management (create, HA/DRS),
+  datastore browsing, plan/apply multi-step workflows, and scheduled scanning.
+  For monitoring use vmware-monitor, for storage use vmware-storage,
+  for Tanzu Kubernetes use vmware-vks.
 installer:
   kind: uv
   package: vmware-aiops
@@ -15,19 +16,20 @@ metadata: {"openclaw":{"requires":{"env":["VMWARE_AIOPS_CONFIG"],"bins":["vmware
 
 # VMware AIops
 
-AI-powered VMware vCenter and ESXi operations tool. Manage your entire VMware infrastructure using natural language — 33 MCP tools covering VM lifecycle, deployment, guest ops, storage, vSAN, clusters, and more.
+AI-powered VMware vCenter and ESXi operations tool. Manage VM lifecycle and deployment using natural language — 31 MCP tools covering VM power/snapshot/clone/migrate, deployment, guest ops, cluster management, datastore browsing, and plan/apply workflows.
+
+> **Companion skills**: For read-only monitoring use [vmware-monitor](https://github.com/zw008/VMware-Monitor). For storage/iSCSI/vSAN use [vmware-storage](https://github.com/zw008/VMware-Storage). For Tanzu Kubernetes use [vmware-vks](https://github.com/zw008/VMware-VKS).
 
 ## What This Skill Does
 
 | Category | Examples |
 |----------|---------|
-| **VM Lifecycle** | power on/off, create, delete, snapshot, clone, migrate |
+| **VM Lifecycle** | power on/off, create, delete, snapshot, clone, migrate, TTL, clean slate |
 | **Deployment** | deploy from OVA/template/linked clone, batch deploy |
 | **Guest Ops** | run commands inside VM, upload/download files, provision |
-| **Health & Alarms** | active alarms, events, hardware sensors, host logs |
-| **Inventory** | list VMs, hosts, datastores, clusters, networks |
-| **Storage / iSCSI** | enable adapter, add/remove targets, rescan, vSAN health |
 | **Cluster** | create cluster, HA/DRS config, add/remove hosts |
+| **Datastore** | browse files, scan for deployable images |
+| **Plan/Apply** | multi-step operation planning with rollback |
 | **Scheduled Scan** | daemon + Slack/Discord webhook notifications |
 
 ## Quick Install
@@ -42,15 +44,15 @@ vmware-aiops doctor
 - Perform VM lifecycle operations: power on/off, create, delete, snapshot, clone, migrate
 - Deploy VMs from OVA, templates, linked clones, or batch specs
 - Run commands or upload files inside a VM (Guest Operations)
-- Query VM, host, datastore, cluster, and network inventory
-- Check health status, active alarms, hardware sensors, and event logs
 - Create and manage clusters: HA/DRS configuration, add/remove hosts
-- Configure iSCSI storage: enable adapter, add/remove targets, rescan
 - Browse datastores and discover ISO/OVA/VMDK images
-- Monitor vSAN health, capacity, disk groups, and performance
-- Access Aria Operations (VCF Operations) for historical metrics, anomaly detection, and capacity planning
-- Manage vSphere Kubernetes Service (VKS) clusters
+- Plan and execute multi-step VM operations with rollback support
 - Run scheduled scanning with webhook notifications (Slack, Discord)
+
+**Use other skills for**:
+- Inventory / health / alarms / VM info → `vmware-monitor`
+- iSCSI / vSAN / datastore management → `vmware-storage`
+- Tanzu Kubernetes (Supervisor, Namespace, TKC) → `vmware-vks`
 
 ## Related Skills — Skill Routing
 
@@ -60,7 +62,7 @@ vmware-aiops doctor
 |-------------|------------------|-----|
 | Read-only monitoring, zero risk | **vmware-monitor** — `uv tool install vmware-monitor` | 8 tools, code-level safe |
 | Datastores, iSCSI, vSAN only | **vmware-storage** — `uv tool install vmware-storage` | 11 tools, lighter for local models |
-| VM lifecycle, deployment, guest ops | **vmware-aiops** ← this skill | 33 tools, full operations |
+| VM lifecycle, deployment, guest ops, clusters | **vmware-aiops** ← this skill | 31 tools, full operations |
 | Tanzu Namespace, TKC cluster lifecycle (vSphere 8.x+) | **vmware-vks** — `uv tool install vmware-vks` | 20 tools, full TKC lifecycle with safety guards |
 
 ## Quick Install
@@ -93,8 +95,8 @@ Choose the best mode based on your environment:
 | Scenario | Recommended Mode | Why |
 |----------|-----------------|-----|
 | **Cloud models** (Claude, GPT-4o, Gemini) | MCP or CLI | Both work well; MCP gives structured JSON I/O |
-| **Local/small models** (Ollama, Llama, Qwen <32B) | **CLI** | Lower token cost (~2K vs ~10K), higher accuracy — small models struggle with 31 MCP tool schemas |
-| **Token-sensitive workflows** | **CLI** | CLI via SKILL.md uses ~2K tokens; MCP loads ~10K tokens of tool definitions into every conversation |
+| **Local/small models** (Ollama, Llama, Qwen <32B) | **CLI** | Lower token cost (~2K vs ~8K), higher accuracy — small models struggle with many MCP tool schemas |
+| **Token-sensitive workflows** | **CLI** | CLI via SKILL.md uses ~2K tokens; MCP loads ~8K tokens of tool definitions into every conversation |
 | **Automated pipelines / Agent chaining** | **MCP** | Structured JSON input/output, type-safe parameters, no shell parsing |
 
 ### Calling Priority
@@ -108,19 +110,26 @@ Choose the best mode based on your environment:
 ### CLI Examples
 
 ```bash
-# Activate venv first
-source /path/to/VMware-AIops/.venv/bin/activate
-
-# Inventory
-vmware-aiops inventory vms --target home-esxi
-vmware-aiops inventory hosts --target home-esxi
-
-# Health
-vmware-aiops health alarms --target home-esxi
-
 # VM operations
-vmware-aiops vm info my-vm --target home-esxi
 vmware-aiops vm power-on my-vm --target home-esxi
+vmware-aiops vm power-off my-vm --target home-esxi
+vmware-aiops vm create my-vm --cpu 4 --memory 8192 --disk 100
+
+# Deployment
+vmware-aiops deploy ova ./ubuntu.ova --name test-vm --datastore datastore1
+vmware-aiops deploy linked-clone --source gold-image --snapshot baseline --name dev-01
+
+# Datastore browsing
+vmware-aiops datastore browse datastore1 --pattern "*.ova"
+vmware-aiops datastore scan-images
+
+# Cluster
+vmware-aiops cluster info my-cluster
+vmware-aiops cluster create new-cluster --ha --drs
+
+# For inventory/health, use vmware-monitor:
+# vmware-monitor inventory vms --target home-esxi
+# vmware-monitor health alarms --target home-esxi
 ```
 
 ### MCP Mode (Optional)
@@ -142,25 +151,22 @@ For Claude Code / Cursor users who prefer structured tool calls, add to `~/.clau
 }
 ```
 
-MCP exposes 33 tools across 8 categories. All accept optional `target` parameter.
+MCP exposes 31 tools across 6 categories. All accept optional `target` parameter.
 
 | Category | Tools |
 |----------|-------|
-| Inventory | `list_virtual_machines`, `list_esxi_hosts`, `list_all_datastores`, `list_all_clusters` |
-| Health | `get_alarms`, `get_events`, `vm_info` |
 | VM Lifecycle | `vm_power_on`, `vm_power_off`, `vm_set_ttl`, `vm_cancel_ttl`, `vm_list_ttl`, `vm_clean_slate` |
 | Deployment | `deploy_vm_from_ova`, `deploy_vm_from_template`, `deploy_linked_clone`, `attach_iso_to_vm`, `convert_vm_to_template`, `batch_clone_vms`, `batch_linked_clone_vms`, `batch_deploy_from_spec` |
 | Guest Operations | `vm_guest_exec`, `vm_guest_exec_output`, `vm_guest_upload`, `vm_guest_download`, `vm_guest_provision` |
 | Plan → Apply | `vm_create_plan`, `vm_apply_plan`, `vm_rollback_plan`, `vm_list_plans` |
-| Datastore | `browse_datastore`, `scan_datastore_images`, `list_cached_images` |
-| Cluster | `list_all_clusters` |
-| Storage / iSCSI | `storage_iscsi_enable`, `storage_iscsi_status`, `storage_iscsi_add_target`, `storage_iscsi_remove_target`, `storage_rescan` |
+| Datastore | `browse_datastore`, `scan_datastore_images` |
+| Cluster | `cluster_create`, `cluster_delete`, `cluster_add_host`, `cluster_remove_host`, `cluster_configure`, `cluster_info` |
+
+> **Moved to companion skills**: Inventory/health/VM info → `vmware-monitor`. iSCSI/vSAN → `vmware-storage`.
 
 `vm_guest_exec_output` — execute a shell command and **capture stdout/stderr** automatically. OS auto-detected (Linux/Windows) via `vm.guest.guestFamily`. No manual redirection needed.
 
 `vm_guest_provision` — run an ordered sequence of exec/upload/service steps in one call. Stops on first failure. Typical use: SSH key injection → package install → service start.
-
-`list_virtual_machines` auto-compacts when inventory exceeds 50 VMs (returns compact fields only). Use `limit` or `fields` to override.
 
 ## Architecture
 
@@ -180,36 +186,7 @@ ESXi Standalone ──→ VMs
 
 ## Capabilities
 
-### 1. Inventory
-
-| Feature | vCenter | ESXi | Details |
-|---------|:-------:|:----:|---------|
-| List VMs | ✅ | ✅ | Name, power state, CPU, memory, guest OS, IP |
-| List Hosts | ✅ | ⚠️ Self only | CPU cores, memory, ESXi version, VM count, uptime |
-| List Datastores | ✅ | ✅ | Capacity, free/used, type (VMFS/NFS), usage % |
-| List Clusters | ✅ | ❌ | Host count, DRS/HA status |
-| List Networks | ✅ | ✅ | Network name, associated VM count |
-
-### 2. Health & Monitoring
-
-| Feature | vCenter | ESXi | Details |
-|---------|:-------:|:----:|---------|
-| Active Alarms | ✅ | ✅ | Severity, alarm name, entity, timestamp |
-| Event/Log Query | ✅ | ✅ | Filter by time range, severity; 50+ event types |
-| Hardware Sensors | ✅ | ✅ | Temperature, voltage, fan status |
-| Host Services | ✅ | ✅ | hostd, vpxa running/stopped status |
-
-**Monitored Event Types:**
-
-| Category | Events |
-|----------|--------|
-| VM Failures | `VmFailedToPowerOnEvent`, `VmDiskFailedEvent`, `VmFailoverFailed` |
-| Host Issues | `HostConnectionLostEvent`, `HostShutdownEvent`, `HostIpChangedEvent` |
-| Storage | `DatastoreCapacityIncreasedEvent`, SCSI high latency |
-| HA/DRS | `DasHostFailedEvent`, `DrsVmMigratedEvent`, `DrsSoftRuleViolationEvent` |
-| Auth | `UserLoginSessionEvent`, `BadUsernameSessionEvent` |
-
-### 3. VM Lifecycle
+### 1. VM Lifecycle
 
 | Operation | Command | Confirmation | vCenter | ESXi |
 |-----------|---------|:------------:|:-------:|:----:|
@@ -269,43 +246,10 @@ Plans are stored in `~/.vmware-aiops/plans/`, deleted on success, auto-cleaned a
 |---------|:-------:|:----:|---------|
 | Browse Files | ✅ | ✅ | List files/folders in any datastore path |
 | Scan Images | ✅ | ✅ | Discover ISO, OVA, OVF, VMDK across all datastores |
-| Local Cache | ✅ | ✅ | Registry at `~/.vmware-aiops/image_registry.json` |
 
-### 6. vSAN Management
+> For datastore management, iSCSI, and vSAN, use [vmware-storage](https://github.com/zw008/VMware-Storage). For Tanzu Kubernetes, use [vmware-vks](https://github.com/zw008/VMware-VKS).
 
-| Feature | Details |
-|---------|---------|
-| Health Check | Cluster-wide health summary, per-group test results |
-| Capacity | Total/free/used capacity with projections |
-| Disk Groups | Cache SSD + capacity disks per host |
-| Performance | IOPS, latency, throughput per cluster/host/VM |
-
-> Requires pyVmomi 8.0.3+ (vSAN SDK merged). For older versions, install the standalone vSAN Management SDK.
-
-### 7. Aria Operations (VCF Operations)
-
-| Feature | Details |
-|---------|---------|
-| Historical Metrics | Time-series CPU, memory, disk, network with months of history |
-| Anomaly Detection | ML-based dynamic baselines and anomaly alerts |
-| Capacity Planning | What-if analysis, time-to-exhaustion, forecasting |
-| Right-sizing | CPU/memory recommendations per VM |
-| Intelligent Alerts | Root cause analysis, remediation recommendations |
-
-> REST API at `/suite-api/`. Auth: `vRealizeOpsToken`. Rebranded as VCF Operations in VCF 9.0.
-
-### 8. vSphere Kubernetes Service (VKS)
-
-| Feature | Details |
-|---------|---------|
-| List Clusters | Tanzu Kubernetes clusters with phase status |
-| Cluster Health | InfrastructureReady, ControlPlaneAvailable, WorkersAvailable |
-| Scale Workers | Adjust MachineDeployment replicas |
-| Node Status | Machine status, ready/unhealthy counts |
-
-> Kubernetes-native API via kubectl/kubeconfig. VKS 3.6+ uses Cluster API specification.
-
-### 9. Cluster Management
+### 6. Cluster Management
 
 | Operation | Command | Confirmation | vCenter | ESXi |
 |-----------|---------|:------------:|:-------:|:----:|
@@ -316,17 +260,7 @@ Plans are stored in `~/.vmware-aiops/plans/`, deleted on success, auto-cleaned a
 | Remove Host | `cluster remove-host <cluster> --host <host>` | Double | ✅ | ❌ |
 | Configure HA/DRS | `cluster configure <name> [--ha/--no-ha] [--drs/--no-drs]` | Double | ✅ | ❌ |
 
-### 10. Storage / iSCSI Configuration
-
-| Operation | Command | Confirmation | vCenter | ESXi |
-|-----------|---------|:------------:|:-------:|:----:|
-| Enable iSCSI | `storage iscsi-enable <host>` | Double | ✅ | ✅ |
-| iSCSI Status | `storage iscsi-status <host>` | — | ✅ | ✅ |
-| Add Target | `storage iscsi-add-target <host> --address <ip> [--port 3260]` | Double | ✅ | ✅ |
-| Remove Target | `storage iscsi-remove-target <host> --address <ip> [--port 3260]` | Double | ✅ | ✅ |
-| Rescan Storage | `storage rescan <host>` | — | ✅ | ✅ |
-
-### 11. Scheduled Scanning & Notifications
+### 7. Scheduled Scanning & Notifications
 
 | Feature | Details |
 |---------|---------|
@@ -404,22 +338,11 @@ vmware-aiops doctor [--skip-auth]
 vmware-aiops mcp-config generate --agent <goose|cursor|claude-code|continue|vscode-copilot|localcowork|mcp-agent>
 vmware-aiops mcp-config list
 
-# Inventory
-vmware-aiops inventory vms [--target <name>] [--limit <n>] [--sort-by name|cpu|memory_mb|power_state] [--power-state poweredOn|poweredOff]
-vmware-aiops inventory hosts [--target <name>]
-vmware-aiops inventory datastores [--target <name>]
-vmware-aiops inventory clusters [--target <name>]
-
-# Health
-vmware-aiops health alarms [--target <name>]
-vmware-aiops health events [--hours 24] [--severity warning]
-
 # VM Operations
-vmware-aiops vm info <vm-name>
 vmware-aiops vm power-on <vm-name>
 vmware-aiops vm power-off <vm-name> [--force]
 vmware-aiops vm create <name> [--cpu <n>] [--memory <mb>] [--disk <gb>]
-vmware-aiops vm delete <vm-name> [--confirm]
+vmware-aiops vm delete <vm-name>
 vmware-aiops vm reconfigure <vm-name> [--cpu <n>] [--memory <mb>]
 vmware-aiops vm snapshot-create <vm-name> --name <snap-name>
 vmware-aiops vm snapshot-list <vm-name>
@@ -457,41 +380,20 @@ vmware-aiops cluster add-host <cluster> --host <hostname>
 vmware-aiops cluster remove-host <cluster> --host <hostname>
 vmware-aiops cluster configure <name> [--ha/--no-ha] [--drs/--no-drs] [--drs-behavior <behavior>]
 
-# Storage / iSCSI
-vmware-aiops storage iscsi-enable <host>
-vmware-aiops storage iscsi-status <host>
-vmware-aiops storage iscsi-add-target <host> --address <ip> [--port 3260]
-vmware-aiops storage iscsi-remove-target <host> --address <ip> [--port 3260]
-vmware-aiops storage rescan <host>
-
 # Datastore
 vmware-aiops datastore browse <ds-name> [--path <subdir>]
 vmware-aiops datastore scan-images [--target <name>]
-vmware-aiops datastore images [--type ova|iso|vmdk] [--ds <name>]
-
-# vSAN
-vmware-aiops vsan health [--target <name>]
-vmware-aiops vsan capacity [--target <name>]
-vmware-aiops vsan disks [--target <name>]
-vmware-aiops vsan performance [--hours 1]
-
-# Aria Operations
-vmware-aiops ops alerts [--severity critical]
-vmware-aiops ops metrics <resource-name> [--hours 24]
-vmware-aiops ops recommendations [--target <name>]
-vmware-aiops ops capacity <cluster-name>
-
-# VKS (Kubernetes)
-vmware-aiops vks clusters [--namespace default]
-vmware-aiops vks health <cluster-name>
-vmware-aiops vks scale <machine-deployment> --replicas <n>
-vmware-aiops vks nodes <cluster-name>
 
 # Scanning & Daemon
 vmware-aiops scan now [--target <name>]
 vmware-aiops daemon start
 vmware-aiops daemon stop
 vmware-aiops daemon status
+
+# Moved to companion skills:
+# vmware-monitor inventory vms/hosts/datastores/clusters, health alarms/events, vm info
+# vmware-storage iscsi-enable/status/add-target/remove-target, rescan, vsan health/capacity
+# vmware-vks list-namespaces, create-tkc, scale-tkc, etc.
 ```
 
 ## Setup

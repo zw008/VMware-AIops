@@ -1,17 +1,21 @@
 """MCP server wrapping VMware AIops operations.
 
-This module exposes VMware vCenter/ESXi inventory, health monitoring,
-VM lifecycle, datastore browsing, and VM deployment tools via the Model
+This module exposes VMware vCenter/ESXi VM lifecycle, deployment, cluster
+management, guest operations, and datastore browsing tools via the Model
 Context Protocol (MCP) using stdio transport.  It acts as a thin adapter
 layer — each ``@mcp.tool()`` function simply delegates to the
 corresponding function in the ``vmware_aiops`` package.
 
+For read-only monitoring (inventory, alarms, events, VM info), use the
+companion skill ``vmware-monitor``.  For storage management (iSCSI, vSAN),
+use ``vmware-storage``.  For Tanzu Kubernetes, use ``vmware-vks``.
+
 Tool categories
 ---------------
-* **Read-only** (no side effects): list_*, get_*, browse_*, scan_*
+* **Read-only** (no side effects): browse_*, scan_*
 * **Write / Deploy** (mutate state): vm_power_*, deploy_*, attach_*,
-  batch_*, convert_*  — should be gated by the AI agent's confirmation
-  flow.
+  batch_*, convert_*, cluster_*  — should be gated by the AI agent's
+  confirmation flow.
 
 Security considerations
 -----------------------
@@ -20,6 +24,8 @@ Security considerations
 * **Transport**: Uses stdio transport (local only); no network listener.
 * **Destructive ops**: Deploy and batch operations create VMs and consume
   resources; confirmation is recommended before execution.
+* **Prompt injection defense**: Datastore file names/paths are sanitized
+  via ``_sanitize()`` to strip control characters.
 
 Source: https://github.com/zw008/VMware-AIops
 License: MIT
@@ -37,18 +43,10 @@ from mcp.server.fastmcp import FastMCP
 from vmware_aiops.config import load_config
 from vmware_aiops.connection import ConnectionManager
 from vmware_aiops.ops import datastore_browser, vm_deploy
-from vmware_aiops.ops.health import get_active_alarms, get_recent_events
-from vmware_aiops.ops.inventory import (
-    list_clusters,
-    list_datastores,
-    list_hosts,
-    list_vms,
-)
 from vmware_aiops.ops.guest_ops import guest_download, guest_exec, guest_exec_with_output, guest_provision, guest_upload
 from vmware_aiops.ops.plan_executor import apply_plan, rollback_plan
 from vmware_aiops.ops.planner import create_plan, list_plans
 from vmware_aiops.ops.vm_lifecycle import (
-    get_vm_info,
     power_off_vm,
     power_on_vm,
 )
@@ -58,10 +56,13 @@ logger = logging.getLogger(__name__)
 mcp = FastMCP(
     "vmware-aiops",
     instructions=(
-        "VMware vCenter/ESXi AI-powered monitoring and operations. "
-        "Query inventory, check health/alarms, manage VM power state, "
-        "browse datastores for images, and deploy VMs via OVA, template, "
-        "linked clone, or batch YAML spec."
+        "VMware vCenter/ESXi VM lifecycle and deployment operations. "
+        "Manage VM power state, deploy VMs (OVA/template/clone/batch), "
+        "browse datastores, manage clusters, execute guest commands, "
+        "and plan multi-step operations. "
+        "For read-only monitoring (inventory/alarms/events/VM info), "
+        "use vmware-monitor. For storage/iSCSI/vSAN, use vmware-storage. "
+        "For Tanzu Kubernetes, use vmware-vks."
     ),
 )
 
@@ -84,119 +85,8 @@ def _get_connection(target: str | None = None) -> Any:
 
 
 # ---------------------------------------------------------------------------
-# Inventory tools
+# VM lifecycle tools
 # ---------------------------------------------------------------------------
-
-
-@mcp.tool()
-def list_virtual_machines(
-    target: str | None = None,
-    limit: int | None = None,
-    sort_by: str = "name",
-    power_state: str | None = None,
-    fields: list[str] | None = None,
-) -> dict:
-    """List virtual machines with optional filtering, sorting, and field selection.
-
-    Returns a dict: {total, mode, vms, hint}.
-    Auto-compact: when no limit/fields are set and inventory exceeds 50 VMs,
-    returns compact fields (name, power_state, cpu, memory_mb) to keep context
-    manageable. Set limit or fields to override.
-
-    Args:
-        target: Optional vCenter/ESXi target name from config. Uses default if omitted.
-        limit: Max number of VMs to return (None = all).
-        sort_by: Sort field: "name" | "cpu" | "memory_mb" | "power_state".
-        power_state: Filter by power state: "poweredOn" | "poweredOff" | "suspended".
-        fields: Return only these fields (None = auto-select based on inventory size).
-            Available: name, power_state, cpu, memory_mb, guest_os, ip_address,
-                       host, uuid, tools_status.
-    """
-    si = _get_connection(target)
-    return list_vms(si, limit=limit, sort_by=sort_by, power_state=power_state, fields=fields)
-
-
-@mcp.tool()
-def list_esxi_hosts(target: str | None = None) -> list[dict]:
-    """List all ESXi hosts with CPU cores, memory, version, VM count, and uptime.
-
-    Args:
-        target: Optional vCenter/ESXi target name from config. Uses default if omitted.
-    """
-    si = _get_connection(target)
-    return list_hosts(si)
-
-
-@mcp.tool()
-def list_all_datastores(target: str | None = None) -> list[dict]:
-    """List all datastores with capacity, free space, type, and VM count.
-
-    Args:
-        target: Optional vCenter/ESXi target name from config. Uses default if omitted.
-    """
-    si = _get_connection(target)
-    return list_datastores(si)
-
-
-@mcp.tool()
-def list_all_clusters(target: str | None = None) -> list[dict]:
-    """List all clusters with host count, DRS/HA status, and resource totals.
-
-    Args:
-        target: Optional vCenter/ESXi target name from config. Uses default if omitted.
-    """
-    si = _get_connection(target)
-    return list_clusters(si)
-
-
-# ---------------------------------------------------------------------------
-# Health tools
-# ---------------------------------------------------------------------------
-
-
-@mcp.tool()
-def get_alarms(target: str | None = None) -> list[dict]:
-    """Get all active/triggered alarms across the VMware inventory.
-
-    Args:
-        target: Optional vCenter/ESXi target name from config. Uses default if omitted.
-    """
-    si = _get_connection(target)
-    return get_active_alarms(si)
-
-
-@mcp.tool()
-def get_events(
-    hours: int = 24,
-    severity: str = "warning",
-    target: str | None = None,
-) -> list[dict]:
-    """Get recent vCenter/ESXi events filtered by severity.
-
-    Args:
-        hours: How many hours back to query (default 24).
-        severity: Minimum severity level: "critical", "warning", or "info".
-        target: Optional vCenter/ESXi target name from config. Uses default if omitted.
-    """
-    si = _get_connection(target)
-    return get_recent_events(si, hours=hours, severity=severity)
-
-
-# ---------------------------------------------------------------------------
-# VM tools
-# ---------------------------------------------------------------------------
-
-
-@mcp.tool()
-def vm_info(vm_name: str, target: str | None = None) -> dict:
-    """Get detailed information about a specific VM (CPU, memory, disks, NICs, snapshots).
-
-    Args:
-        vm_name: Exact name of the virtual machine.
-        target: Optional vCenter/ESXi target name from config. Uses default if omitted.
-    """
-    si = _get_connection(target)
-    return get_vm_info(si, vm_name)
 
 
 @mcp.tool()
@@ -267,22 +157,6 @@ def scan_datastore_images(target: str | None = None) -> dict:
     """
     si = _get_connection(target)
     return datastore_browser.update_registry(si)
-
-
-@mcp.tool()
-def list_cached_images(
-    image_type: str | None = None,
-    datastore: str | None = None,
-) -> list[dict]:
-    """List deployable images from the local registry cache.
-
-    Run scan_datastore_images first to populate the cache.
-
-    Args:
-        image_type: Filter by extension: "ova", "iso", "ovf", or "vmdk".
-        datastore: Filter by datastore name.
-    """
-    return datastore_browser.list_images(image_type=image_type, datastore=datastore)
 
 
 # ---------------------------------------------------------------------------
@@ -628,90 +502,6 @@ def cluster_info(name: str, target: str | None = None) -> dict:
     from vmware_aiops.ops.cluster_mgmt import get_cluster_info
     si = _get_connection(target)
     return get_cluster_info(si, name)
-
-
-# ---------------------------------------------------------------------------
-# Storage / iSCSI tools
-# ---------------------------------------------------------------------------
-
-
-@mcp.tool()
-def storage_iscsi_enable(host_name: str, target: str | None = None) -> str:
-    """Enable the software iSCSI adapter on an ESXi host.
-
-    Args:
-        host_name: ESXi host name.
-        target: Optional vCenter/ESXi target name from config.
-    """
-    from vmware_aiops.ops.iscsi_config import enable_software_iscsi
-    si = _get_connection(target)
-    return enable_software_iscsi(si, host_name)
-
-
-@mcp.tool()
-def storage_iscsi_status(host_name: str, target: str | None = None) -> dict:
-    """Get iSCSI adapter status, IQN, and configured send targets.
-
-    Args:
-        host_name: ESXi host name.
-        target: Optional vCenter/ESXi target name from config.
-    """
-    from vmware_aiops.ops.iscsi_config import get_iscsi_status
-    si = _get_connection(target)
-    return get_iscsi_status(si, host_name)
-
-
-@mcp.tool()
-def storage_iscsi_add_target(
-    host_name: str,
-    address: str,
-    port: int = 3260,
-    target: str | None = None,
-) -> str:
-    """Add an iSCSI send target to a host and rescan storage.
-
-    Args:
-        host_name: ESXi host name.
-        address: iSCSI target IP address.
-        port: iSCSI target port (default 3260).
-        target: Optional vCenter/ESXi target name from config.
-    """
-    from vmware_aiops.ops.iscsi_config import add_iscsi_target
-    si = _get_connection(target)
-    return add_iscsi_target(si, host_name, address=address, port=port)
-
-
-@mcp.tool()
-def storage_iscsi_remove_target(
-    host_name: str,
-    address: str,
-    port: int = 3260,
-    target: str | None = None,
-) -> str:
-    """Remove an iSCSI send target from a host and rescan storage.
-
-    Args:
-        host_name: ESXi host name.
-        address: iSCSI target IP address.
-        port: iSCSI target port (default 3260).
-        target: Optional vCenter/ESXi target name from config.
-    """
-    from vmware_aiops.ops.iscsi_config import remove_iscsi_target
-    si = _get_connection(target)
-    return remove_iscsi_target(si, host_name, address=address, port=port)
-
-
-@mcp.tool()
-def storage_rescan(host_name: str, target: str | None = None) -> str:
-    """Rescan all HBAs and VMFS volumes on a host.
-
-    Args:
-        host_name: ESXi host name.
-        target: Optional vCenter/ESXi target name from config.
-    """
-    from vmware_aiops.ops.iscsi_config import rescan_storage
-    si = _get_connection(target)
-    return rescan_storage(si, host_name)
 
 
 # ---------------------------------------------------------------------------

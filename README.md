@@ -3,7 +3,7 @@
 
 English | [中文](README-CN.md)
 
-AI-powered VMware vCenter/ESXi monitoring and operations tool.
+AI-powered VMware vCenter/ESXi **VM lifecycle and deployment** tool. Companion skills handle [monitoring](https://github.com/zw008/VMware-Monitor), [storage/iSCSI/vSAN](https://github.com/zw008/VMware-Storage), and [Kubernetes/VKS](https://github.com/zw008/VMware-VKS).
 
 > **Need read-only monitoring only?** See [VMware-Monitor](https://github.com/zw008/VMware-Monitor) — an independent repository with code-level safety (zero destructive code in the codebase).
 
@@ -58,10 +58,11 @@ pip install vmware-aiops -i https://pypi.tuna.tsinghua.edu.cn/simple
 
 | Scenario | Recommended | Why |
 |----------|:-----------:|-----|
-| **Local/small models** (Ollama, Qwen <32B) | **CLI** | ~2K tokens context vs ~10K for MCP; small models struggle with 31 tool schemas |
+| **Local/small models** (Ollama, Qwen <32B) | **CLI** | ~2K tokens context vs ~10K for MCP; small models struggle with many tool schemas |
 | **Token-sensitive workflows** | **CLI** | SKILL.md + Bash tool = minimal overhead |
 | **Cloud models** (Claude, GPT-4o) | Either | Both work; MCP gives structured JSON I/O |
 | **Automated pipelines / Agent chaining** | **MCP** | Type-safe parameters, structured output, no shell parsing |
+| **Monitoring / storage / K8s** | Companion skills | See [vmware-monitor](https://github.com/zw008/VMware-Monitor), [vmware-storage](https://github.com/zw008/VMware-Storage), [vmware-vks](https://github.com/zw008/VMware-VKS) |
 
 > **Rule of thumb**: Use CLI for cost efficiency and small models. Use MCP for structured automation with large models.
 
@@ -92,36 +93,11 @@ ESXi Standalone Host ──→ VM
 
 > pyVmomi auto-negotiates the API version during SOAP handshake — no manual configuration needed. The same codebase manages both 7.0 and 8.0 environments seamlessly.
 
-### 1. Inventory
+### 1. Inventory & Health Monitoring
 
-| Feature | vCenter | ESXi | Details |
-|---------|:-------:|:----:|---------|
-| List VMs | ✅ | ✅ | Name, power state, CPU, memory, guest OS, IP |
-| List Hosts | ✅ | ⚠️ Self only | CPU cores, memory, ESXi version, VM count, uptime |
-| List Datastores | ✅ | ✅ | Capacity, free/used, type (VMFS/NFS), usage % |
-| List Clusters | ✅ | ❌ | Host count, DRS/HA status |
-| List Networks | ✅ | ✅ | Network name, associated VM count |
+> **Moved to [vmware-monitor](https://github.com/zw008/VMware-Monitor)** — inventory (VMs, hosts, datastores, clusters, networks), alarms, events, hardware sensors, and host services are now in the dedicated read-only monitoring skill.
 
-### 2. Health & Monitoring
-
-| Feature | vCenter | ESXi | Details |
-|---------|:-------:|:----:|---------|
-| Active Alarms | ✅ | ✅ | Severity, alarm name, entity, timestamp |
-| Event/Log Query | ✅ | ✅ | Filter by time range (--hours), severity level; 50+ event types |
-| Hardware Sensors | ✅ | ✅ | Temperature, voltage, fan status |
-| Host Services | ✅ | ✅ | hostd, vpxa, etc. running/stopped |
-
-**Monitored Event Types**:
-
-| Category | Events |
-|----------|--------|
-| VM Failures | `VmFailedToPowerOnEvent`, `VmDiskFailedEvent`, `VmFailoverFailed` |
-| Host Issues | `HostConnectionLostEvent`, `HostShutdownEvent`, `HostIpChangedEvent` |
-| Storage | `DatastoreCapacityIncreasedEvent`, `NASDatastoreEvent`, SCSI high latency |
-| HA/DRS | `DasHostFailedEvent`, `DrsVmMigratedEvent`, `DrsSoftRuleViolationEvent` |
-| Auth | `UserLoginSessionEvent`, `BadUsernameSessionEvent` |
-
-### 3. VM Lifecycle
+### 2. VM Lifecycle
 
 | Operation | Command | Confirmation | vCenter | ESXi |
 |-----------|---------|:------------:|:-------:|:----:|
@@ -130,7 +106,6 @@ ESXi Standalone Host ──→ VM
 | Force Power Off | `vm power-off <name> --force` | Double | ✅ | ✅ |
 | Reset | `vm reset <name>` | — | ✅ | ✅ |
 | Suspend | `vm suspend <name>` | — | ✅ | ✅ |
-| VM Info | `vm info <name>` | — | ✅ | ✅ |
 | Create VM | `vm create <name> --cpu --memory --disk` | — | ✅ | ✅ |
 | Delete VM | `vm delete <name>` | Double | ✅ | ✅ |
 | Reconfigure | `vm reconfigure <name> --cpu --memory` | Double | ✅ | ✅ |
@@ -164,7 +139,7 @@ For complex operations involving 2+ steps or 2+ VMs, use the plan/apply workflow
 
 Plans stored in `~/.vmware-aiops/plans/`, auto-deleted on success, auto-cleaned after 24h.
 
-### 4. VM Deployment & Provisioning
+### 3. VM Deployment & Provisioning
 
 | Operation | Command | Speed | vCenter | ESXi |
 |-----------|---------|:-----:|:-------:|:----:|
@@ -176,15 +151,14 @@ Plans stored in `~/.vmware-aiops/plans/`, auto-deleted on success, auto-cleaned 
 | Batch Clone | `deploy batch-clone --source <vm> --count <n>` | Minutes | ✅ | ✅ |
 | Batch Deploy (YAML) | `deploy batch spec.yaml` | Auto | ✅ | ✅ |
 
-### 5. Datastore Browser
+### 4. Datastore Browser
 
 | Feature | vCenter | ESXi | Details |
 |---------|:-------:|:----:|---------|
 | Browse Files | ✅ | ✅ | List files/folders in any datastore path |
 | Scan Images | ✅ | ✅ | Discover ISO, OVA, OVF, VMDK across all datastores |
-| Local Cache | ✅ | ✅ | Registry at `~/.vmware-aiops/image_registry.json` |
 
-### 6. Scheduled Scanning & Notifications
+### 5. Scheduled Scanning & Notifications
 
 | Feature | Details |
 |---------|---------|
@@ -196,7 +170,7 @@ Plans stored in `~/.vmware-aiops/plans/`, auto-deleted on success, auto-cleaned 
 | Webhook | Slack, Discord, or any HTTP endpoint |
 | Daemon Management | `daemon start/stop/status`, PID file, graceful shutdown |
 
-### 7. Safety Features
+### 6. Safety Features
 
 | Feature | Details |
 |---------|---------|
@@ -213,56 +187,26 @@ Plans stored in `~/.vmware-aiops/plans/`, auto-deleted on success, auto-cleaned 
 | **Task Waiting** | All async operations wait for completion and report result |
 | **State Validation** | Pre-operation checks (VM exists, power state correct) |
 
-### 8. vSAN Management
+### 7. vSAN, Aria Operations, Kubernetes
 
-| Feature | Details |
-|---------|---------|
-| Health Check | Cluster-wide health summary, per-group test results |
-| Capacity | Total/free/used capacity with projections |
-| Disk Groups | Cache SSD + capacity disks per host |
-| Performance | IOPS, latency, throughput per cluster/host/VM |
+> **Moved to companion skills:**
+> - **vSAN**: See [vmware-storage](https://github.com/zw008/VMware-Storage) — health, capacity, disk groups, performance
+> - **Aria Operations / VCF Operations**: See [vmware-monitor](https://github.com/zw008/VMware-Monitor) — metrics, anomaly detection, capacity planning, right-sizing
+> - **vSphere Kubernetes Service (VKS)**: See [vmware-vks](https://github.com/zw008/VMware-VKS) — cluster lifecycle, scaling, node status
 
-> Requires pyVmomi 8.0.3+ (vSAN SDK merged). For older versions, install the standalone vSAN Management SDK.
-
-### 9. Aria Operations / VCF Operations
-
-| Feature | Details |
-|---------|---------|
-| Historical Metrics | Time-series CPU, memory, disk, network with months of history |
-| Anomaly Detection | ML-based dynamic baselines and anomaly alerts |
-| Capacity Planning | What-if analysis, time-to-exhaustion, forecasting |
-| Right-sizing | CPU/memory recommendations per VM |
-| Intelligent Alerts | Root cause analysis, remediation recommendations |
-
-> REST API at `/suite-api/`. Auth: `vRealizeOpsToken`. Rebranded as VCF Operations in VCF 9.0.
-
-### 10. vSphere Kubernetes Service (VKS)
-
-| Feature | Details |
-|---------|---------|
-| List Clusters | Tanzu Kubernetes clusters with phase status |
-| Cluster Health | InfrastructureReady, ControlPlaneAvailable, WorkersAvailable conditions |
-| Scale Workers | Adjust MachineDeployment replicas |
-| Node Status | Machine status, ready/unhealthy counts |
-
-> Kubernetes-native API via kubectl/kubeconfig. VKS 3.6+ uses Cluster API specification.
-
-### 11. vCenter vs ESXi Comparison
+### 8. vCenter vs ESXi Comparison
 
 | Capability | vCenter | ESXi Standalone |
 |------------|:-------:|:----:|
-| Full cluster inventory | ✅ | ❌ Single host only |
-| DRS/HA management | ✅ | ❌ |
 | vMotion migration | ✅ | ❌ |
 | Cross-host clone | ✅ | ❌ |
 | All VM lifecycle ops | ✅ | ✅ |
 | OVA/Template/Linked Clone deploy | ✅ | ✅ |
 | Datastore browsing & image scan | ✅ | ✅ |
-| Alarms & events | ✅ | ✅ |
-| Hardware sensors | ✅ | ✅ |
-| Host services | ✅ | ✅ |
 | Snapshots | ✅ | ✅ |
-| Scheduled scanning | ✅ | ✅ |
+| Guest operations | ✅ | ✅ |
+
+> Inventory, alarms, events, sensors, host services, and scanning are now in [vmware-monitor](https://github.com/zw008/VMware-Monitor).
 
 ---
 
@@ -604,9 +548,9 @@ npx -y @smithery/cli install @zw008/VMware-AIops --client claude
 # Already installed in Step 1
 source .venv/bin/activate
 
-vmware-aiops inventory vms --target home-esxi
-vmware-aiops health alarms --target home-esxi
 vmware-aiops vm power-on my-vm --target home-esxi
+vmware-aiops deploy ova ./ubuntu.ova --name my-vm --target home-esxi
+vmware-aiops datastore browse datastore1 --target home-esxi
 ```
 
 ---
@@ -783,20 +727,7 @@ vmware-aiops mcp-config generate --agent goose        # Generate config for Goos
 vmware-aiops mcp-config generate --agent claude-code  # Generate config for Claude Code
 vmware-aiops mcp-config list                          # List all supported agents
 
-# Inventory
-vmware-aiops inventory vms                          # List VMs
-vmware-aiops inventory vms --limit 10 --sort-by memory_mb  # Top 10 VMs by memory
-vmware-aiops inventory vms --power-state poweredOn  # Only powered-on VMs
-vmware-aiops inventory hosts --target prod-vcenter  # List hosts
-vmware-aiops inventory datastores                   # List datastores
-vmware-aiops inventory clusters                     # List clusters
-
-# Health
-vmware-aiops health alarms                                # Active alarms
-vmware-aiops health events --hours 24 --severity warning  # Recent events
-
 # VM operations
-vmware-aiops vm info my-vm                                     # VM details
 vmware-aiops vm power-on my-vm                                 # Power on
 vmware-aiops vm power-off my-vm                                # Graceful shutdown (2x confirm)
 vmware-aiops vm power-off my-vm --force                        # Force power off (2x confirm)
@@ -834,7 +765,6 @@ vmware-aiops deploy batch deploy.yaml                                  # Batch d
 # Datastore
 vmware-aiops datastore browse datastore1 --path "iso/"                 # Browse datastore
 vmware-aiops datastore scan-images --target home-esxi                  # Scan all datastores for images
-vmware-aiops datastore images --type iso                               # List cached images
 
 # Scan
 vmware-aiops scan now              # One-time scan
@@ -844,23 +774,10 @@ vmware-aiops daemon start          # Start scanner
 vmware-aiops daemon status         # Check status
 vmware-aiops daemon stop           # Stop daemon
 
-# vSAN
-vmware-aiops vsan health [--target prod-vcenter]                  # vSAN health
-vmware-aiops vsan capacity [--target prod-vcenter]                # vSAN capacity
-vmware-aiops vsan disks [--target prod-vcenter]                   # Disk groups
-vmware-aiops vsan performance [--hours 1] [--target prod-vcenter] # Performance
-
-# Aria Operations / VCF Operations
-vmware-aiops ops alerts [--severity critical]                     # Intelligent alerts
-vmware-aiops ops metrics <resource-name> [--hours 24]             # Time-series metrics
-vmware-aiops ops recommendations [--target prod-vcenter]          # Right-sizing
-vmware-aiops ops capacity <cluster-name>                          # Capacity planning
-
-# vSphere Kubernetes Service (VKS)
-vmware-aiops vks clusters [--namespace default]                   # List K8s clusters
-vmware-aiops vks health <cluster-name>                            # Cluster health
-vmware-aiops vks scale <machine-deployment> --replicas <n>        # Scale workers
-vmware-aiops vks nodes <cluster-name>                             # Node status
+# Inventory / Health / Storage / vSAN / VKS — see companion skills:
+#   vmware-monitor: inventory, alarms, events, sensors
+#   vmware-storage: datastores, iSCSI, vSAN
+#   vmware-vks:     Tanzu/TKC cluster lifecycle
 ```
 
 ---
@@ -953,7 +870,7 @@ Built on **pyVmomi** (vSphere Web Services API / SOAP).
 | Skill | Scope | Tools | Install |
 |-------|-------|:-----:|---------|
 | **[vmware-monitor](https://github.com/zw008/VMware-Monitor)** | Read-only monitoring, alarms, events | 8 | `uv tool install vmware-monitor` |
-| **[vmware-aiops](https://github.com/zw008/VMware-AIops)** | VM lifecycle, deployment, guest ops, clusters | 33 | `uv tool install vmware-aiops` |
+| **[vmware-aiops](https://github.com/zw008/VMware-AIops)** | VM lifecycle, deployment, guest ops, datastore browse | 31 | `uv tool install vmware-aiops` |
 | **[vmware-storage](https://github.com/zw008/VMware-Storage)** | Datastores, iSCSI, vSAN | 11 | `uv tool install vmware-storage` |
 | **[vmware-vks](https://github.com/zw008/VMware-VKS)** | Tanzu Namespaces, TKC cluster lifecycle | 20 | `uv tool install vmware-vks` |
 
