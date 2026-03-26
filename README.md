@@ -3,9 +3,17 @@
 
 English | [中文](README-CN.md)
 
-AI-powered VMware vCenter/ESXi **VM lifecycle and deployment** tool. Companion skills handle [monitoring](https://github.com/zw008/VMware-Monitor), [storage/iSCSI/vSAN](https://github.com/zw008/VMware-Storage), and [Kubernetes/VKS](https://github.com/zw008/VMware-VKS).
+AI-powered VMware vCenter/ESXi VM lifecycle and deployment tool — 31 tools across 6 categories.
 
-> **Need read-only monitoring only?** See [VMware-Monitor](https://github.com/zw008/VMware-Monitor) — an independent repository with code-level safety (zero destructive code in the codebase).
+> **Companion skills** handle everything else:
+>
+> | Skill | Scope | Install |
+> |-------|-------|---------|
+> | **[vmware-monitor](https://github.com/zw008/VMware-Monitor)** | Read-only: inventory, health, alarms, events, metrics | `uv tool install vmware-monitor` |
+> | **[vmware-storage](https://github.com/zw008/VMware-Storage)** | Datastores, iSCSI, vSAN management | `uv tool install vmware-storage` |
+> | **[vmware-vks](https://github.com/zw008/VMware-VKS)** | Tanzu Namespaces, TKC cluster lifecycle | `uv tool install vmware-vks` |
+>
+> **Need read-only monitoring only?** Use [VMware-Monitor](https://github.com/zw008/VMware-Monitor) — zero destructive code in the codebase.
 
 [![ClawHub](https://img.shields.io/badge/ClawHub-vmware--aiops-orange)](https://clawhub.ai/skills/vmware-aiops)
 [![Skills.sh](https://img.shields.io/badge/Skills.sh-Install-blue)](https://skills.sh/zw008/VMware-AIops)
@@ -54,6 +62,17 @@ pip install vmware-aiops -i https://pypi.tuna.tsinghua.edu.cn/simple
 
 ## Capabilities Overview
 
+### What This Skill Does
+
+| Category | Tools | Count |
+|----------|-------|:-----:|
+| **VM Lifecycle** | power on/off, TTL auto-delete, clean slate | 6 |
+| **Deployment** | OVA, template, linked clone, batch clone/deploy | 8 |
+| **Guest Ops** | exec commands, upload/download files, provision | 5 |
+| **Plan/Apply** | multi-step planning with rollback | 4 |
+| **Cluster** | create, delete, HA/DRS config, add/remove hosts | 6 |
+| **Datastore** | browse files, scan for images | 2 |
+
 ### CLI vs MCP: Which Mode to Use
 
 | Scenario | Recommended | Why |
@@ -93,11 +112,35 @@ ESXi Standalone Host ──→ VM
 
 > pyVmomi auto-negotiates the API version during SOAP handshake — no manual configuration needed. The same codebase manages both 7.0 and 8.0 environments seamlessly.
 
-### 1. Inventory & Health Monitoring
+---
 
-> **Moved to [vmware-monitor](https://github.com/zw008/VMware-Monitor)** — inventory (VMs, hosts, datastores, clusters, networks), alarms, events, hardware sensors, and host services are now in the dedicated read-only monitoring skill.
+## Common Workflows
 
-### 2. VM Lifecycle
+### Deploy a Lab Environment
+
+1. Browse datastore for OVA images → `vmware-aiops datastore browse <ds> --pattern "*.ova"`
+2. Deploy VM from OVA → `vmware-aiops deploy ova ./image.ova --name lab-vm --datastore ds1`
+3. Install software inside VM → `vmware-aiops vm guest-exec lab-vm --cmd /bin/bash --args "-c 'apt-get install -y nginx'" --user root`
+4. Create baseline snapshot → `vmware-aiops vm snapshot-create lab-vm --name baseline`
+5. Set TTL for auto-cleanup → `vmware-aiops vm set-ttl lab-vm --minutes 480`
+
+### Batch Clone for Testing
+
+1. Create plan: `vm_create_plan` with multiple clone + reconfigure steps
+2. Review plan with user (shows affected VMs, irreversible warnings)
+3. Apply: `vm_apply_plan` executes sequentially, stops on failure
+4. If failed: `vm_rollback_plan` reverses executed steps
+5. Set TTL on all clones for auto-cleanup
+
+### Migrate VM to Another Host
+
+1. Check VM info via `vmware-monitor` → verify power state and current host
+2. Migrate: `vmware-aiops vm migrate my-vm --to-host esxi-02`
+3. Verify migration completed
+
+---
+
+## VM Lifecycle
 
 | Operation | Command | Confirmation | vCenter | ESXi |
 |-----------|---------|:------------:|:-------:|:----:|
@@ -139,7 +182,7 @@ For complex operations involving 2+ steps or 2+ VMs, use the plan/apply workflow
 
 Plans stored in `~/.vmware-aiops/plans/`, auto-deleted on success, auto-cleaned after 24h.
 
-### 3. VM Deployment & Provisioning
+## VM Deployment & Provisioning
 
 | Operation | Command | Speed | vCenter | ESXi |
 |-----------|---------|:-----:|:-------:|:----:|
@@ -151,14 +194,25 @@ Plans stored in `~/.vmware-aiops/plans/`, auto-deleted on success, auto-cleaned 
 | Batch Clone | `deploy batch-clone --source <vm> --count <n>` | Minutes | ✅ | ✅ |
 | Batch Deploy (YAML) | `deploy batch spec.yaml` | Auto | ✅ | ✅ |
 
-### 4. Datastore Browser
+## Cluster Management
+
+| Operation | Command | Confirmation | vCenter | ESXi |
+|-----------|---------|:------------:|:-------:|:----:|
+| Cluster Info | `cluster info <name>` | — | ✅ | ❌ |
+| Create Cluster | `cluster create <name> [--ha] [--drs]` | — | ✅ | ❌ |
+| Delete Cluster | `cluster delete <name>` | Double | ✅ | ❌ |
+| Add Host | `cluster add-host <cluster> --host <host>` | Double | ✅ | ❌ |
+| Remove Host | `cluster remove-host <cluster> --host <host>` | Double | ✅ | ❌ |
+| Configure HA/DRS | `cluster configure <name> [--ha/--no-ha] [--drs/--no-drs]` | Double | ✅ | ❌ |
+
+## Datastore Browser
 
 | Feature | vCenter | ESXi | Details |
 |---------|:-------:|:----:|---------|
 | Browse Files | ✅ | ✅ | List files/folders in any datastore path |
 | Scan Images | ✅ | ✅ | Discover ISO, OVA, OVF, VMDK across all datastores |
 
-### 5. Scheduled Scanning & Notifications
+## Scheduled Scanning & Notifications
 
 | Feature | Details |
 |---------|---------|
@@ -170,7 +224,7 @@ Plans stored in `~/.vmware-aiops/plans/`, auto-deleted on success, auto-cleaned 
 | Webhook | Slack, Discord, or any HTTP endpoint |
 | Daemon Management | `daemon start/stop/status`, PID file, graceful shutdown |
 
-### 6. Safety Features
+## Safety Features
 
 | Feature | Details |
 |---------|---------|
@@ -187,19 +241,13 @@ Plans stored in `~/.vmware-aiops/plans/`, auto-deleted on success, auto-cleaned 
 | **Task Waiting** | All async operations wait for completion and report result |
 | **State Validation** | Pre-operation checks (VM exists, power state correct) |
 
-### 7. vSAN, Aria Operations, Kubernetes
-
-> **Moved to companion skills:**
-> - **vSAN**: See [vmware-storage](https://github.com/zw008/VMware-Storage) — health, capacity, disk groups, performance
-> - **Aria Operations / VCF Operations**: See [vmware-monitor](https://github.com/zw008/VMware-Monitor) — metrics, anomaly detection, capacity planning, right-sizing
-> - **vSphere Kubernetes Service (VKS)**: See [vmware-vks](https://github.com/zw008/VMware-VKS) — cluster lifecycle, scaling, node status
-
-### 8. vCenter vs ESXi Comparison
+### vCenter vs ESXi Comparison
 
 | Capability | vCenter | ESXi Standalone |
 |------------|:-------:|:----:|
 | vMotion migration | ✅ | ❌ |
 | Cross-host clone | ✅ | ❌ |
+| Cluster management | ✅ | ❌ |
 | All VM lifecycle ops | ✅ | ✅ |
 | OVA/Template/Linked Clone deploy | ✅ | ✅ |
 | Datastore browsing & image scan | ✅ | ✅ |
@@ -207,6 +255,26 @@ Plans stored in `~/.vmware-aiops/plans/`, auto-deleted on success, auto-cleaned 
 | Guest operations | ✅ | ✅ |
 
 > Inventory, alarms, events, sensors, host services, and scanning are now in [vmware-monitor](https://github.com/zw008/VMware-Monitor).
+
+---
+
+## Troubleshooting
+
+### "VM not found" error
+VM names are case-sensitive in vSphere. Use exact name from `vmware-monitor inventory vms`.
+
+### Guest exec returns empty output
+Use `vm_guest_exec_output` instead of `vm_guest_exec` — it auto-captures stdout/stderr. Basic `vm_guest_exec` only returns exit code.
+
+### Deploy OVA times out
+Large OVA files (>10GB) may exceed the default 120s timeout. The upload happens via HTTP NFC lease — ensure network between the machine running vmware-aiops and ESXi is stable.
+
+### Plan apply fails mid-way
+Run `vmware-aiops plan list` to see failed plan status. Ask user if they want to rollback with `vm_rollback_plan`. Irreversible steps (delete_vm) are skipped during rollback.
+
+### Connection refused / SSL error
+1. Verify target is reachable: `vmware-aiops doctor`
+2. For self-signed certs: set `disableSslCertValidation: true` in config.yaml (lab environments only)
 
 ---
 
@@ -762,7 +830,15 @@ vmware-aiops deploy mark-template golden-vm                            # Convert
 vmware-aiops deploy batch-clone --source base-vm --count 5 --prefix lab  # Batch clone
 vmware-aiops deploy batch deploy.yaml                                  # Batch deploy from YAML spec
 
-# Datastore
+# Cluster
+vmware-aiops cluster info my-cluster                                   # Cluster details (HA/DRS status)
+vmware-aiops cluster create my-cluster --ha --drs                      # Create cluster with HA+DRS
+vmware-aiops cluster delete my-cluster                                 # Delete cluster (2x confirm)
+vmware-aiops cluster add-host my-cluster --host esxi-03                # Add host to cluster (2x confirm)
+vmware-aiops cluster remove-host my-cluster --host esxi-03             # Remove host (2x confirm)
+vmware-aiops cluster configure my-cluster --ha --drs                   # Configure HA/DRS (2x confirm)
+
+# Datastore (browse and scan only — iSCSI/vSAN moved to vmware-storage)
 vmware-aiops datastore browse datastore1 --path "iso/"                 # Browse datastore
 vmware-aiops datastore scan-images --target home-esxi                  # Scan all datastores for images
 
@@ -774,7 +850,7 @@ vmware-aiops daemon start          # Start scanner
 vmware-aiops daemon status         # Check status
 vmware-aiops daemon stop           # Stop daemon
 
-# Inventory / Health / Storage / vSAN / VKS — see companion skills:
+# Companion skills for other operations:
 #   vmware-monitor: inventory, alarms, events, sensors
 #   vmware-storage: datastores, iSCSI, vSAN
 #   vmware-vks:     Tanzu/TKC cluster lifecycle
@@ -817,7 +893,11 @@ VMware-AIops/
 │               └── SKILL.md       # Full operations skill
 ├── skills/                        # Skills index (npx skills add)
 │   └── vmware-aiops/
-│       └── SKILL.md
+│       ├── SKILL.md               # Slimmed-down skill (progressive disclosure)
+│       └── references/            # Detailed docs loaded on-demand
+│           ├── capabilities.md    # Full capabilities tables
+│           ├── cli-reference.md   # Complete CLI reference
+│           └── setup-guide.md     # Install, security, AI platforms
 ├── vmware_aiops/                  # Python backend
 │   ├── config.py                  # YAML + .env config
 │   ├── connection.py              # Multi-target pyVmomi
@@ -870,7 +950,7 @@ Built on **pyVmomi** (vSphere Web Services API / SOAP).
 | Skill | Scope | Tools | Install |
 |-------|-------|:-----:|---------|
 | **[vmware-monitor](https://github.com/zw008/VMware-Monitor)** | Read-only monitoring, alarms, events | 8 | `uv tool install vmware-monitor` |
-| **[vmware-aiops](https://github.com/zw008/VMware-AIops)** | VM lifecycle, deployment, guest ops, datastore browse | 31 | `uv tool install vmware-aiops` |
+| **[vmware-aiops](https://github.com/zw008/VMware-AIops)** | VM lifecycle, deployment, guest ops, cluster, datastore browse | 31 | `uv tool install vmware-aiops` |
 | **[vmware-storage](https://github.com/zw008/VMware-Storage)** | Datastores, iSCSI, vSAN | 11 | `uv tool install vmware-storage` |
 | **[vmware-vks](https://github.com/zw008/VMware-VKS)** | Tanzu Namespaces, TKC cluster lifecycle | 20 | `uv tool install vmware-vks` |
 

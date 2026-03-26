@@ -2,10 +2,11 @@
 name: vmware-aiops
 description: >
   AI-powered VMware vCenter/ESXi VM lifecycle and deployment operations.
-  Manage VMs via natural language: power on/off, create, delete, snapshot, clone,
-  migrate, deploy (OVA, template, linked clone, batch), guest operations
-  (exec, upload, download, provision), cluster management (create, HA/DRS),
-  datastore browsing, plan/apply multi-step workflows, and scheduled scanning.
+  Manage VMs via natural language: power, snapshot, clone, migrate, deploy,
+  guest operations, cluster management, and plan/apply workflows.
+  Use when user asks to "power on/off a VM", "deploy from OVA", "clone a VM",
+  "create a cluster", "run a command inside a VM", "batch deploy VMs",
+  "migrate a VM", or mentions VMware/vSphere/ESXi VM operations.
   For monitoring use vmware-monitor, for storage use vmware-storage,
   for Tanzu Kubernetes use vmware-vks.
 installer:
@@ -16,21 +17,20 @@ metadata: {"openclaw":{"requires":{"env":["VMWARE_AIOPS_CONFIG"],"bins":["vmware
 
 # VMware AIops
 
-AI-powered VMware vCenter and ESXi operations tool. Manage VM lifecycle and deployment using natural language — 31 MCP tools covering VM power/snapshot/clone/migrate, deployment, guest ops, cluster management, datastore browsing, and plan/apply workflows.
+AI-powered VMware vCenter/ESXi VM lifecycle and deployment tool — 31 MCP tools.
 
-> **Companion skills**: For read-only monitoring use [vmware-monitor](https://github.com/zw008/VMware-Monitor). For storage/iSCSI/vSAN use [vmware-storage](https://github.com/zw008/VMware-Storage). For Tanzu Kubernetes use [vmware-vks](https://github.com/zw008/VMware-VKS).
+> **Companion skills**: [vmware-monitor](https://github.com/zw008/VMware-Monitor) (inventory/health), [vmware-storage](https://github.com/zw008/VMware-Storage) (iSCSI/vSAN), [vmware-vks](https://github.com/zw008/VMware-VKS) (Tanzu Kubernetes).
 
 ## What This Skill Does
 
-| Category | Examples |
-|----------|---------|
-| **VM Lifecycle** | power on/off, create, delete, snapshot, clone, migrate, TTL, clean slate |
-| **Deployment** | deploy from OVA/template/linked clone, batch deploy |
-| **Guest Ops** | run commands inside VM, upload/download files, provision |
-| **Cluster** | create cluster, HA/DRS config, add/remove hosts |
-| **Datastore** | browse files, scan for deployable images |
-| **Plan/Apply** | multi-step operation planning with rollback |
-| **Scheduled Scan** | daemon + Slack/Discord webhook notifications |
+| Category | Tools | Count |
+|----------|-------|:-----:|
+| **VM Lifecycle** | power on/off, TTL auto-delete, clean slate | 6 |
+| **Deployment** | OVA, template, linked clone, batch clone/deploy | 8 |
+| **Guest Ops** | exec commands, upload/download files, provision | 5 |
+| **Plan/Apply** | multi-step planning with rollback | 4 |
+| **Cluster** | create, delete, HA/DRS config, add/remove hosts | 6 |
+| **Datastore** | browse files, scan for images | 2 |
 
 ## Quick Install
 
@@ -41,404 +41,125 @@ vmware-aiops doctor
 
 ## When to Use This Skill
 
-- Perform VM lifecycle operations: power on/off, create, delete, snapshot, clone, migrate
+- Power on/off, create, delete, snapshot, clone, or migrate VMs
 - Deploy VMs from OVA, templates, linked clones, or batch specs
-- Run commands or upload files inside a VM (Guest Operations)
-- Create and manage clusters: HA/DRS configuration, add/remove hosts
-- Browse datastores and discover ISO/OVA/VMDK images
-- Plan and execute multi-step VM operations with rollback support
-- Run scheduled scanning with webhook notifications (Slack, Discord)
+- Run commands or transfer files inside a VM (Guest Operations)
+- Create/configure clusters (HA/DRS)
+- Browse datastores for deployable images
+- Plan and execute multi-step operations with rollback
 
-**Use other skills for**:
-- Inventory / health / alarms / VM info → `vmware-monitor`
-- iSCSI / vSAN / datastore management → `vmware-storage`
+**Use companion skills for**:
+- Inventory, health, alarms, VM info → `vmware-monitor`
+- iSCSI, vSAN, datastore management → `vmware-storage`
 - Tanzu Kubernetes (Supervisor, Namespace, TKC) → `vmware-vks`
 
 ## Related Skills — Skill Routing
 
-> For focused tasks, use the lighter domain-specific skills:
+| User Intent | Recommended Skill |
+|-------------|------------------|
+| Read-only monitoring, zero risk | **vmware-monitor** (`uv tool install vmware-monitor`) |
+| Storage: iSCSI, vSAN, datastores | **vmware-storage** (`uv tool install vmware-storage`) |
+| VM lifecycle, deployment, guest ops | **vmware-aiops** ← this skill |
+| Tanzu Kubernetes (vSphere 8.x+) | **vmware-vks** (`uv tool install vmware-vks`) |
 
-| User Intent | Recommended Skill | Why |
-|-------------|------------------|-----|
-| Read-only monitoring, zero risk | **vmware-monitor** — `uv tool install vmware-monitor` | 8 tools, code-level safe |
-| Datastores, iSCSI, vSAN only | **vmware-storage** — `uv tool install vmware-storage` | 11 tools, lighter for local models |
-| VM lifecycle, deployment, guest ops, clusters | **vmware-aiops** ← this skill | 31 tools, full operations |
-| Tanzu Namespace, TKC cluster lifecycle (vSphere 8.x+) | **vmware-vks** — `uv tool install vmware-vks` | 20 tools, full TKC lifecycle with safety guards |
+## Common Workflows
 
-## Quick Install
+### Deploy a Lab Environment
+1. Browse datastore for OVA images → `vmware-aiops datastore browse <ds> --pattern "*.ova"`
+2. Deploy VM from OVA → `vmware-aiops deploy ova ./image.ova --name lab-vm --datastore ds1`
+3. Install software inside VM → `vmware-aiops vm guest-exec lab-vm --cmd /bin/bash --args "-c 'apt-get install -y nginx'" --user root`
+4. Create baseline snapshot → `vmware-aiops vm snapshot-create lab-vm --name baseline`
+5. Set TTL for auto-cleanup → `vmware-aiops vm set-ttl lab-vm --minutes 480`
 
-All install methods fetch from the same source: [github.com/zw008/VMware-AIops](https://github.com/zw008/VMware-AIops) (MIT licensed). We recommend reviewing the source code before installing.
+### Batch Clone for Testing
+1. Create plan: `vm_create_plan` with multiple clone + reconfigure steps
+2. Review plan with user (shows affected VMs, irreversible warnings)
+3. Apply: `vm_apply_plan` executes sequentially, stops on failure
+4. If failed: `vm_rollback_plan` reverses executed steps
+5. Set TTL on all clones for auto-cleanup
 
-```bash
-# Via Skills.sh (fetches from GitHub)
-npx skills add zw008/VMware-AIops
-
-# Via ClawHub (fetches from ClawHub registry snapshot of GitHub)
-clawhub install vmware-aiops
-
-# Via PyPI (recommended for version pinning)
-uv tool install vmware-aiops==1.2.3
-```
-
-### Claude Code
-
-```
-/plugin marketplace add zw008/VMware-AIops
-/plugin install vmware-ops
-/vmware-ops:vmware-aiops
-```
+### Migrate VM to Another Host
+1. Check VM info via `vmware-monitor` → verify power state and current host
+2. Migrate: `vmware-aiops vm migrate my-vm --to-host esxi-02`
+3. Verify migration completed
 
 ## Usage Mode
 
-Choose the best mode based on your environment:
+| Scenario | Recommended | Why |
+|----------|:-----------:|-----|
+| Local/small models (Ollama, Qwen) | **CLI** | ~2K tokens vs ~8K for MCP |
+| Cloud models (Claude, GPT-4o) | Either | MCP gives structured JSON I/O |
+| Automated pipelines | **MCP** | Type-safe parameters, structured output |
 
-| Scenario | Recommended Mode | Why |
-|----------|-----------------|-----|
-| **Cloud models** (Claude, GPT-4o, Gemini) | MCP or CLI | Both work well; MCP gives structured JSON I/O |
-| **Local/small models** (Ollama, Llama, Qwen <32B) | **CLI** | Lower token cost (~2K vs ~8K), higher accuracy — small models struggle with many MCP tool schemas |
-| **Token-sensitive workflows** | **CLI** | CLI via SKILL.md uses ~2K tokens; MCP loads ~8K tokens of tool definitions into every conversation |
-| **Automated pipelines / Agent chaining** | **MCP** | Structured JSON input/output, type-safe parameters, no shell parsing |
-
-### Calling Priority
-
-- **MCP-native tools** (Claude Code, Cursor): MCP first, CLI fallback
-- **Local models / Token-sensitive**: CLI first (MCP not needed)
-- **All other tools**: CLI first
-
-> **Tip**: For token-sensitive scenarios, use CLI mode — the AI reads SKILL.md (~2K tokens) and calls commands via Bash. MCP mode loads all 31 tool schemas (~10K tokens) into context on every conversation turn.
-
-### CLI Examples
-
-```bash
-# VM operations
-vmware-aiops vm power-on my-vm --target home-esxi
-vmware-aiops vm power-off my-vm --target home-esxi
-vmware-aiops vm create my-vm --cpu 4 --memory 8192 --disk 100
-
-# Deployment
-vmware-aiops deploy ova ./ubuntu.ova --name test-vm --datastore datastore1
-vmware-aiops deploy linked-clone --source gold-image --snapshot baseline --name dev-01
-
-# Datastore browsing
-vmware-aiops datastore browse datastore1 --pattern "*.ova"
-vmware-aiops datastore scan-images
-
-# Cluster
-vmware-aiops cluster info my-cluster
-vmware-aiops cluster create new-cluster --ha --drs
-
-# For inventory/health, use vmware-monitor:
-# vmware-monitor inventory vms --target home-esxi
-# vmware-monitor health alarms --target home-esxi
-```
-
-### MCP Mode (Optional)
-
-For Claude Code / Cursor users who prefer structured tool calls, add to `~/.claude/settings.json`:
-
-```json
-{
-  "mcpServers": {
-    "vmware-aiops": {
-      "command": "/path/to/VMware-AIops/.venv/bin/python",
-      "args": ["-m", "mcp_server"],
-      "cwd": "/path/to/VMware-AIops",
-      "env": {
-        "VMWARE_AIOPS_CONFIG": "~/.vmware-aiops/config.yaml"
-      }
-    }
-  }
-}
-```
-
-MCP exposes 31 tools across 6 categories. All accept optional `target` parameter.
+## MCP Tools (31)
 
 | Category | Tools |
 |----------|-------|
-| VM Lifecycle | `vm_power_on`, `vm_power_off`, `vm_set_ttl`, `vm_cancel_ttl`, `vm_list_ttl`, `vm_clean_slate` |
-| Deployment | `deploy_vm_from_ova`, `deploy_vm_from_template`, `deploy_linked_clone`, `attach_iso_to_vm`, `convert_vm_to_template`, `batch_clone_vms`, `batch_linked_clone_vms`, `batch_deploy_from_spec` |
-| Guest Operations | `vm_guest_exec`, `vm_guest_exec_output`, `vm_guest_upload`, `vm_guest_download`, `vm_guest_provision` |
-| Plan → Apply | `vm_create_plan`, `vm_apply_plan`, `vm_rollback_plan`, `vm_list_plans` |
-| Datastore | `browse_datastore`, `scan_datastore_images` |
-| Cluster | `cluster_create`, `cluster_delete`, `cluster_add_host`, `cluster_remove_host`, `cluster_configure`, `cluster_info` |
+| VM Lifecycle (6) | `vm_power_on`, `vm_power_off`, `vm_set_ttl`, `vm_cancel_ttl`, `vm_list_ttl`, `vm_clean_slate` |
+| Deployment (8) | `deploy_vm_from_ova`, `deploy_vm_from_template`, `deploy_linked_clone`, `attach_iso_to_vm`, `convert_vm_to_template`, `batch_clone_vms`, `batch_linked_clone_vms`, `batch_deploy_from_spec` |
+| Guest Ops (5) | `vm_guest_exec`, `vm_guest_exec_output`, `vm_guest_upload`, `vm_guest_download`, `vm_guest_provision` |
+| Plan/Apply (4) | `vm_create_plan`, `vm_apply_plan`, `vm_rollback_plan`, `vm_list_plans` |
+| Datastore (2) | `browse_datastore`, `scan_datastore_images` |
+| Cluster (6) | `cluster_create`, `cluster_delete`, `cluster_add_host`, `cluster_remove_host`, `cluster_configure`, `cluster_info` |
 
-> **Moved to companion skills**: Inventory/health/VM info → `vmware-monitor`. iSCSI/vSAN → `vmware-storage`.
-
-`vm_guest_exec_output` — execute a shell command and **capture stdout/stderr** automatically. OS auto-detected (Linux/Windows) via `vm.guest.guestFamily`. No manual redirection needed.
-
-`vm_guest_provision` — run an ordered sequence of exec/upload/service steps in one call. Stops on first failure. Typical use: SSH key injection → package install → service start.
-
-## Architecture
-
-```
-User (Natural Language)
-  ↓
-AI Tool (Claude Code / Aider / Gemini / Codex / Cursor / Trae / Kimi)
-  ↓
-  ├─ CLI mode (default): vmware-aiops CLI ──→ pyVmomi ──→ vSphere API
-  │
-  └─ MCP mode (optional): MCP Server (stdio) ──→ pyVmomi ──→ vSphere API
-  ↓
-vCenter Server ──→ ESXi Clusters ──→ VMs
-    or
-ESXi Standalone ──→ VMs
-```
-
-## Capabilities
-
-### 1. VM Lifecycle
-
-| Operation | Command | Confirmation | vCenter | ESXi |
-|-----------|---------|:------------:|:-------:|:----:|
-| Power On | `vm power-on <name>` | — | ✅ | ✅ |
-| Graceful Shutdown | `vm power-off <name>` | Double | ✅ | ✅ |
-| Force Power Off | `vm power-off <name> --force` | Double | ✅ | ✅ |
-| Reset | `vm reset <name>` | — | ✅ | ✅ |
-| Suspend | `vm suspend <name>` | — | ✅ | ✅ |
-| VM Info | `vm info <name>` | — | ✅ | ✅ |
-| Create VM | `vm create <name> --cpu --memory --disk` | — | ✅ | ✅ |
-| Delete VM | `vm delete <name>` | Double | ✅ | ✅ |
-| Reconfigure | `vm reconfigure <name> --cpu --memory` | Double | ✅ | ✅ |
-| Create Snapshot | `vm snapshot-create <name> --name <snap>` | — | ✅ | ✅ |
-| List Snapshots | `vm snapshot-list <name>` | — | ✅ | ✅ |
-| Revert Snapshot | `vm snapshot-revert <name> --name <snap>` | — | ✅ | ✅ |
-| Delete Snapshot | `vm snapshot-delete <name> --name <snap>` | — | ✅ | ✅ |
-| Clone VM | `vm clone <name> --new-name <new>` | — | ✅ | ✅ |
-| vMotion | `vm migrate <name> --to-host <host>` | — | ✅ | ❌ |
-| Set TTL | `vm set-ttl <name> --minutes <n>` | — | ✅ | ✅ |
-| Cancel TTL | `vm cancel-ttl <name>` | — | ✅ | ✅ |
-| List TTLs | `vm list-ttl` | — | ✅ | ✅ |
-| Clean Slate | `vm clean-slate <name> [--snapshot baseline]` | Double | ✅ | ✅ |
-| Guest Exec | `vm guest-exec <name> --cmd /bin/bash --args "-c 'whoami'"` | — | ✅ | ✅ |
-| Guest Upload | `vm guest-upload <name> --local f.sh --guest /tmp/f.sh` | — | ✅ | ✅ |
-| Guest Download | `vm guest-download <name> --guest /var/log/syslog --local ./syslog` | — | ✅ | ✅ |
-
-> Guest Operations require VMware Tools running inside the guest OS.
-
-### Plan → Apply (Multi-step Operations)
-
-For complex operations involving 2+ steps or 2+ VMs, use the plan/apply workflow:
-
-| Step | MCP Tool / CLI | Description |
-|------|---------------|-------------|
-| 1. Create Plan | `vm_create_plan` | Validates actions, checks targets in vSphere, generates plan with rollback info |
-| 2. Review | — | AI shows plan to user: steps, affected VMs, irreversible warnings |
-| 3. Apply | `vm_apply_plan` | Executes sequentially; stops on failure |
-| 4. Rollback (if failed) | `vm_rollback_plan` | Asks user, then reverses executed steps (skips irreversible) |
-
-Plans are stored in `~/.vmware-aiops/plans/`, deleted on success, auto-cleaned after 24h.
-
-### 4. VM Deployment & Provisioning
-
-| Operation | Command | Speed | vCenter | ESXi |
-|-----------|---------|:-----:|:-------:|:----:|
-| Deploy from OVA | `deploy ova <path> --name <vm>` | Minutes | ✅ | ✅ |
-| Deploy from Template | `deploy template <tmpl> --name <vm>` | Minutes | ✅ | ✅ |
-| Linked Clone | `deploy linked-clone --source <vm> --snapshot <snap> --name <new>` | Seconds | ✅ | ✅ |
-| Attach ISO | `deploy iso <vm> --iso "[ds] path/to.iso"` | Instant | ✅ | ✅ |
-| Convert to Template | `deploy mark-template <vm>` | Instant | ✅ | ✅ |
-| Batch Clone | `deploy batch-clone --source <vm> --count <n>` | Minutes | ✅ | ✅ |
-| Batch Deploy (YAML) | `deploy batch spec.yaml` | Auto | ✅ | ✅ |
-
-### 5. Datastore Browser
-
-| Feature | vCenter | ESXi | Details |
-|---------|:-------:|:----:|---------|
-| Browse Files | ✅ | ✅ | List files/folders in any datastore path |
-| Scan Images | ✅ | ✅ | Discover ISO, OVA, OVF, VMDK across all datastores |
-
-> For datastore management, iSCSI, and vSAN, use [vmware-storage](https://github.com/zw008/VMware-Storage). For Tanzu Kubernetes, use [vmware-vks](https://github.com/zw008/VMware-VKS).
-
-### 6. Cluster Management
-
-| Operation | Command | Confirmation | vCenter | ESXi |
-|-----------|---------|:------------:|:-------:|:----:|
-| Cluster Info | `cluster info <name>` | — | ✅ | ❌ |
-| Create Cluster | `cluster create <name> [--ha] [--drs]` | — | ✅ | ❌ |
-| Delete Cluster | `cluster delete <name>` | Double | ✅ | ❌ |
-| Add Host | `cluster add-host <cluster> --host <host>` | Double | ✅ | ❌ |
-| Remove Host | `cluster remove-host <cluster> --host <host>` | Double | ✅ | ❌ |
-| Configure HA/DRS | `cluster configure <name> [--ha/--no-ha] [--drs/--no-drs]` | Double | ✅ | ❌ |
-
-### 7. Scheduled Scanning & Notifications
-
-| Feature | Details |
-|---------|---------|
-| Daemon | APScheduler-based, configurable interval (default 15 min) |
-| Multi-target Scan | Sequentially scan all configured vCenter/ESXi targets |
-| Scan Content | Alarms + Events + Host logs (hostd, vmkernel, vpxd) |
-| Log Analysis | Regex pattern matching: error, fail, critical, panic, timeout |
-| Webhook | Slack, Discord, or any HTTP endpoint |
-
-## Safety Features
-
-| Feature | Details |
-|---------|---------|
-| Plan → Confirm → Execute → Log | Structured workflow: show current state, confirm changes, execute, audit log |
-| Double Confirmation | All destructive ops (power-off, delete, reconfigure, snapshot-revert/delete, clone, migrate) require 2 sequential confirmations — no bypass flags |
-| Rejection Logging | Declined confirmations are recorded in the audit trail for security review |
-| Audit Trail | All operations logged to `~/.vmware-aiops/audit.log` (JSONL) with before/after state |
-| Input Validation | VM name length/format, CPU (1-128), memory (128-1048576 MB), disk (1-65536 GB) validated before execution |
-| Password Protection | `.env` file loading, never in command line or shell history; file permission check at startup |
-| SSL Self-signed Support | `disableSslCertValidation` — **only** for ESXi hosts with self-signed certificates in isolated lab/home environments. Production environments should use CA-signed certificates with full TLS verification enabled. |
-| Task Waiting | All async operations wait for completion and report result |
-| State Validation | Pre-operation checks (VM exists, power state correct) |
-
-## Version Compatibility
-
-| vSphere Version | Support | Notes |
-|----------------|---------|-------|
-| 8.0 / 8.0U1-U3 | ✅ Full | `CreateSnapshot_Task` deprecated → use `CreateSnapshotEx_Task` |
-| 7.0 / 7.0U1-U3 | ✅ Full | All APIs supported |
-| 6.7 | ✅ Compatible | Backward-compatible, tested |
-| 6.5 | ✅ Compatible | Backward-compatible, tested |
-
-> pyVmomi auto-negotiates the API version during SOAP handshake — no manual configuration needed.
-
-## Supported AI Platforms
-
-| Platform | Status | Config File |
-|----------|--------|-------------|
-| Claude Code | ✅ Native Skill | `plugins/.../SKILL.md` |
-| Gemini CLI | ✅ Extension | `gemini-extension/GEMINI.md` |
-| OpenAI Codex CLI | ✅ Skill + AGENTS.md | `codex-skill/AGENTS.md` |
-| Aider | ✅ Conventions | `codex-skill/AGENTS.md` |
-| Continue CLI | ✅ Rules | `codex-skill/AGENTS.md` |
-| Trae IDE | ✅ Rules | `trae-rules/project_rules.md` |
-| Kimi Code CLI | ✅ Skill | `kimi-skill/SKILL.md` |
-| MCP Server | ✅ MCP Protocol | `mcp_server/` |
-| Python CLI | ✅ Standalone | N/A |
-
-### MCP Server — Local Agent Compatibility
-
-The MCP server works with any MCP-compatible agent via stdio transport. Config templates in `examples/mcp-configs/`:
-
-| Agent | Local Models | Config Template |
-|-------|:----------:|-----------------|
-| Goose (Block) | ✅ Ollama, LM Studio | `goose.json` |
-| LocalCowork (Liquid AI) | ✅ Fully offline | `localcowork.json` |
-| mcp-agent (LastMile AI) | ✅ Ollama, vLLM | `mcp-agent.yaml` |
-| VS Code Copilot | — | `vscode-copilot.json` |
-| Cursor | — | `cursor.json` |
-| Continue | ✅ Ollama | `continue.yaml` |
-| Claude Code | — | `claude-code.json` |
+## CLI Quick Reference
 
 ```bash
-# Example: Aider + Ollama (fully local, no cloud API)
-aider --conventions codex-skill/AGENTS.md --model ollama/qwen2.5-coder:32b
-```
+# VM operations
+vmware-aiops vm power-on <name> [--target <t>]
+vmware-aiops vm power-off <name> [--force]
+vmware-aiops vm create <name> --cpu 4 --memory 8192 --disk 100
+vmware-aiops vm delete <name>
+vmware-aiops vm clone <name> --new-name <new>
+vmware-aiops vm migrate <name> --to-host <host>
 
-## CLI Reference
-
-```bash
-# Diagnostics
-vmware-aiops doctor [--skip-auth]
-
-# MCP Config Generator
-vmware-aiops mcp-config generate --agent <goose|cursor|claude-code|continue|vscode-copilot|localcowork|mcp-agent>
-vmware-aiops mcp-config list
-
-# VM Operations
-vmware-aiops vm power-on <vm-name>
-vmware-aiops vm power-off <vm-name> [--force]
-vmware-aiops vm create <name> [--cpu <n>] [--memory <mb>] [--disk <gb>]
-vmware-aiops vm delete <vm-name>
-vmware-aiops vm reconfigure <vm-name> [--cpu <n>] [--memory <mb>]
-vmware-aiops vm snapshot-create <vm-name> --name <snap-name>
-vmware-aiops vm snapshot-list <vm-name>
-vmware-aiops vm snapshot-revert <vm-name> --name <snap-name>
-vmware-aiops vm snapshot-delete <vm-name> --name <snap-name>
-vmware-aiops vm clone <vm-name> --new-name <name>
-vmware-aiops vm migrate <vm-name> --to-host <host>
-vmware-aiops vm set-ttl <vm-name> --minutes <n>
-vmware-aiops vm cancel-ttl <vm-name>
-vmware-aiops vm list-ttl
-vmware-aiops vm clean-slate <vm-name> [--snapshot baseline]
-
-# Guest Operations (requires VMware Tools)
-vmware-aiops vm guest-exec <vm-name> --cmd /bin/bash --args "-c 'ls -la /tmp'" --user root
-vmware-aiops vm guest-upload <vm-name> --local ./script.sh --guest /tmp/script.sh --user root
-vmware-aiops vm guest-download <vm-name> --guest /var/log/syslog --local ./syslog.txt --user root
-
-# Plan → Apply (multi-step operations)
-vmware-aiops plan list
+# Guest operations (requires VMware Tools)
+vmware-aiops vm guest-exec <name> --cmd /bin/bash --args "-c 'whoami'" --user root
+vmware-aiops vm guest-upload <name> --local ./script.sh --guest /tmp/script.sh --user root
 
 # Deploy
-vmware-aiops deploy ova <path> --name <vm-name> [--datastore <ds>] [--network <net>]
-vmware-aiops deploy template <template-name> --name <vm-name> [--datastore <ds>]
-vmware-aiops deploy linked-clone --source <vm> --snapshot <snap> --name <new-name>
-vmware-aiops deploy iso <vm-name> --iso "[datastore] path/file.iso"
-vmware-aiops deploy mark-template <vm-name>
-vmware-aiops deploy batch-clone --source <vm> --count <n> [--prefix <prefix>]
-vmware-aiops deploy batch <spec.yaml>
+vmware-aiops deploy ova <path> --name <vm> --datastore <ds>
+vmware-aiops deploy linked-clone --source <vm> --snapshot <snap> --name <new>
 
 # Cluster
+vmware-aiops cluster create <name> --ha --drs
 vmware-aiops cluster info <name>
-vmware-aiops cluster create <name> [--ha] [--drs] [--drs-behavior fullyAutomated|partiallyAutomated|manual] [--datacenter <dc>]
-vmware-aiops cluster delete <name>
-vmware-aiops cluster add-host <cluster> --host <hostname>
-vmware-aiops cluster remove-host <cluster> --host <hostname>
-vmware-aiops cluster configure <name> [--ha/--no-ha] [--drs/--no-drs] [--drs-behavior <behavior>]
 
 # Datastore
-vmware-aiops datastore browse <ds-name> [--path <subdir>]
-vmware-aiops datastore scan-images [--target <name>]
-
-# Scanning & Daemon
-vmware-aiops scan now [--target <name>]
-vmware-aiops daemon start
-vmware-aiops daemon stop
-vmware-aiops daemon status
-
-# Moved to companion skills:
-# vmware-monitor inventory vms/hosts/datastores/clusters, health alarms/events, vm info
-# vmware-storage iscsi-enable/status/add-target/remove-target, rescan, vsan health/capacity
-# vmware-vks list-namespaces, create-tkc, scale-tkc, etc.
+vmware-aiops datastore browse <ds> --pattern "*.ova"
 ```
+
+> Full CLI reference: see `references/cli-reference.md`
+
+## Troubleshooting
+
+### "VM not found" error
+VM names are case-sensitive in vSphere. Use exact name from `vmware-monitor inventory vms`.
+
+### Guest exec returns empty output
+Use `vm_guest_exec_output` instead of `vm_guest_exec` — it auto-captures stdout/stderr. Basic `vm_guest_exec` only returns exit code.
+
+### Deploy OVA times out
+Large OVA files (>10GB) may exceed the default 120s timeout. The upload happens via HTTP NFC lease — ensure network between the machine running vmware-aiops and ESXi is stable.
+
+### Plan apply fails mid-way
+Run `vmware-aiops plan list` to see failed plan status. Ask user if they want to rollback with `vm_rollback_plan`. Irreversible steps (delete_vm) are skipped during rollback.
+
+### Connection refused / SSL error
+1. Verify target is reachable: `vmware-aiops doctor`
+2. For self-signed certs: set `disableSslCertValidation: true` in config.yaml (lab environments only)
 
 ## Setup
 
 ```bash
-# 1. Install from PyPI (source: github.com/zw008/VMware-AIops)
 uv tool install vmware-aiops
-
-# 2. Verify installation source
-vmware-aiops --version  # confirms installed version
-
-# 3. Configure
 mkdir -p ~/.vmware-aiops
 vmware-aiops init  # generates config.yaml and .env templates
 chmod 600 ~/.vmware-aiops/.env
-# Edit ~/.vmware-aiops/config.yaml and .env with your target details
 ```
 
-### What Gets Installed
-
-The `vmware-aiops` package installs a Python CLI binary and its dependencies (pyVmomi, Click, Rich, APScheduler, python-dotenv). No background services, daemons, or system-level changes are made during installation. The scheduled scanner (`daemon start`) only runs when explicitly started by the user.
-
-### Development Install
-
-```bash
-git clone https://github.com/zw008/VMware-AIops.git
-cd VMware-AIops
-uv venv && source .venv/bin/activate
-uv pip install -e .
-```
-
-## Security
-
-- **Source Code**: Fully open source at [github.com/zw008/VMware-AIops](https://github.com/zw008/VMware-AIops) (MIT). The `uv` installer fetches the `vmware-aiops` package from PyPI, which is built from this GitHub repository. We recommend reviewing the source code and commit history before deploying in production.
-- **TLS Verification**: Enabled by default. The `disableSslCertValidation` option exists solely for ESXi hosts using self-signed certificates in isolated lab/home environments. In production, always use CA-signed certificates with full TLS verification.
-- **Credentials & Config**: This skill requires the following secrets, all stored in `~/.vmware-aiops/.env` (`chmod 600`, loaded via `python-dotenv`):
-  - `VSPHERE_USER` — vCenter/ESXi service account username
-  - `VSPHERE_PASSWORD` — service account password
-  - (Optional) Webhook URLs for Slack/Discord notifications
-
-  The config file `~/.vmware-aiops/config.yaml` stores only target hostnames, ports, and a reference to the `.env` file — it does **not** contain passwords or tokens. The env var `VMWARE_AIOPS_CONFIG` points to this YAML file.
-- **Webhook Data Scope**: Webhook notifications are **disabled by default**. When enabled, they send infrastructure health summaries (alarm counts, event types, host status) to **user-configured URLs only** (Slack, Discord, or any HTTP endpoint you control). No data is sent to third-party services. Webhook payloads contain no credentials, IPs, or personally identifiable information — only aggregated alert metadata.
-- **Prompt Injection Protection**: All vSphere-sourced content (event messages, host logs) is truncated, stripped of control characters, and wrapped in boundary markers (`[VSPHERE_EVENT]`/`[VSPHERE_HOST_LOG]`) before output to prevent prompt injection when consumed by LLM agents.
-- **Least Privilege**: Use a dedicated vCenter service account with minimal permissions. For monitoring-only use cases, prefer the read-only [VMware-Monitor](https://github.com/zw008/VMware-Monitor) skill which has zero destructive code paths.
+> Full setup guide, security details, and AI platform compatibility: see `references/setup-guide.md`
 
 ## License
 
-MIT
+MIT — [github.com/zw008/VMware-AIops](https://github.com/zw008/VMware-AIops)
