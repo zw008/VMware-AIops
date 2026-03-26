@@ -2,7 +2,7 @@
 
 ---
 
-## v1.3.0 — 2026-03-25
+## v1.3.0 — 2026-03-26
 
 ### Slimdown: Remove duplicate tools / 瘦身去重
 
@@ -19,6 +19,15 @@
 **Security fix**: Added `_sanitize()` prompt injection defense to `datastore_browser.py` (backported from vmware-storage).
 
 **MCP tool count**: 44 → 31 (13 removed, zero new).
+
+### Docs / Skill optimization
+
+- SKILL.md restructured with progressive disclosure (3-level loading)
+- Created `references/` directory: cli-reference.md, capabilities.md, setup-guide.md
+- Added trigger phrases to YAML description for better skill auto-loading
+- Added Common Workflows section (Deploy lab, Batch clone, Migrate VM)
+- Added Troubleshooting section (5 common issues)
+- README.md and README-CN.md updated with Companion Skills, Workflows, Troubleshooting
 
 ---
 
