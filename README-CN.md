@@ -439,14 +439,11 @@ cp kimi-skill/SKILL.md ~/.kimi/skills/vmware-aiops/SKILL.md
 MCP 服务器通过 [Model Context Protocol](https://modelcontextprotocol.io) 将 VMware 操作暴露为工具，兼容所有 MCP 客户端（Claude Desktop、Cursor 等）。
 
 ```bash
-# 直接运行
-python -m mcp_server
-
-# 或通过安装的入口点
-vmware-aiops-mcp
+# 通过 uvx 运行（推荐 — 适用于 uv tool install 安装方式）
+uvx --from vmware-aiops vmware-aiops-mcp
 
 # 指定配置路径
-VMWARE_AIOPS_CONFIG=/path/to/config.yaml python -m mcp_server
+VMWARE_AIOPS_CONFIG=/path/to/config.yaml uvx --from vmware-aiops vmware-aiops-mcp
 ```
 
 **Claude Desktop 配置** (`claude_desktop_config.json`)：
@@ -454,8 +451,8 @@ VMWARE_AIOPS_CONFIG=/path/to/config.yaml python -m mcp_server
 {
   "mcpServers": {
     "vmware-aiops": {
-      "command": "python",
-      "args": ["-m", "mcp_server"],
+      "command": "uvx",
+      "args": ["--from", "vmware-aiops", "vmware-aiops-mcp"],
       "env": {
         "VMWARE_AIOPS_CONFIG": "/path/to/config.yaml"
       }

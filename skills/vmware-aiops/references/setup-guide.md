@@ -107,9 +107,8 @@ For Claude Code / Cursor users who prefer structured tool calls, add to `~/.clau
 {
   "mcpServers": {
     "vmware-aiops": {
-      "command": "/path/to/VMware-AIops/.venv/bin/python",
-      "args": ["-m", "mcp_server"],
-      "cwd": "/path/to/VMware-AIops",
+      "command": "uvx",
+      "args": ["--from", "vmware-aiops", "vmware-aiops-mcp"],
       "env": {
         "VMWARE_AIOPS_CONFIG": "~/.vmware-aiops/config.yaml"
       }

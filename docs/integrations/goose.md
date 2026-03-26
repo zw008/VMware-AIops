@@ -46,8 +46,7 @@ This writes the extension config directly into `~/.config/goose/config.yaml`.
 goose configure
 # Select: Add Extension → MCP Server
 # Name: vmware-aiops
-# Command: python -m mcp_server
-# Working directory: /path/to/VMware-AIops
+# Command: uvx --from vmware-aiops vmware-aiops-mcp
 # Env: VMWARE_AIOPS_CONFIG=~/.vmware-aiops/config.yaml
 ```
 
@@ -59,18 +58,16 @@ Add to `~/.config/goose/config.yaml`:
 extensions:
   vmware-aiops:
     type: stdio
-    cmd: python
+    cmd: uvx
     args:
-      - -m
-      - mcp_server
-    cwd: /path/to/VMware-AIops
+      - --from
+      - vmware-aiops
+      - vmware-aiops-mcp
     env:
       VMWARE_AIOPS_CONFIG: ~/.vmware-aiops/config.yaml
     enabled: true
     description: VMware vCenter/ESXi AI-powered operations
 ```
-
-Replace `/path/to/VMware-AIops` with your actual clone path (e.g. `~/myskills/VMware-AIops`).
 
 ## Available MCP Tools (32 tools)
 
@@ -147,9 +144,8 @@ model: qwen2.5:32b
 extensions:
   vmware-aiops:
     type: stdio
-    cmd: python
-    args: [-m, mcp_server]
-    cwd: /path/to/VMware-AIops
+    cmd: uvx
+    args: [--from, vmware-aiops, vmware-aiops-mcp]
     env:
       VMWARE_AIOPS_CONFIG: ~/.vmware-aiops/config.yaml
 ```
@@ -162,7 +158,7 @@ See [examples/ollama-local-setup.md](../../examples/ollama-local-setup.md) for f
 
 | Issue | Solution |
 |-------|----------|
-| Extension not found | Check `cwd` path is correct and `python -m mcp_server` works from that directory |
+| Extension not found | Check that `uvx --from vmware-aiops vmware-aiops-mcp` runs successfully |
 | Auth failure | Run `vmware-aiops doctor` to verify vCenter connectivity |
 | Tool call timeout | Large inventories may take 10–30s; Goose default timeout may need increasing |
 | `VMWARE_AIOPS_CONFIG` not found | Use absolute path, not `~` expansion in config |

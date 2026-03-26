@@ -47,8 +47,7 @@ This writes the MCP server config directly into `~/.cursor/mcp.json`.
 3. Fill in:
    - **Name**: `vmware-aiops`
    - **Type**: `stdio`
-   - **Command**: `python -m mcp_server`
-   - **Working Directory**: `/path/to/VMware-AIops`
+   - **Command**: `uvx --from vmware-aiops vmware-aiops-mcp`
    - **Env**: `VMWARE_AIOPS_CONFIG=~/.vmware-aiops/config.yaml`
 
 ### Option C: Manual — mcp.json
@@ -59,9 +58,8 @@ Add to `~/.cursor/mcp.json` (create if it doesn't exist):
 {
   "mcpServers": {
     "vmware-aiops": {
-      "command": "python",
-      "args": ["-m", "mcp_server"],
-      "cwd": "/path/to/VMware-AIops",
+      "command": "uvx",
+      "args": ["--from", "vmware-aiops", "vmware-aiops-mcp"],
       "env": {
         "VMWARE_AIOPS_CONFIG": "~/.vmware-aiops/config.yaml"
       }
@@ -69,8 +67,6 @@ Add to `~/.cursor/mcp.json` (create if it doesn't exist):
   }
 }
 ```
-
-Replace `/path/to/VMware-AIops` with your actual clone path (e.g. `~/myskills/VMware-AIops`).
 
 Or use the template generator:
 

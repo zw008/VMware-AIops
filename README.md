@@ -578,14 +578,11 @@ cp kimi-skill/SKILL.md ~/.kimi/skills/vmware-aiops/SKILL.md
 The MCP server exposes VMware operations as tools via the [Model Context Protocol](https://modelcontextprotocol.io). Works with any MCP-compatible client (Claude Desktop, Cursor, etc.).
 
 ```bash
-# Run directly
-python -m mcp_server
-
-# Or via the installed entry point
-vmware-aiops-mcp
+# Run via uvx (recommended — works with uv tool install)
+uvx --from vmware-aiops vmware-aiops-mcp
 
 # With a custom config path
-VMWARE_AIOPS_CONFIG=/path/to/config.yaml python -m mcp_server
+VMWARE_AIOPS_CONFIG=/path/to/config.yaml uvx --from vmware-aiops vmware-aiops-mcp
 ```
 
 **Claude Desktop config** (`claude_desktop_config.json`):
@@ -593,8 +590,8 @@ VMWARE_AIOPS_CONFIG=/path/to/config.yaml python -m mcp_server
 {
   "mcpServers": {
     "vmware-aiops": {
-      "command": "python",
-      "args": ["-m", "mcp_server"],
+      "command": "uvx",
+      "args": ["--from", "vmware-aiops", "vmware-aiops-mcp"],
       "env": {
         "VMWARE_AIOPS_CONFIG": "/path/to/config.yaml"
       }
