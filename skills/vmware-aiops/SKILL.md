@@ -1,14 +1,14 @@
 ---
 name: vmware-aiops
 description: >
-  AI-powered VMware vCenter/ESXi VM lifecycle and deployment operations.
-  Manage VMs via natural language: power, snapshot, clone, migrate, deploy,
-  guest operations, cluster management, and plan/apply workflows.
+  VMware family entry point and AI-powered VM lifecycle operations.
+  Start here for any VMware/vSphere/ESXi task — routes to the right skill.
+  Directly handles: power on/off, snapshot, clone, migrate, deploy OVA/template,
+  guest operations, cluster management, plan/apply workflows.
   Use when user asks to "power on/off a VM", "deploy from OVA", "clone a VM",
   "create a cluster", "run a command inside a VM", "batch deploy VMs",
-  "migrate a VM", or mentions VMware/vSphere/ESXi VM operations.
-  For monitoring use vmware-monitor, for storage use vmware-storage,
-  for Tanzu Kubernetes use vmware-vks.
+  "migrate a VM", or any VMware/vSphere/ESXi operation.
+  Run "vmware-aiops hub status" to see all installed family members.
 installer:
   kind: uv
   package: vmware-aiops
@@ -17,9 +17,11 @@ metadata: {"openclaw":{"requires":{"env":["VMWARE_AIOPS_CONFIG"],"bins":["vmware
 
 # VMware AIops
 
-AI-powered VMware vCenter/ESXi VM lifecycle and deployment tool — 31 MCP tools.
+VMware family entry point — AI-powered VM lifecycle and deployment — 31 MCP tools.
 
-> **Companion skills**: [vmware-monitor](https://github.com/zw008/VMware-Monitor) (inventory/health), [vmware-storage](https://github.com/zw008/VMware-Storage) (iSCSI/vSAN), [vmware-vks](https://github.com/zw008/VMware-VKS) (Tanzu Kubernetes), [vmware-nsx](https://github.com/zw008/VMware-NSX) (NSX networking), [vmware-nsx-security](https://github.com/zw008/VMware-NSX-Security) (DFW/firewall), [vmware-aria](https://github.com/zw008/VMware-Aria) (metrics/alerts/capacity).
+> **Start here**: install vmware-aiops first, then add modules as needed.
+> Run `vmware-aiops hub status` to see which family members are installed.
+> **Family**: [vmware-monitor](https://github.com/zw008/VMware-Monitor) (inventory/health), [vmware-storage](https://github.com/zw008/VMware-Storage) (iSCSI/vSAN), [vmware-vks](https://github.com/zw008/VMware-VKS) (Tanzu Kubernetes), [vmware-nsx](https://github.com/zw008/VMware-NSX) (NSX networking), [vmware-nsx-security](https://github.com/zw008/VMware-NSX-Security) (DFW/firewall), [vmware-aria](https://github.com/zw008/VMware-Aria) (metrics/alerts/capacity).
 
 ## What This Skill Does
 
@@ -37,7 +39,23 @@ AI-powered VMware vCenter/ESXi VM lifecycle and deployment tool — 31 MCP tools
 ```bash
 uv tool install vmware-aiops
 vmware-aiops doctor
+vmware-aiops hub status   # see which family members are installed
 ```
+
+## VMware Family — Install What You Need
+
+vmware-aiops is the entry point. Add modules for additional capabilities:
+
+| Module | Install | Adds |
+|--------|---------|------|
+| **vmware-monitor** | `uv tool install vmware-monitor` | Read-only inventory, alarms, events |
+| **vmware-storage** | `uv tool install vmware-storage` | iSCSI, vSAN, datastore management |
+| **vmware-vks** | `uv tool install vmware-vks` | Tanzu Kubernetes (vSphere 8.x+) |
+| **vmware-nsx** | `uv tool install vmware-nsx-mgmt` | NSX networking: segments, gateways, NAT |
+| **vmware-nsx-security** | `uv tool install vmware-nsx-security` | DFW microsegmentation, security groups |
+| **vmware-aria** | `uv tool install vmware-aria` | Aria Ops metrics, alerts, capacity |
+
+> Each module stays independent — small tool count keeps local models (Ollama, Qwen) accurate.
 
 ## When to Use This Skill
 
@@ -130,6 +148,9 @@ vmware-aiops cluster info <name>
 
 # Datastore
 vmware-aiops datastore browse <ds> --pattern "*.ova"
+
+# Family
+vmware-aiops hub status        # show installed family members + install commands
 ```
 
 > Full CLI reference: see `references/cli-reference.md`
