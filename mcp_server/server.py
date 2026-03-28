@@ -46,6 +46,7 @@ from vmware_aiops.ops import datastore_browser, vm_deploy
 from vmware_aiops.ops.guest_ops import guest_download, guest_exec, guest_exec_with_output, guest_provision, guest_upload
 from vmware_aiops.ops.plan_executor import apply_plan, rollback_plan
 from vmware_aiops.ops.planner import create_plan, list_plans
+from vmware_aiops.ops.alarm_mgmt import acknowledge_alarm, list_alarms, reset_alarm
 from vmware_aiops.ops.vm_lifecycle import (
     power_off_vm,
     power_on_vm,
@@ -828,6 +829,67 @@ def vm_list_plans() -> list[dict]:
     VMs affected). Stale plans (>24h) are auto-cleaned.
     """
     return list_plans()
+
+
+# ---------------------------------------------------------------------------
+# Alarm management tools
+# ---------------------------------------------------------------------------
+
+
+@mcp.tool()
+def list_vcenter_alarms(target: str | None = None) -> list[dict]:
+    """List all active/triggered alarms across the vCenter inventory.
+
+    Returns alarms with severity (critical/warning/info), entity name and type,
+    alarm name, acknowledged flag, and trigger time.
+
+    Args:
+        target: Optional vCenter target name from config. Uses default if omitted.
+    """
+    si = _get_connection(target)
+    return list_alarms(si)
+
+
+@mcp.tool()
+def acknowledge_vcenter_alarm(
+    entity_name: str,
+    alarm_name: str,
+    target: str | None = None,
+) -> dict:
+    """Acknowledge a triggered vCenter alarm on a VM, host, or cluster.
+
+    Marks the alarm as seen by an operator. The alarm remains in the triggered
+    list but is flagged as acknowledged. Use list_vcenter_alarms to find
+    entity_name and alarm_name values.
+
+    Args:
+        entity_name: Name of the entity with the alarm (VM name, host name, or cluster name).
+        alarm_name: Exact alarm definition name from list_vcenter_alarms output.
+        target: Optional vCenter target name from config.
+    """
+    si = _get_connection(target)
+    return acknowledge_alarm(si, entity_name, alarm_name, target_name=target or "default")
+
+
+@mcp.tool()
+def reset_vcenter_alarm(
+    entity_name: str,
+    alarm_name: str,
+    target: str | None = None,
+) -> dict:
+    """Reset a triggered vCenter alarm to cleared state (gray).
+
+    Clears the alarm completely — it will no longer appear in the active alarm list.
+    Use this after resolving the underlying issue. Use list_vcenter_alarms to find
+    entity_name and alarm_name values.
+
+    Args:
+        entity_name: Name of the entity with the alarm (VM name, host name, or cluster name).
+        alarm_name: Exact alarm definition name from list_vcenter_alarms output.
+        target: Optional vCenter target name from config.
+    """
+    si = _get_connection(target)
+    return reset_alarm(si, entity_name, alarm_name, target_name=target or "default")
 
 
 # ---------------------------------------------------------------------------

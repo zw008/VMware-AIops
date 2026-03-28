@@ -4,10 +4,11 @@ description: >
   VMware family entry point and AI-powered VM lifecycle operations.
   Start here for any VMware/vSphere/ESXi task — routes to the right skill.
   Directly handles: power on/off, snapshot, clone, migrate, deploy OVA/template,
-  guest operations, cluster management, plan/apply workflows.
+  guest operations, cluster management, plan/apply workflows,
+  and vCenter alarm management (list, acknowledge, reset triggered alarms).
   Use when user asks to "power on/off a VM", "deploy from OVA", "clone a VM",
   "create a cluster", "run a command inside a VM", "batch deploy VMs",
-  "migrate a VM", or any VMware/vSphere/ESXi operation.
+  "migrate a VM", "acknowledge alarm", "reset alarm", or any VMware/vSphere/ESXi operation.
   Run "vmware-aiops hub status" to see all installed family members.
 installer:
   kind: uv
@@ -20,7 +21,7 @@ metadata: {"openclaw":{"requires":{"env":["VMWARE_AIOPS_CONFIG"],"bins":["vmware
 
 # VMware AIops
 
-VMware family entry point — AI-powered VM lifecycle and deployment — 31 MCP tools.
+VMware family entry point — AI-powered VM lifecycle, deployment, and alarm management — 34 MCP tools.
 
 > **Start here**: install vmware-aiops first, then add modules as needed.
 > Run `vmware-aiops hub status` to see which family members are installed.
@@ -36,6 +37,7 @@ VMware family entry point — AI-powered VM lifecycle and deployment — 31 MCP 
 | **Plan/Apply** | multi-step planning with rollback | 4 |
 | **Cluster** | create, delete, HA/DRS config, add/remove hosts | 6 |
 | **Datastore** | browse files, scan for images | 2 |
+| **Alarm Management** | list alarms, acknowledge, reset | 3 |
 
 ## Quick Install
 
@@ -68,6 +70,7 @@ vmware-aiops is the entry point. Add modules for additional capabilities:
 - Create/configure clusters (HA/DRS)
 - Browse datastores for deployable images
 - Plan and execute multi-step operations with rollback
+- List, acknowledge, and reset vCenter triggered alarms
 
 **Use companion skills for**:
 - Inventory, health, alarms, VM info → `vmware-monitor`
@@ -115,7 +118,7 @@ vmware-aiops is the entry point. Add modules for additional capabilities:
 | Cloud models (Claude, GPT-4o) | Either | MCP gives structured JSON I/O |
 | Automated pipelines | **MCP** | Type-safe parameters, structured output |
 
-## MCP Tools (31)
+## MCP Tools (34)
 
 | Category | Tools |
 |----------|-------|
@@ -125,6 +128,7 @@ vmware-aiops is the entry point. Add modules for additional capabilities:
 | Plan/Apply (4) | `vm_create_plan`, `vm_apply_plan`, `vm_rollback_plan`, `vm_list_plans` |
 | Datastore (2) | `browse_datastore`, `scan_datastore_images` |
 | Cluster (6) | `cluster_create`, `cluster_delete`, `cluster_add_host`, `cluster_remove_host`, `cluster_configure`, `cluster_info` |
+| Alarm Management (3) | `list_vcenter_alarms`, `acknowledge_vcenter_alarm`, `reset_vcenter_alarm` |
 
 ## CLI Quick Reference
 
@@ -151,6 +155,11 @@ vmware-aiops cluster info <name>
 
 # Datastore
 vmware-aiops datastore browse <ds> --pattern "*.ova"
+
+# Alarm management
+vmware-aiops alarm list [--target <t>]
+vmware-aiops alarm acknowledge <entity_name> <alarm_name> [--target <t>]
+vmware-aiops alarm reset <entity_name> <alarm_name> [--target <t>]
 
 # Family
 vmware-aiops hub status        # show installed family members + install commands
