@@ -10,11 +10,11 @@ output from untrusted vSphere data.
 from __future__ import annotations
 
 import logging
-import re
 from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING
 
 from pyVmomi import vim
+from vmware_policy import sanitize
 
 from vmware_aiops.config import ScannerConfig
 from vmware_aiops.ops.health import CRITICAL_EVENTS, WARNING_EVENTS
@@ -23,9 +23,6 @@ if TYPE_CHECKING:
     from pyVmomi.vim import ServiceInstance
 
 _log = logging.getLogger("vmware-aiops.log-scanner")
-
-# Regex to strip ALL control characters (C0, C1, DEL) except newline/tab
-_CONTROL_CHAR_RE = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f]")
 
 
 def scan_logs(
@@ -69,7 +66,7 @@ def scan_logs(
         # and wrap in boundary markers to prevent prompt injection from
         # attacker-controlled vSphere event content.
         raw_msg = event.fullFormattedMessage or str(event)
-        safe_msg = _sanitize(raw_msg, max_len=500)
+        safe_msg = sanitize(raw_msg, 500)
 
         issues.append({
             "severity": severity,
@@ -135,7 +132,7 @@ def scan_host_logs(
                     # Sanitize host log lines: truncate, strip ALL control
                     # characters, and wrap in boundary markers to prevent
                     # prompt injection from attacker-controlled content.
-                    safe_line = _sanitize(line.strip(), max_len=200)
+                    safe_line = sanitize(line.strip(), 200)
                     issues.append({
                         "severity": severity,
                         "source": f"host_log:{log_key}",
@@ -149,16 +146,6 @@ def scan_host_logs(
 
     container.Destroy()
     return issues
-
-
-def _sanitize(text: str, *, max_len: int) -> str:
-    """Truncate and strip control characters from untrusted vSphere text.
-
-    Removes all C0/C1 control characters (except \\n and \\t) to prevent
-    prompt injection when the output is consumed by LLM agents.
-    """
-    truncated = text[:max_len]
-    return _CONTROL_CHAR_RE.sub("", truncated)
 
 
 def _safe_entity_name(event) -> str:

@@ -39,6 +39,7 @@ from pathlib import Path
 from typing import Any
 
 from mcp.server.fastmcp import FastMCP
+from vmware_policy import vmware_tool
 
 from vmware_aiops.config import load_config
 from vmware_aiops.connection import ConnectionManager
@@ -91,6 +92,7 @@ def _get_connection(target: str | None = None) -> Any:
 
 
 @mcp.tool()
+@vmware_tool(risk_level="medium")
 def vm_power_on(vm_name: str, target: str | None = None) -> str:
     """Power on a virtual machine.
 
@@ -103,6 +105,7 @@ def vm_power_on(vm_name: str, target: str | None = None) -> str:
 
 
 @mcp.tool()
+@vmware_tool(risk_level="medium")
 def vm_power_off(
     vm_name: str,
     force: bool = False,
@@ -125,6 +128,7 @@ def vm_power_off(
 
 
 @mcp.tool()
+@vmware_tool(risk_level="low")
 def browse_datastore(
     datastore_name: str,
     path: str = "",
@@ -147,6 +151,7 @@ def browse_datastore(
 
 
 @mcp.tool()
+@vmware_tool(risk_level="low")
 def scan_datastore_images(target: str | None = None) -> dict:
     """Scan all accessible datastores for deployable images (OVA/ISO/OVF/VMDK).
 
@@ -166,6 +171,7 @@ def scan_datastore_images(target: str | None = None) -> dict:
 
 
 @mcp.tool()
+@vmware_tool(risk_level="medium")
 def deploy_vm_from_ova(
     ova_path: str,
     vm_name: str,
@@ -201,6 +207,7 @@ def deploy_vm_from_ova(
 
 
 @mcp.tool()
+@vmware_tool(risk_level="medium")
 def deploy_vm_from_template(
     template_name: str,
     new_name: str,
@@ -232,6 +239,7 @@ def deploy_vm_from_template(
 
 
 @mcp.tool()
+@vmware_tool(risk_level="medium")
 def deploy_linked_clone(
     source_vm_name: str,
     snapshot_name: str,
@@ -266,6 +274,7 @@ def deploy_linked_clone(
 
 
 @mcp.tool()
+@vmware_tool(risk_level="medium")
 def attach_iso_to_vm(
     vm_name: str,
     iso_ds_path: str,
@@ -283,6 +292,7 @@ def attach_iso_to_vm(
 
 
 @mcp.tool()
+@vmware_tool(risk_level="medium")
 def convert_vm_to_template(
     vm_name: str,
     target: str | None = None,
@@ -301,6 +311,7 @@ def convert_vm_to_template(
 
 
 @mcp.tool()
+@vmware_tool(risk_level="medium")
 def batch_clone_vms(
     source_vm_name: str,
     vm_names: list[str],
@@ -332,6 +343,7 @@ def batch_clone_vms(
 
 
 @mcp.tool()
+@vmware_tool(risk_level="medium")
 def batch_linked_clone_vms(
     source_vm_name: str,
     snapshot_name: str,
@@ -365,6 +377,7 @@ def batch_linked_clone_vms(
 
 
 @mcp.tool()
+@vmware_tool(risk_level="high")
 def batch_deploy_from_spec(
     spec_path: str,
     target: str | None = None,
@@ -392,6 +405,7 @@ def batch_deploy_from_spec(
 
 
 @mcp.tool()
+@vmware_tool(risk_level="medium")
 def cluster_create(
     name: str,
     datacenter: str | None = None,
@@ -419,6 +433,7 @@ def cluster_create(
 
 
 @mcp.tool()
+@vmware_tool(risk_level="high")
 def cluster_delete(name: str, target: str | None = None) -> str:
     """Delete an empty cluster (no hosts must remain).
 
@@ -432,6 +447,7 @@ def cluster_delete(name: str, target: str | None = None) -> str:
 
 
 @mcp.tool()
+@vmware_tool(risk_level="medium")
 def cluster_add_host(
     cluster_name: str,
     host_name: str,
@@ -450,6 +466,7 @@ def cluster_add_host(
 
 
 @mcp.tool()
+@vmware_tool(risk_level="medium")
 def cluster_remove_host(
     cluster_name: str,
     host_name: str,
@@ -468,6 +485,7 @@ def cluster_remove_host(
 
 
 @mcp.tool()
+@vmware_tool(risk_level="medium")
 def cluster_configure(
     name: str,
     ha: bool | None = None,
@@ -493,6 +511,7 @@ def cluster_configure(
 
 
 @mcp.tool()
+@vmware_tool(risk_level="low")
 def cluster_info(name: str, target: str | None = None) -> dict:
     """Get detailed cluster information (hosts, HA/DRS config, resources).
 
@@ -511,6 +530,7 @@ def cluster_info(name: str, target: str | None = None) -> dict:
 
 
 @mcp.tool()
+@vmware_tool(risk_level="medium")
 def vm_set_ttl(
     vm_name: str,
     minutes: int,
@@ -531,6 +551,7 @@ def vm_set_ttl(
 
 
 @mcp.tool()
+@vmware_tool(risk_level="medium")
 def vm_cancel_ttl(vm_name: str) -> str:
     """Cancel an existing TTL for a VM (prevents auto-deletion).
 
@@ -542,6 +563,7 @@ def vm_cancel_ttl(vm_name: str) -> str:
 
 
 @mcp.tool()
+@vmware_tool(risk_level="low")
 def vm_list_ttl() -> list[dict]:
     """List all VMs with TTLs registered, including expiry time and status.
 
@@ -552,6 +574,7 @@ def vm_list_ttl() -> list[dict]:
 
 
 @mcp.tool()
+@vmware_tool(risk_level="high")
 def vm_clean_slate(
     vm_name: str,
     snapshot_name: str = "baseline",
@@ -579,6 +602,7 @@ def vm_clean_slate(
 
 
 @mcp.tool()
+@vmware_tool(risk_level="medium", sensitive_params=['password'])
 def vm_guest_exec(
     vm_name: str,
     command: str,
@@ -616,6 +640,7 @@ def vm_guest_exec(
 
 
 @mcp.tool()
+@vmware_tool(risk_level="medium", sensitive_params=['password'])
 def vm_guest_exec_output(
     vm_name: str,
     command: str,
@@ -645,6 +670,7 @@ def vm_guest_exec_output(
 
 
 @mcp.tool()
+@vmware_tool(risk_level="medium", sensitive_params=['password'])
 def vm_guest_upload(
     vm_name: str,
     local_path: str,
@@ -670,6 +696,7 @@ def vm_guest_upload(
 
 
 @mcp.tool()
+@vmware_tool(risk_level="medium", sensitive_params=['password'])
 def vm_guest_download(
     vm_name: str,
     guest_path: str,
@@ -695,6 +722,7 @@ def vm_guest_download(
 
 
 @mcp.tool()
+@vmware_tool(risk_level="medium", sensitive_params=['password'])
 def vm_guest_provision(
     vm_name: str,
     username: str,
@@ -743,6 +771,7 @@ def vm_guest_provision(
 
 
 @mcp.tool()
+@vmware_tool(risk_level="medium")
 def vm_create_plan(
     operations: list[dict[str, Any]],
     target: str | None = None,
@@ -779,6 +808,7 @@ def vm_create_plan(
 
 
 @mcp.tool()
+@vmware_tool(risk_level="medium")
 def vm_apply_plan(plan_id: str, target: str | None = None) -> dict:
     """Execute a previously created plan step by step.
 
@@ -806,6 +836,7 @@ def vm_apply_plan(plan_id: str, target: str | None = None) -> dict:
 
 
 @mcp.tool()
+@vmware_tool(risk_level="medium")
 def vm_rollback_plan(plan_id: str, target: str | None = None) -> dict:
     """Rollback executed steps of a failed plan in reverse order.
 
@@ -822,6 +853,7 @@ def vm_rollback_plan(plan_id: str, target: str | None = None) -> dict:
 
 
 @mcp.tool()
+@vmware_tool(risk_level="low")
 def vm_list_plans() -> list[dict]:
     """List all pending/failed plans.
 
@@ -837,6 +869,7 @@ def vm_list_plans() -> list[dict]:
 
 
 @mcp.tool()
+@vmware_tool(risk_level="low")
 def list_vcenter_alarms(target: str | None = None) -> list[dict]:
     """List all active/triggered alarms across the vCenter inventory.
 
@@ -851,6 +884,7 @@ def list_vcenter_alarms(target: str | None = None) -> list[dict]:
 
 
 @mcp.tool()
+@vmware_tool(risk_level="medium")
 def acknowledge_vcenter_alarm(
     entity_name: str,
     alarm_name: str,
@@ -872,6 +906,7 @@ def acknowledge_vcenter_alarm(
 
 
 @mcp.tool()
+@vmware_tool(risk_level="medium")
 def reset_vcenter_alarm(
     entity_name: str,
     alarm_name: str,

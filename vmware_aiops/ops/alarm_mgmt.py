@@ -7,10 +7,10 @@ Both write operations are audit-logged.
 
 from __future__ import annotations
 
-import re
 from typing import TYPE_CHECKING, Any
 
 from pyVmomi import vim
+from vmware_policy import sanitize
 
 from vmware_aiops.ops.health import get_active_alarms
 
@@ -18,14 +18,6 @@ if TYPE_CHECKING:
     from pyVmomi.vim import ServiceInstance
 
     from vmware_aiops.notify.audit import AuditLogger
-
-_CONTROL_CHAR_RE = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f]")
-
-
-def _sanitize(text: str, max_len: int = 500) -> str:
-    if not text:
-        return text
-    return _CONTROL_CHAR_RE.sub("", str(text)[:max_len])
 
 
 # ---------------------------------------------------------------------------
@@ -128,8 +120,8 @@ def acknowledge_alarm(
     )
 
     result = {
-        "entity_name": _sanitize(entity_name),
-        "alarm_name": _sanitize(alarm_name),
+        "entity_name": sanitize(entity_name),
+        "alarm_name": sanitize(alarm_name),
         "action": "acknowledged",
         "acknowledged": True,
     }
@@ -182,8 +174,8 @@ def reset_alarm(
     )
 
     result = {
-        "entity_name": _sanitize(entity_name),
-        "alarm_name": _sanitize(alarm_name),
+        "entity_name": sanitize(entity_name),
+        "alarm_name": sanitize(alarm_name),
         "action": "reset",
         "status": "gray",
     }

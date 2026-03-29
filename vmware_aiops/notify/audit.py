@@ -1,4 +1,10 @@
-"""Audit logging for all operations (Plan -> Confirm -> Execute -> Log)."""
+"""Audit logging for all operations (Plan -> Confirm -> Execute -> Log).
+
+DEPRECATED: This module is superseded by vmware_policy.audit.AuditEngine.
+The @vmware_tool decorator now handles audit logging automatically.
+This file is retained only because the CLI still imports it directly.
+Remove once the CLI migrates to vmware-policy.
+"""
 
 from __future__ import annotations
 

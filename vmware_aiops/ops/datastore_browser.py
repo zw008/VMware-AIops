@@ -12,31 +12,15 @@ from __future__ import annotations
 
 import json
 import logging
-import re
 import time
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
 from pyVmomi import vim
+from vmware_policy import sanitize
 
 from vmware_aiops.config import CONFIG_DIR
 from vmware_aiops.ops.inventory import find_datastore_by_name
-
-# Strip C0/C1 control characters except newline and tab (prompt injection defense)
-_CONTROL_CHAR_RE = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f]")
-
-
-def _sanitize(text: str, max_len: int = 500) -> str:
-    """Sanitize untrusted vSphere-sourced text.
-
-    Strips control characters and truncates to prevent prompt injection
-    when file names or paths flow to downstream LLM agents.
-    """
-    if not text:
-        return text
-    text = text[:max_len]
-    return _CONTROL_CHAR_RE.sub("", text)
-
 
 if TYPE_CHECKING:
     from pyVmomi.vim import ServiceInstance
@@ -107,16 +91,16 @@ def browse_datastore(
 
     files: list[dict] = []
     for result in results_raw:
-        folder = _sanitize(result.folderPath)
+        folder = sanitize(result.folderPath)
         for f in result.file:
             file_type = type(f).__name__.replace("Info", "")
-            fname = _sanitize(f.path)
+            fname = sanitize(f.path)
             files.append({
                 "name": fname,
                 "size_mb": round(f.fileSize / (1024 * 1024), 1) if f.fileSize else 0,
                 "type": file_type,
                 "modified": str(f.modification) if f.modification else "",
-                "ds_path": _sanitize(f"{folder}{f.path}"),
+                "ds_path": sanitize(f"{folder}{f.path}"),
             })
 
     return sorted(files, key=lambda x: x["name"])
