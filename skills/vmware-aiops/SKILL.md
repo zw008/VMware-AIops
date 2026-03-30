@@ -1,15 +1,10 @@
 ---
 name: vmware-aiops
 description: >
-  VMware family entry point and AI-powered VM lifecycle operations.
-  Start here for any VMware/vSphere/ESXi task — routes to the right skill.
-  Directly handles: power on/off, snapshot, clone, migrate, deploy OVA/template,
-  guest operations, cluster management, plan/apply workflows,
-  and vCenter alarm management (list, acknowledge, reset triggered alarms).
-  Use when user asks to "power on/off a VM", "deploy from OVA", "clone a VM",
-  "create a cluster", "run a command inside a VM", "batch deploy VMs",
-  "migrate a VM", "acknowledge alarm", "reset alarm", or any VMware/vSphere/ESXi operation.
-  Run "vmware-aiops hub status" to see all installed family members.
+  Use this skill whenever the user needs to manage VMs in VMware/vSphere/ESXi — it's the entry point for all VM operations.
+  Directly handles: power on/off, clone, snapshot, migrate, deploy from OVA or templates, run commands inside VMs, batch operations, cluster management, and vCenter alarm acknowledgment.
+  Always use this skill for any "power on", "clone", "deploy", "migrate", "batch", "guest exec", "alarm", or VM lifecycle task, even if the user doesn't explicitly say "VMware".
+  For read-only monitoring use vmware-monitor, for networking use vmware-nsx, for multi-step workflows use vmware-pilot.
 installer:
   kind: uv
   package: vmware-aiops
@@ -17,6 +12,8 @@ argument-hint: "[vm-name or describe your task]"
 allowed-tools:
   - Bash
 metadata: {"openclaw":{"requires":{"env":["VMWARE_AIOPS_CONFIG"],"bins":["vmware-aiops"],"config":["~/.vmware-aiops/config.yaml","~/.vmware-aiops/.env"]},"optional":{"env":["SLACK_WEBHOOK_URL","DISCORD_WEBHOOK_URL"]},"primaryEnv":"VMWARE_AIOPS_CONFIG","homepage":"https://github.com/zw008/VMware-AIops","emoji":"🖥️","os":["macos","linux"]}}
+compatibility: >
+  Requires vmware-policy (auto-installed). All operations audited to ~/.vmware/audit.db.
 ---
 
 # VMware AIops
@@ -200,6 +197,17 @@ chmod 600 ~/.vmware-aiops/.env
 > All tools are automatically audited via vmware-policy. Audit logs: `vmware-audit log --last 20`
 
 > Full setup guide, security details, and AI platform compatibility: see `references/setup-guide.md`
+
+## Audit & Safety
+
+All operations are automatically audited via vmware-policy (`@vmware_tool` decorator):
+- Every tool call logged to `~/.vmware/audit.db` (SQLite, framework-agnostic)
+- Policy rules enforced via `~/.vmware/rules.yaml` (deny rules, maintenance windows, risk levels)
+- Risk classification: each tool tagged as low/medium/high/critical
+- View recent operations: `vmware-audit log --last 20`
+- View denied operations: `vmware-audit log --status denied`
+
+vmware-policy is automatically installed as a dependency — no manual setup needed.
 
 ## License
 

@@ -1,0 +1,49 @@
+{
+  "skill_name": "vmware-aiops",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Deploy a new VM from the ubuntu-22.04.ova file on datastore1, name it web-test-01, power it on, and set it to auto-delete in 8 hours",
+      "expected_output": "VM deployed from OVA, powered on, TTL set to 8 hours",
+      "files": [],
+      "expectations": [
+        "Uses deploy_vm_from_ova tool with correct OVA path and VM name",
+        "Powers on the VM after deployment",
+        "Sets TTL to 480 minutes using vm_set_ttl"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "Clone prod-db-01 five times for load testing, name them load-test-01 through 05, give each 4 CPUs and 8GB RAM",
+      "expected_output": "5 clones created with specified resources",
+      "files": [],
+      "expectations": [
+        "Uses batch_clone_vms or creates 5 individual clones",
+        "Each clone has cpu=4 and memory_mb=8192",
+        "VM names follow the load-test-01 through load-test-05 pattern"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "There's a critical alarm on esxi-host-03, acknowledge it and then check if any VMs on that host need attention",
+      "expected_output": "Alarm acknowledged, VM status checked",
+      "files": [],
+      "expectations": [
+        "Uses list_vcenter_alarms to find the alarm details",
+        "Uses acknowledge_vcenter_alarm with correct entity and alarm name",
+        "Routes to vmware-monitor for VM health check or uses get_alarms"
+      ]
+    },
+    {
+      "id": 4,
+      "prompt": "Create a plan to safely restart the database cluster: power off db-replica first, then db-primary, wait, power on db-primary, then db-replica",
+      "expected_output": "Execution plan created with correct order and rollback",
+      "files": [],
+      "expectations": [
+        "Uses vm_create_plan with sequential power_off and power_on operations",
+        "Order is correct: replica off → primary off → primary on → replica on",
+        "Shows plan summary and waits for user approval before vm_apply_plan"
+      ]
+    }
+  ]
+}
