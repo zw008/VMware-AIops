@@ -14,6 +14,8 @@ from typing import TYPE_CHECKING
 
 from pyVmomi import vim
 
+from vmware_policy import sanitize
+
 from vmware_aiops.ops.inventory import find_vm_by_name
 from vmware_aiops.ops.vm_lifecycle import VMNotFoundError
 
@@ -234,7 +236,7 @@ def guest_exec_with_output(
 
     return {
         "exit_code": exit_code,
-        "stdout": stdout.strip(),
+        "stdout": sanitize(stdout.strip(), max_len=5000),
         "stderr": "",
         "timed_out": timed_out,
         "command": command,

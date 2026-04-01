@@ -7,6 +7,8 @@ from typing import TYPE_CHECKING
 
 from pyVmomi import vim
 
+from vmware_policy import sanitize
+
 from vmware_aiops.ops.inventory import (
     find_datastore_by_name,
     find_host_by_name,
@@ -63,37 +65,37 @@ def get_vm_info(si: ServiceInstance, vm_name: str) -> dict:
         for dev in config.hardware.device:
             if isinstance(dev, vim.vm.device.VirtualDisk):
                 disks.append({
-                    "label": dev.deviceInfo.label,
+                    "label": sanitize(dev.deviceInfo.label),
                     "size_gb": round(dev.capacityInKB / (1024 * 1024), 1),
                     "thin": getattr(dev.backing, "thinProvisioned", None),
                 })
             elif isinstance(dev, vim.vm.device.VirtualEthernetCard):
                 nics.append({
-                    "label": dev.deviceInfo.label,
+                    "label": sanitize(dev.deviceInfo.label),
                     "mac": dev.macAddress,
                     "connected": dev.connectable.connected if dev.connectable else False,
-                    "network": dev.backing.deviceName
+                    "network": sanitize(dev.backing.deviceName)
                     if hasattr(dev.backing, "deviceName")
-                    else str(dev.backing),
+                    else sanitize(str(dev.backing)),
                 })
 
     return {
-        "name": vm.name,
+        "name": sanitize(vm.name),
         "power_state": str(runtime.powerState),
         "cpu": config.hardware.numCPU if config else 0,
         "memory_mb": config.hardware.memoryMB if config else 0,
-        "guest_os": config.guestFullName if config else "N/A",
+        "guest_os": sanitize(config.guestFullName) if config else "N/A",
         "guest_id": config.guestId if config else "N/A",
         "uuid": config.uuid if config else "N/A",
         "instance_uuid": config.instanceUuid if config else "N/A",
-        "host": runtime.host.name if runtime.host else "N/A",
+        "host": sanitize(runtime.host.name) if runtime.host else "N/A",
         "ip_address": guest.ipAddress if guest else None,
-        "hostname": guest.hostName if guest else None,
+        "hostname": sanitize(guest.hostName) if guest and guest.hostName else None,
         "tools_status": str(guest.toolsRunningStatus) if guest else "N/A",
         "tools_version": str(guest.toolsVersion) if guest and guest.toolsVersion else "N/A",
         "disks": disks,
         "nics": nics,
-        "annotation": config.annotation if config and config.annotation else "",
+        "annotation": sanitize(config.annotation, max_len=1000) if config and config.annotation else "",
         "snapshot_count": _count_snapshots(vm.snapshot) if vm.snapshot else 0,
     }
 
@@ -352,8 +354,8 @@ def list_snapshots(si: ServiceInstance, vm_name: str) -> list[dict]:
     def _walk(snap_list, level: int = 0) -> None:
         for snap in snap_list:
             results.append({
-                "name": snap.name,
-                "description": snap.description,
+                "name": sanitize(snap.name),
+                "description": sanitize(snap.description, max_len=1000),
                 "created": str(snap.createTime),
                 "state": str(snap.state),
                 "level": level,

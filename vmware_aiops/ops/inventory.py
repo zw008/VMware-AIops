@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from pyVmomi import vim
+from vmware_policy import sanitize
 
 if TYPE_CHECKING:
     from pyVmomi.vim import ServiceInstance
@@ -61,13 +62,13 @@ def list_vms(
     for vm in vms:
         config = vm.config
         entry = {
-            "name": vm.name,
+            "name": sanitize(vm.name),
             "power_state": str(vm.runtime.powerState),
             "cpu": config.hardware.numCPU if config else 0,
             "memory_mb": config.hardware.memoryMB if config else 0,
-            "guest_os": config.guestFullName if config else "N/A",
+            "guest_os": sanitize(config.guestFullName) if config else "N/A",
             "ip_address": vm.guest.ipAddress if vm.guest else None,
-            "host": vm.runtime.host.name if vm.runtime.host else "N/A",
+            "host": sanitize(vm.runtime.host.name) if vm.runtime.host else "N/A",
             "uuid": config.uuid if config else "N/A",
             "tools_status": str(vm.guest.toolsRunningStatus) if vm.guest else "N/A",
         }

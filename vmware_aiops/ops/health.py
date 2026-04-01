@@ -6,6 +6,7 @@ from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING
 
 from pyVmomi import vim
+from vmware_policy import sanitize
 
 if TYPE_CHECKING:
     from pyVmomi.vim import ServiceInstance
@@ -59,8 +60,8 @@ def get_active_alarms(si: ServiceInstance) -> list[dict]:
             severity_map = {"red": "critical", "yellow": "warning", "green": "info"}
             results.append({
                 "severity": severity_map.get(severity, severity),
-                "alarm_name": alarm_state.alarm.info.name,
-                "entity_name": alarm_state.entity.name,
+                "alarm_name": sanitize(alarm_state.alarm.info.name),
+                "entity_name": sanitize(alarm_state.entity.name),
                 "entity_type": type(alarm_state.entity).__name__,
                 "time": str(alarm_state.time),
                 "acknowledged": getattr(alarm_state, "acknowledged", False),
@@ -126,7 +127,7 @@ def get_recent_events(
         results.append({
             "severity": sev,
             "event_type": event_type,
-            "message": event.fullFormattedMessage or str(event),
+            "message": sanitize(event.fullFormattedMessage or str(event), max_len=1000),
             "time": str(event.createdTime),
             "username": event.userName if hasattr(event, "userName") else "N/A",
         })
@@ -148,8 +149,8 @@ def get_host_hardware_status(si: ServiceInstance) -> list[dict]:
         for sensor in runtime_health.systemHealthInfo.numericSensorInfo:
             status = str(sensor.sensorType) if hasattr(sensor, "sensorType") else "unknown"
             results.append({
-                "host": host.name,
-                "sensor_name": sensor.name,
+                "host": sanitize(host.name),
+                "sensor_name": sanitize(sensor.name),
                 "reading": sensor.currentReading,
                 "unit": sensor.baseUnits,
                 "status": status,
@@ -173,9 +174,9 @@ def get_host_services(si: ServiceInstance, host_name: str | None = None) -> list
             continue
         for svc in svc_system.serviceInfo.service:
             results.append({
-                "host": host.name,
+                "host": sanitize(host.name),
                 "service": svc.key,
-                "label": svc.label,
+                "label": sanitize(svc.label),
                 "running": svc.running,
                 "policy": svc.policy,
             })

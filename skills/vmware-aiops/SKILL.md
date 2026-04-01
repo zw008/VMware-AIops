@@ -4,7 +4,7 @@ description: >
   Use this skill whenever the user needs to manage VMs in VMware/vSphere/ESXi — it's the entry point for all VM operations.
   Directly handles: power on/off, clone, snapshot, migrate, deploy from OVA or templates, run commands inside VMs, batch operations, cluster management, and vCenter alarm acknowledgment.
   Always use this skill for any "power on", "clone", "deploy", "migrate", "batch", "guest exec", "alarm", or VM lifecycle task, even if the user doesn't explicitly say "VMware".
-  For read-only monitoring use vmware-monitor, for networking use vmware-nsx, for multi-step workflows use vmware-pilot.
+  For read-only monitoring use vmware-monitor, for networking use vmware-nsx, for multi-step workflows use vmware-pilot. For load balancing/AVI/AKO use vmware-avi.
 installer:
   kind: uv
   package: vmware-aiops
@@ -22,7 +22,7 @@ VMware family entry point — AI-powered VM lifecycle, deployment, and alarm man
 
 > **Start here**: install vmware-aiops first, then add modules as needed.
 > Run `vmware-aiops hub status` to see which family members are installed.
-> **Family**: [vmware-monitor](https://github.com/zw008/VMware-Monitor) (inventory/health), [vmware-storage](https://github.com/zw008/VMware-Storage) (iSCSI/vSAN), [vmware-vks](https://github.com/zw008/VMware-VKS) (Tanzu Kubernetes), [vmware-nsx](https://github.com/zw008/VMware-NSX) (NSX networking), [vmware-nsx-security](https://github.com/zw008/VMware-NSX-Security) (DFW/firewall), [vmware-aria](https://github.com/zw008/VMware-Aria) (metrics/alerts/capacity).
+> **Family**: [vmware-monitor](https://github.com/zw008/VMware-Monitor) (inventory/health), [vmware-storage](https://github.com/zw008/VMware-Storage) (iSCSI/vSAN), [vmware-vks](https://github.com/zw008/VMware-VKS) (Tanzu Kubernetes), [vmware-nsx](https://github.com/zw008/VMware-NSX) (NSX networking), [vmware-nsx-security](https://github.com/zw008/VMware-NSX-Security) (DFW/firewall), [vmware-aria](https://github.com/zw008/VMware-Aria) (metrics/alerts/capacity), [vmware-avi](https://github.com/zw008/VMware-AVI) (AVI/ALB/AKO).
 > | [vmware-pilot](../vmware-pilot/SKILL.md) (workflow orchestration) | [vmware-policy](../vmware-policy/SKILL.md) (audit/policy)
 
 ## What This Skill Does
@@ -57,6 +57,7 @@ vmware-aiops is the entry point. Add modules for additional capabilities:
 | **vmware-nsx** | `uv tool install vmware-nsx-mgmt` | NSX networking: segments, gateways, NAT |
 | **vmware-nsx-security** | `uv tool install vmware-nsx-security` | DFW microsegmentation, security groups |
 | **vmware-aria** | `uv tool install vmware-aria` | Aria Ops metrics, alerts, capacity |
+| **vmware-avi** | `uv tool install vmware-avi` | AVI load balancer, ALB, AKO, Ingress |
 
 > Each module stays independent — small tool count keeps local models (Ollama, Qwen) accurate.
 
@@ -74,6 +75,7 @@ vmware-aiops is the entry point. Add modules for additional capabilities:
 - Inventory, health, alarms, VM info → `vmware-monitor`
 - iSCSI, vSAN, datastore management → `vmware-storage`
 - Tanzu Kubernetes (Supervisor, Namespace, TKC) → `vmware-vks`
+- Load balancing, AVI/ALB, AKO, Ingress → `vmware-avi`
 
 ## Related Skills — Skill Routing
 
@@ -87,6 +89,7 @@ vmware-aiops is the entry point. Add modules for additional capabilities:
 | NSX security: DFW rules, security groups | **vmware-nsx-security** (`uv tool install vmware-nsx-security`) |
 | Aria Ops: metrics, alerts, capacity | **vmware-aria** (`uv tool install vmware-aria`) |
 | Multi-step workflows with approval | **vmware-pilot** |
+| Load balancer, AVI, ALB, AKO, Ingress | **vmware-avi** (`uv tool install vmware-avi`) |
 | Audit log query | **vmware-policy** (`vmware-audit` CLI) |
 
 ## Common Workflows
