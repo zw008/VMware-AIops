@@ -2,6 +2,13 @@
 
 ---
 
+## v1.4.5 — 2026-04-03
+
+- **Security**: bump pygments 2.19.2 → 2.20.0 (fix ReDoS CVE in GUID matching regex)
+- **Infrastructure**: add uv.lock for reproducible builds and Dependabot security tracking
+
+---
+
 ## v1.4.0 — 2026-03-29
 
 ### Architecture: Unified Audit & Policy
