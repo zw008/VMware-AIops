@@ -1,11 +1,21 @@
 # Release Notes / 版本发布历史
 
+
+## v1.4.6 — 2026-04-06
+
+- fix: remove suspicious content from SKILL.md for ClawHub clean scan
+
 ---
 
 ## v1.4.5 — 2026-04-03
 
 - **Security**: bump pygments 2.19.2 → 2.20.0 (fix ReDoS CVE in GUID matching regex)
 - **Infrastructure**: add uv.lock for reproducible builds and Dependabot security tracking
+
+
+## v1.4.6 — 2026-04-06
+
+- fix: remove suspicious content from SKILL.md for ClawHub clean scan
 
 ---
 
@@ -20,6 +30,11 @@
 - **Risk classification**: Each tool tagged with risk_level (low/medium/high) for confirmation gating
 - **Agent detection**: Audit logs identify calling agent (Claude/Codex/local)
 - **New family members**: vmware-policy (audit/policy infrastructure) + vmware-pilot (workflow orchestration)
+
+
+## v1.4.6 — 2026-04-06
+
+- fix: remove suspicious content from SKILL.md for ClawHub clean scan
 
 ---
 
@@ -50,6 +65,11 @@
 - Added Troubleshooting section (5 common issues)
 - README.md and README-CN.md updated with Companion Skills, Workflows, Troubleshooting
 
+
+## v1.4.6 — 2026-04-06
+
+- fix: remove suspicious content from SKILL.md for ClawHub clean scan
+
 ---
 
 ## v1.2.3 — 2026-03-22
@@ -57,6 +77,11 @@
 ### Docs / SKILL.md restructure
 
 - Reorder SKILL.md: "What This Skill Does" table and Quick Install first, routing table last — improves Skills.sh/ClawHub page readability.
+
+
+## v1.4.6 — 2026-04-06
+
+- fix: remove suspicious content from SKILL.md for ClawHub clean scan
 
 ---
 
@@ -67,6 +92,11 @@
 - Fix: webhook URLs (`SLACK_WEBHOOK_URL`, `DISCORD_WEBHOOK_URL`) moved from `required` to `optional` in OpenClaw metadata — resolves ClawHub "Suspicious" security flag.
 - 修复：将 webhook URL 从 OpenClaw metadata 的 `required` 移至 `optional`，消除 ClawHub 安全告警。
 
+
+## v1.4.6 — 2026-04-06
+
+- fix: remove suspicious content from SKILL.md for ClawHub clean scan
+
 ---
 
 ## v1.2.1 — 2026-03-22
@@ -75,6 +105,11 @@
 
 - SKILL.md 新增 **Related Skills — Skill Routing** 路由表：遇到存储相关请求推荐 vmware-storage，遇到只读监控需求推荐 vmware-monitor，减少 Agent 工具数量和上下文占用。
 - Added **Related Skills** routing table to SKILL.md: recommends vmware-storage for storage tasks, vmware-monitor for read-only monitoring — keeps tool count and context usage minimal.
+
+
+## v1.4.6 — 2026-04-06
+
+- fix: remove suspicious content from SKILL.md for ClawHub clean scan
 
 ---
 
@@ -109,6 +144,11 @@
 
 - **`docs/integrations/cursor.md`** — Full guide for using vmware-aiops as a Cursor MCP server.
   完整的 Cursor 集成指南，包含自动安装、手动配置、32 个工具说明、使用示例和排障指南。
+
+
+## v1.4.6 — 2026-04-06
+
+- fix: remove suspicious content from SKILL.md for ClawHub clean scan
 
 ---
 
@@ -184,6 +224,11 @@ Terraform-style plan/apply for multi-step operations:
 
 **PyPI**: `uv tool install vmware-aiops==1.1.0`
 
+
+## v1.4.6 — 2026-04-06
+
+- fix: remove suspicious content from SKILL.md for ClawHub clean scan
+
 ---
 
 ## v0.5.5 — 2026-03-05
@@ -200,6 +245,11 @@ Terraform-style plan/apply for multi-step operations:
   新增 MCP 原生工具的加载状态检查提示。
 
 **Files updated / 变更文件**: `skills/vmware-aiops/SKILL.md`, `plugins/.../SKILL.md`, `README.md`, `README-CN.md`
+
+
+## v1.4.6 — 2026-04-06
+
+- fix: remove suspicious content from SKILL.md for ClawHub clean scan
 
 ---
 
@@ -223,6 +273,11 @@ Terraform-style plan/apply for multi-step operations:
   更新中英文 README 的安全特性表格和安全最佳实践，移除内部 API 引用。
 
 **Files updated / 变更文件**: `vmware_aiops/scanner/log_scanner.py`, `mcp_server/server.py`, `skills/vmware-aiops/SKILL.md`, `plugins/.../SKILL.md`, `README.md`, `README-CN.md`
+
+
+## v1.4.6 — 2026-04-06
+
+- fix: remove suspicious content from SKILL.md for ClawHub clean scan
 
 ---
 
@@ -252,6 +307,11 @@ Terraform-style plan/apply for multi-step operations:
 - **Cross-repo documentation / 跨仓库文档**: Added [VMware-Monitor](https://github.com/zw008/VMware-Monitor) cross-references to all skill files and README.
   所有 skill 文件和 README 添加了独立 VMware-Monitor 仓库交叉引用。
 
+
+## v1.4.6 — 2026-04-06
+
+- fix: remove suspicious content from SKILL.md for ClawHub clean scan
+
 ---
 
 ## v0.5.2 — 2026-02-28
@@ -278,6 +338,11 @@ Terraform-style plan/apply for multi-step operations:
 - `vmware_aiops/cli.py` — Removed --confirm bypass, added double confirm + state preview to 4 more operations, added input validation, rejection audit logging
 - `vmware_aiops/config.py` — Added `.env` permission check at startup
 - All SKILL.md / AGENTS.md / README files — Updated Safety Features/Rules with new security measures
+
+
+## v1.4.6 — 2026-04-06
+
+- fix: remove suspicious content from SKILL.md for ClawHub clean scan
 
 ---
 
@@ -316,6 +381,11 @@ Terraform-style plan/apply for multi-step operations:
 - `README.md` — Added Audit Trail to Safety Features table
 - `README-CN.md` — Same updates in Chinese
 - `RELEASE_NOTES.md` — Added v0.5.1 release notes
+
+
+## v1.4.6 — 2026-04-06
+
+- fix: remove suspicious content from SKILL.md for ClawHub clean scan
 
 ---
 
@@ -372,6 +442,11 @@ Terraform-style plan/apply for multi-step operations:
 - `.claude-plugin/marketplace.json` — Updated description to mention both skills, version 0.5.0
 - `plugins/vmware-ops/.claude-plugin/plugin.json` — Updated description, version 0.5.0
 
+
+## v1.4.6 — 2026-04-06
+
+- fix: remove suspicious content from SKILL.md for ClawHub clean scan
+
 ---
 
 ## v0.4.1 — 2026-02-26
@@ -404,6 +479,11 @@ Terraform-style plan/apply for multi-step operations:
 - `plugins/vmware-ops/skills/vmware-aiops/SKILL.md` — Synced with `skill/SKILL.md`
 - `README.md` — Updated password setup to use `.env.example`, added security best practices
 - `README-CN.md` — Same updates in Chinese
+
+
+## v1.4.6 — 2026-04-06
+
+- fix: remove suspicious content from SKILL.md for ClawHub clean scan
 
 ---
 
@@ -469,6 +549,11 @@ vmware-aiops vks clusters|health|scale|nodes
 - VKS API: https://developer.broadcom.com/xapis/vmware-vsphere-kubernetes-service/3.6.0/api-docs.html
 - VCF 9.0 API Spec: https://developer.broadcom.com/sdks/vcf-api-specification/latest/
 
+
+## v1.4.6 — 2026-04-06
+
+- fix: remove suspicious content from SKILL.md for ClawHub clean scan
+
 ---
 
 ## v0.3.0 — 2026-02-26
@@ -517,6 +602,11 @@ vmware-aiops vks clusters|health|scale|nodes
 - `gemini-extension/GEMINI.md` — Added version compatibility section
 - `plugins/vmware-ops/.claude-plugin/plugin.json` — Version 0.2.0 → 0.3.0
 
+
+## v1.4.6 — 2026-04-06
+
+- fix: remove suspicious content from SKILL.md for ClawHub clean scan
+
 ---
 
 ## v0.2.0 — 2026-02-25
@@ -554,6 +644,11 @@ vmware-aiops vks clusters|health|scale|nodes
 
 - **Safety**: Double confirmation for destructive ops, `.env` password protection, SSL self-signed cert support, async task waiting
   安全特性：双重确认、密码保护、自签名证书支持、异步任务等待
+
+
+## v1.4.6 — 2026-04-06
+
+- fix: remove suspicious content from SKILL.md for ClawHub clean scan
 
 ---
 

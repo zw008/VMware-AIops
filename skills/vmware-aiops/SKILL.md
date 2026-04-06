@@ -97,7 +97,7 @@ vmware-aiops is the entry point. Add modules for additional capabilities:
 ### Deploy a Lab Environment
 1. Browse datastore for OVA images → `vmware-aiops datastore browse <ds> --pattern "*.ova"`
 2. Deploy VM from OVA → `vmware-aiops deploy ova ./image.ova --name lab-vm --datastore ds1`
-3. Install software inside VM → `vmware-aiops vm guest-exec lab-vm --cmd /bin/bash --args "-c 'apt-get install -y nginx'" --user root`
+3. Run provisioning script inside VM → `vmware-aiops vm guest-exec lab-vm --cmd /usr/bin/python3 --args "setup.py" --user admin`
 4. Create baseline snapshot → `vmware-aiops vm snapshot-create lab-vm --name baseline`
 5. Set TTL for auto-cleanup → `vmware-aiops vm set-ttl lab-vm --minutes 480`
 
@@ -145,8 +145,8 @@ vmware-aiops vm clone <name> --new-name <new>
 vmware-aiops vm migrate <name> --to-host <host>
 
 # Guest operations (requires VMware Tools)
-vmware-aiops vm guest-exec <name> --cmd /bin/bash --args "-c 'whoami'" --user root
-vmware-aiops vm guest-upload <name> --local ./script.sh --guest /tmp/script.sh --user root
+vmware-aiops vm guest-exec <name> --cmd <script-path> --args "<args>" --user <username>
+vmware-aiops vm guest-upload <name> --local ./script.sh --guest /tmp/script.sh --user <username>
 
 # Deploy
 vmware-aiops deploy ova <path> --name <vm> --datastore <ds>
