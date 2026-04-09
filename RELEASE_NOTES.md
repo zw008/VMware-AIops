@@ -1,3 +1,9 @@
+## v1.4.8 (2026-04-09)
+
+- Security: bump cryptography 46.0.6→46.0.7 (CVE-2026-39892, buffer overflow)
+- Security: bump urllib3 2.3.0→2.6.3 (multiple CVEs) [VMware-VKS]
+- Security: bump requests 2.32.5→2.33.0 (medium CVE) [VMware-VKS]
+
 ## v1.4.7 (2026-04-08)
 
 - Fix: align openclaw metadata with actual runtime requirements
