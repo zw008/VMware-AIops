@@ -1,3 +1,8 @@
+## v1.4.9 (2026-04-11)
+
+- Fix: require explicit VMware/vSphere context in skill routing triggers (prevent false triggers on generic "clone", "deploy", "alarms" etc.)
+- Fix: clarify vmware-policy compatibility field (Python transitive dep, not a required standalone binary)
+
 ## v1.4.8 (2026-04-09)
 
 - Security: bump cryptography 46.0.6→46.0.7 (CVE-2026-39892, buffer overflow)
