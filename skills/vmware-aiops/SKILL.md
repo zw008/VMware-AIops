@@ -3,8 +3,9 @@ name: vmware-aiops
 description: >
   Use this skill whenever the user needs to manage VMs in VMware/vSphere/ESXi — it's the entry point for all VM operations.
   Directly handles: power on/off, clone, snapshot, migrate, deploy from OVA or templates, run commands inside VMs, batch operations, cluster management, and vCenter alarm acknowledgment.
-  Always use this skill for any "power on", "clone", "deploy", "migrate", "batch", "guest exec", "alarm", or VM lifecycle task, even if the user doesn't explicitly say "VMware".
-  For read-only monitoring use vmware-monitor, for networking use vmware-nsx, for multi-step workflows use vmware-pilot. For load balancing/AVI/AKO use vmware-avi.
+  Always use this skill for any "power on", "clone", "deploy", "migrate", "batch", "guest exec", "alarm", or VM lifecycle task when the context is explicitly VMware, vSphere, or ESXi.
+  Do NOT use for read-only queries (use vmware-monitor), NSX networking (use vmware-nsx), storage/iSCSI/vSAN (use vmware-storage), or Kubernetes cluster lifecycle (use vmware-vks).
+  For multi-step workflows use vmware-pilot. For load balancing/AVI/AKO use vmware-avi.
 installer:
   kind: uv
   package: vmware-aiops
@@ -13,7 +14,7 @@ allowed-tools:
   - Bash
 metadata: {"openclaw":{"requires":{"env":["VMWARE_AIOPS_CONFIG"],"bins":["vmware-aiops"],"config":["~/.vmware-aiops/config.yaml","~/.vmware-aiops/.env"]},"optional":{"env":["VMWARE_TARGET_PASSWORD","SLACK_WEBHOOK_URL","DISCORD_WEBHOOK_URL"],"bins":["vmware-policy"]},"primaryEnv":"VMWARE_AIOPS_CONFIG","homepage":"https://github.com/zw008/VMware-AIops","emoji":"🖥️","os":["macos","linux"]}}
 compatibility: >
-  Requires vmware-policy (auto-installed). All operations audited to ~/.vmware/audit.db.
+  vmware-policy auto-installed as Python dependency (provides @vmware_tool decorator and audit logging). All write operations audited to ~/.vmware/audit.db.
 ---
 
 # VMware AIops
@@ -121,17 +122,24 @@ vmware-aiops is the entry point. Add modules for additional capabilities:
 | Cloud models (Claude, GPT-4o) | Either | MCP gives structured JSON I/O |
 | Automated pipelines | **MCP** | Type-safe parameters, structured output |
 
-## MCP Tools (34)
+## MCP Tools (34 — 20 read, 14 write)
 
-| Category | Tools |
-|----------|-------|
-| VM Lifecycle (6) | `vm_power_on`, `vm_power_off`, `vm_set_ttl`, `vm_cancel_ttl`, `vm_list_ttl`, `vm_clean_slate` |
-| Deployment (8) | `deploy_vm_from_ova`, `deploy_vm_from_template`, `deploy_linked_clone`, `attach_iso_to_vm`, `convert_vm_to_template`, `batch_clone_vms`, `batch_linked_clone_vms`, `batch_deploy_from_spec` |
-| Guest Ops (5) | `vm_guest_exec`, `vm_guest_exec_output`, `vm_guest_upload`, `vm_guest_download`, `vm_guest_provision` |
-| Plan/Apply (4) | `vm_create_plan`, `vm_apply_plan`, `vm_rollback_plan`, `vm_list_plans` |
-| Datastore (2) | `browse_datastore`, `scan_datastore_images` |
-| Cluster (6) | `cluster_create`, `cluster_delete`, `cluster_add_host`, `cluster_remove_host`, `cluster_configure`, `cluster_info` |
-| Alarm Management (3) | `list_vcenter_alarms`, `acknowledge_vcenter_alarm`, `reset_vcenter_alarm` |
+| Category | Tools | R/W |
+|----------|-------|:---:|
+| VM Lifecycle (6) | `vm_list_ttl` | Read |
+| | `vm_power_on`, `vm_power_off`, `vm_set_ttl`, `vm_cancel_ttl`, `vm_clean_slate` | Write |
+| Deployment (8) | `deploy_vm_from_ova`, `deploy_vm_from_template`, `deploy_linked_clone`, `attach_iso_to_vm`, `convert_vm_to_template`, `batch_clone_vms`, `batch_linked_clone_vms`, `batch_deploy_from_spec` | Write |
+| Guest Ops (5) | `vm_guest_exec_output`, `vm_guest_download` | Read |
+| | `vm_guest_exec`, `vm_guest_upload`, `vm_guest_provision` | Write |
+| Plan/Apply (4) | `vm_list_plans`, `vm_create_plan` | Read |
+| | `vm_apply_plan`, `vm_rollback_plan` | Write |
+| Datastore (2) | `browse_datastore`, `scan_datastore_images` | Read |
+| Cluster (6) | `cluster_info` | Read |
+| | `cluster_create`, `cluster_delete`, `cluster_add_host`, `cluster_remove_host`, `cluster_configure` | Write |
+| Alarm Management (3) | `list_vcenter_alarms` | Read |
+| | `acknowledge_vcenter_alarm`, `reset_vcenter_alarm` | Write |
+
+**Read/write split**: 20 tools are read-only, 14 modify state. All write tools require explicit parameters and are audit-logged. Destructive operations (delete, force power-off) require double confirmation.
 
 ## CLI Quick Reference
 

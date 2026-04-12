@@ -1,6 +1,10 @@
 <!-- mcp-name: io.github.zw008/vmware-aiops -->
 # VMware AIops
 
+> **作者**: Wei Zhou, VMware by Broadcom — wei-wz.zhou@broadcom.com
+> 本项目由 VMware 工程师维护的社区项目，非 VMware 官方产品。
+> VMware 官方开发者工具请访问 [developer.broadcom.com](https://developer.broadcom.com)。
+
 [English](README.md) | 中文
 
 AI 驱动的 VMware vCenter/ESXi VM 生命周期管理与部署工具 — 6 大类 31 个工具。

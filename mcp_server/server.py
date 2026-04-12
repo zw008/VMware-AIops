@@ -94,7 +94,7 @@ def _get_connection(target: str | None = None) -> Any:
 @mcp.tool()
 @vmware_tool(risk_level="medium")
 def vm_power_on(vm_name: str, target: str | None = None) -> str:
-    """Power on a virtual machine.
+    """[WRITE] Power on a virtual machine.
 
     Args:
         vm_name: Exact name of the virtual machine.
@@ -111,7 +111,7 @@ def vm_power_off(
     force: bool = False,
     target: str | None = None,
 ) -> str:
-    """Power off a virtual machine. Graceful shutdown by default, force if specified.
+    """[WRITE] Power off a virtual machine. Graceful shutdown by default, force if specified.
 
     Args:
         vm_name: Exact name of the virtual machine.
@@ -135,7 +135,7 @@ def browse_datastore(
     pattern: str = "*",
     target: str | None = None,
 ) -> list[dict]:
-    """Browse files in a vSphere datastore directory.
+    """[READ] Browse files in a vSphere datastore directory.
 
     Use this to discover OVA, ISO, VMDK, and other files on datastores
     before deploying VMs.
@@ -153,7 +153,7 @@ def browse_datastore(
 @mcp.tool()
 @vmware_tool(risk_level="low")
 def scan_datastore_images(target: str | None = None) -> dict:
-    """Scan all accessible datastores for deployable images (OVA/ISO/OVF/VMDK).
+    """[READ] Scan all accessible datastores for deployable images (OVA/ISO/OVF/VMDK).
 
     Results are cached locally in ~/.vmware-aiops/image_registry.json for
     fast lookup via list_cached_images. Run this to refresh the cache.
@@ -182,7 +182,7 @@ def deploy_vm_from_ova(
     snapshot_name: str | None = None,
     target: str | None = None,
 ) -> str:
-    """Deploy a VM from a local OVA file.
+    """[WRITE] Deploy a VM from a local OVA file.
 
     Parses the OVF descriptor, creates import spec, uploads VMDKs via
     HTTP NFC lease. Optionally powers on and creates a baseline snapshot.
@@ -218,7 +218,7 @@ def deploy_vm_from_template(
     snapshot_name: str | None = None,
     target: str | None = None,
 ) -> str:
-    """Deploy a new VM by cloning from a vSphere template.
+    """[WRITE] Deploy a new VM by cloning from a vSphere template.
 
     Args:
         template_name: Name of the source vSphere template.
@@ -250,7 +250,7 @@ def deploy_linked_clone(
     baseline_snapshot: str | None = None,
     target: str | None = None,
 ) -> str:
-    """Create a linked clone from a VM snapshot (near-instant, minimal disk).
+    """[WRITE] Create a linked clone from a VM snapshot (near-instant, minimal disk).
 
     Linked clones share the source disk and use copy-on-write delta disks.
     This is the fastest provisioning method.
@@ -280,7 +280,7 @@ def attach_iso_to_vm(
     iso_ds_path: str,
     target: str | None = None,
 ) -> str:
-    """Attach an ISO from a datastore to a VM's CD-ROM drive.
+    """[WRITE] Attach an ISO from a datastore to a VM's CD-ROM drive.
 
     Args:
         vm_name: Target VM name.
@@ -297,7 +297,7 @@ def convert_vm_to_template(
     vm_name: str,
     target: str | None = None,
 ) -> str:
-    """Convert a powered-off VM to a vSphere template.
+    """[WRITE] Convert a powered-off VM to a vSphere template.
 
     After conversion the VM cannot be powered on — it serves as a
     clone source for deploy_vm_from_template.
@@ -321,7 +321,7 @@ def batch_clone_vms(
     power_on: bool = False,
     target: str | None = None,
 ) -> list[dict]:
-    """Batch clone multiple VMs from a source VM (gold image).
+    """[WRITE] Batch clone multiple VMs from a source VM (gold image).
 
     Each clone: full copy → optional reconfigure → optional snapshot → optional power on.
 
@@ -354,7 +354,7 @@ def batch_linked_clone_vms(
     baseline_snapshot: str | None = None,
     target: str | None = None,
 ) -> list[dict]:
-    """Batch create linked clones from a VM snapshot (fastest batch provisioning).
+    """[WRITE] Batch create linked clones from a VM snapshot (fastest batch provisioning).
 
     Each clone shares the source disk via copy-on-write.
 
@@ -382,7 +382,7 @@ def batch_deploy_from_spec(
     spec_path: str,
     target: str | None = None,
 ) -> list[dict]:
-    """Batch deploy VMs from a YAML specification file.
+    """[WRITE] Batch deploy VMs from a YAML specification file.
 
     The YAML spec supports all provisioning channels:
     - source: clone from a VM
@@ -414,7 +414,7 @@ def cluster_create(
     drs_behavior: str = "fullyAutomated",
     target: str | None = None,
 ) -> str:
-    """Create a new cluster with optional HA and DRS configuration.
+    """[WRITE] Create a new cluster with optional HA and DRS configuration.
 
     Args:
         name: Name for the new cluster.
@@ -435,7 +435,7 @@ def cluster_create(
 @mcp.tool()
 @vmware_tool(risk_level="high")
 def cluster_delete(name: str, target: str | None = None) -> str:
-    """Delete an empty cluster (no hosts must remain).
+    """[WRITE] Delete an empty cluster (no hosts must remain).
 
     Args:
         name: Name of the cluster to delete.
@@ -453,7 +453,7 @@ def cluster_add_host(
     host_name: str,
     target: str | None = None,
 ) -> str:
-    """Move a host into a cluster.
+    """[WRITE] Move a host into a cluster.
 
     Args:
         cluster_name: Target cluster name.
@@ -472,7 +472,7 @@ def cluster_remove_host(
     host_name: str,
     target: str | None = None,
 ) -> str:
-    """Remove a host from a cluster (host must be in maintenance mode).
+    """[WRITE] Remove a host from a cluster (host must be in maintenance mode).
 
     Args:
         cluster_name: Cluster to remove the host from.
@@ -493,7 +493,7 @@ def cluster_configure(
     drs_behavior: str | None = None,
     target: str | None = None,
 ) -> str:
-    """Reconfigure cluster HA/DRS settings.
+    """[WRITE] Reconfigure cluster HA/DRS settings.
 
     Args:
         name: Cluster name.
@@ -513,7 +513,7 @@ def cluster_configure(
 @mcp.tool()
 @vmware_tool(risk_level="low")
 def cluster_info(name: str, target: str | None = None) -> dict:
-    """Get detailed cluster information (hosts, HA/DRS config, resources).
+    """[READ] Get detailed cluster information (hosts, HA/DRS config, resources).
 
     Args:
         name: Cluster name.
@@ -536,7 +536,7 @@ def vm_set_ttl(
     minutes: int,
     target: str | None = None,
 ) -> str:
-    """Set a Time-To-Live (TTL) for a VM. The daemon auto-deletes it when expired.
+    """[WRITE] Set a Time-To-Live (TTL) for a VM. The daemon auto-deletes it when expired.
 
     The scheduler daemon must be running (`vmware-aiops daemon start`) for
     automatic deletion. TTLs are persisted in ~/.vmware-aiops/ttl.json.
@@ -553,7 +553,7 @@ def vm_set_ttl(
 @mcp.tool()
 @vmware_tool(risk_level="medium")
 def vm_cancel_ttl(vm_name: str) -> str:
-    """Cancel an existing TTL for a VM (prevents auto-deletion).
+    """[WRITE] Cancel an existing TTL for a VM (prevents auto-deletion).
 
     Args:
         vm_name: Name of the VM whose TTL should be cancelled.
@@ -565,7 +565,7 @@ def vm_cancel_ttl(vm_name: str) -> str:
 @mcp.tool()
 @vmware_tool(risk_level="low")
 def vm_list_ttl() -> list[dict]:
-    """List all VMs with TTLs registered, including expiry time and status.
+    """[READ] List all VMs with TTLs registered, including expiry time and status.
 
     Returns a list of TTL entries with remaining_minutes and expired flag.
     """
@@ -580,7 +580,7 @@ def vm_clean_slate(
     snapshot_name: str = "baseline",
     target: str | None = None,
 ) -> str:
-    """Revert a VM to its baseline snapshot (Clean Slate).
+    """[WRITE] Revert a VM to its baseline snapshot (Clean Slate).
 
     Powers off the VM first if it is running, then reverts to the named
     snapshot. Use this to reset a lab/dev VM to a clean starting state
@@ -612,7 +612,7 @@ def vm_guest_exec(
     working_directory: str | None = None,
     target: str | None = None,
 ) -> dict:
-    """Execute a command inside a VM via VMware Tools.
+    """[WRITE] Execute a command inside a VM via VMware Tools.
 
     Requires VMware Tools running in the guest OS.
     Returns exit_code, stdout, stderr, and timed_out flag.
@@ -649,7 +649,7 @@ def vm_guest_exec_output(
     timeout: int = 300,
     target: str | None = None,
 ) -> dict:
-    """Execute a shell command inside a VM and capture stdout + stderr.
+    """[WRITE] Execute a shell command inside a VM and capture stdout + stderr.
 
     Automatically detects guest OS (Linux/Windows) and selects the correct
     shell. Output is captured by redirecting to a temp file, downloading it,
@@ -679,7 +679,7 @@ def vm_guest_upload(
     password: str = "",
     target: str | None = None,
 ) -> str:
-    """Upload a file from local machine to a VM via VMware Tools.
+    """[WRITE] Upload a file from local machine to a VM via VMware Tools.
 
     Requires VMware Tools running in the guest OS.
 
@@ -705,7 +705,7 @@ def vm_guest_download(
     password: str = "",
     target: str | None = None,
 ) -> str:
-    """Download a file from a VM to local machine via VMware Tools.
+    """[READ] Download a file from a VM to local machine via VMware Tools.
 
     Requires VMware Tools running in the guest OS.
 
@@ -731,7 +731,7 @@ def vm_guest_provision(
     timeout: int = 300,
     target: str | None = None,
 ) -> dict:
-    """Provision a VM by running a sequence of guest operations (exec / upload / service).
+    """[WRITE] Provision a VM by running a sequence of guest operations (exec / upload / service).
 
     Combines key injection, software installation, and service startup into a
     single call. Steps execute in order; stops on first failure.
@@ -776,7 +776,7 @@ def vm_create_plan(
     operations: list[dict[str, Any]],
     target: str | None = None,
 ) -> dict:
-    """Create an execution plan for multi-step VM operations.
+    """[WRITE] Create an execution plan for multi-step VM operations.
 
     Auto-triggered when operations involve 2+ steps or 2+ VMs.
     Validates actions, checks target existence in vSphere, and generates
@@ -810,7 +810,7 @@ def vm_create_plan(
 @mcp.tool()
 @vmware_tool(risk_level="medium")
 def vm_apply_plan(plan_id: str, target: str | None = None) -> dict:
-    """Execute a previously created plan step by step.
+    """[WRITE] Execute a previously created plan step by step.
 
     Steps run sequentially. On failure: stops immediately, keeps the plan
     file with per-step results, and returns rollback_available flag.
@@ -838,7 +838,7 @@ def vm_apply_plan(plan_id: str, target: str | None = None) -> dict:
 @mcp.tool()
 @vmware_tool(risk_level="medium")
 def vm_rollback_plan(plan_id: str, target: str | None = None) -> dict:
-    """Rollback executed steps of a failed plan in reverse order.
+    """[WRITE] Rollback executed steps of a failed plan in reverse order.
 
     Only call this after vm_apply_plan returns status='failed' and the
     user confirms they want to rollback. Irreversible steps (delete_vm,
@@ -855,7 +855,7 @@ def vm_rollback_plan(plan_id: str, target: str | None = None) -> dict:
 @mcp.tool()
 @vmware_tool(risk_level="low")
 def vm_list_plans() -> list[dict]:
-    """List all pending/failed plans.
+    """[READ] List all pending/failed plans.
 
     Returns plan summaries (plan_id, created_at, status, steps count,
     VMs affected). Stale plans (>24h) are auto-cleaned.
@@ -870,17 +870,24 @@ def vm_list_plans() -> list[dict]:
 
 @mcp.tool()
 @vmware_tool(risk_level="low")
-def list_vcenter_alarms(target: str | None = None) -> list[dict]:
-    """List all active/triggered alarms across the vCenter inventory.
+def list_vcenter_alarms(
+    target: str | None = None,
+    limit: int | None = None,
+) -> list[dict]:
+    """[READ] List active/triggered alarms across the vCenter inventory.
 
     Returns alarms with severity (critical/warning/info), entity name and type,
     alarm name, acknowledged flag, and trigger time.
 
     Args:
         target: Optional vCenter target name from config. Uses default if omitted.
+        limit: Max number of alarms to return (None = all). Use when many alarms are active.
     """
     si = _get_connection(target)
-    return list_alarms(si)
+    results = list_alarms(si)
+    if limit is not None:
+        results = results[:limit]
+    return results
 
 
 @mcp.tool()
@@ -890,7 +897,7 @@ def acknowledge_vcenter_alarm(
     alarm_name: str,
     target: str | None = None,
 ) -> dict:
-    """Acknowledge a triggered vCenter alarm on a VM, host, or cluster.
+    """[WRITE] Acknowledge a triggered vCenter alarm on a VM, host, or cluster.
 
     Marks the alarm as seen by an operator. The alarm remains in the triggered
     list but is flagged as acknowledged. Use list_vcenter_alarms to find
@@ -912,7 +919,7 @@ def reset_vcenter_alarm(
     alarm_name: str,
     target: str | None = None,
 ) -> dict:
-    """Reset a triggered vCenter alarm to cleared state (gray).
+    """[WRITE] Reset a triggered vCenter alarm to cleared state (gray).
 
     Clears the alarm completely — it will no longer appear in the active alarm list.
     Use this after resolving the underlying issue. Use list_vcenter_alarms to find

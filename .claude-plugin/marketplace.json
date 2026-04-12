@@ -3,7 +3,7 @@
   "name": "vmware-aiops",
   "description": "VMware vCenter/ESXi AI-powered operations toolkit. Full operations including inventory, health monitoring, and VM lifecycle management. For read-only monitoring, see VMware-Monitor. / VMware vCenter/ESXi AI 运维工具包。完整运维功能，包含资产查询、健康监控及 VM 生命周期管理。只读监控请使用 VMware-Monitor。",
   "owner": {
-    "name": "Wei Zhou / 周崴",
+    "name": "Wei Zhou",
     "url": "https://github.com/zw008"
   },
   "plugins": [
@@ -15,7 +15,7 @@
       "category": "automation",
       "homepage": "https://github.com/zw008/VMware-AIops",
       "author": {
-        "name": "Wei Zhou / 周崴"
+        "name": "Wei Zhou"
       },
       "keywords": [
         "vmware",

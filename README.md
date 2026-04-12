@@ -1,6 +1,10 @@
 <!-- mcp-name: io.github.zw008/vmware-aiops -->
 # VMware AIops
 
+> **Author**: Wei Zhou, VMware by Broadcom — wei-wz.zhou@broadcom.com
+> This is a community-driven project by a VMware engineer, not an official VMware product.
+> For official VMware developer tools see [developer.broadcom.com](https://developer.broadcom.com).
+
 English | [中文](README-CN.md)
 
 AI-powered VMware vCenter/ESXi VM lifecycle and deployment tool — 31 tools across 6 categories.

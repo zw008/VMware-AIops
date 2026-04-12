@@ -9,7 +9,7 @@ description = "VMware vCenter/ESXi AI-powered VM lifecycle and deployment tool"
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.10"
-authors = [{ name = "Wei Zhou / 周崴" }]
+authors = [{ name = "Wei Zhou", email = "wei-wz.zhou@broadcom.com" }]
 dependencies = [
     "pyvmomi>=8.0.3.0,<10.0",
     "pyaml>=24.0,<27.0",
