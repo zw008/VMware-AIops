@@ -19,6 +19,8 @@ compatibility: >
 
 # VMware AIops
 
+> **Disclaimer**: This is a community-maintained open-source project and is **not affiliated with, endorsed by, or sponsored by VMware, Inc. or Broadcom Inc.** "VMware" and "vSphere" are trademarks of Broadcom. Source code is publicly auditable at [github.com/zw008/VMware-AIops](https://github.com/zw008/VMware-AIops) under the MIT license.
+
 VMware family entry point — AI-powered VM lifecycle, deployment, and alarm management — 34 MCP tools.
 
 > **Start here**: install vmware-aiops first, then add modules as needed.
