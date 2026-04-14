@@ -91,7 +91,7 @@ def _get_connection(target: str | None = None) -> Any:
 # ---------------------------------------------------------------------------
 
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True})
 @vmware_tool(risk_level="medium")
 def vm_power_on(vm_name: str, target: str | None = None) -> str:
     """[WRITE] Power on a virtual machine.
@@ -100,11 +100,14 @@ def vm_power_on(vm_name: str, target: str | None = None) -> str:
         vm_name: Exact name of the virtual machine.
         target: Optional vCenter/ESXi target name from config. Uses default if omitted.
     """
-    si = _get_connection(target)
-    return power_on_vm(si, vm_name)
+    try:
+        si = _get_connection(target)
+        return power_on_vm(si, vm_name)
+    except Exception as e:
+        return f"Error: {e}. Run 'vmware-aiops doctor' to verify connectivity and credentials."
 
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": True, "idempotentHint": False, "openWorldHint": True})
 @vmware_tool(risk_level="medium")
 def vm_power_off(
     vm_name: str,
@@ -118,8 +121,11 @@ def vm_power_off(
         force: If True, hard power off. If False, graceful guest shutdown.
         target: Optional vCenter/ESXi target name from config. Uses default if omitted.
     """
-    si = _get_connection(target)
-    return power_off_vm(si, vm_name, force=force)
+    try:
+        si = _get_connection(target)
+        return power_off_vm(si, vm_name, force=force)
+    except Exception as e:
+        return f"Error: {e}. Run 'vmware-aiops doctor' to verify connectivity and credentials."
 
 
 # ---------------------------------------------------------------------------
@@ -127,7 +133,7 @@ def vm_power_off(
 # ---------------------------------------------------------------------------
 
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True})
 @vmware_tool(risk_level="low")
 def browse_datastore(
     datastore_name: str,
@@ -146,11 +152,14 @@ def browse_datastore(
         pattern: Glob pattern to filter files (e.g. "*.ova", "*.iso", "*").
         target: Optional vCenter/ESXi target name from config.
     """
-    si = _get_connection(target)
-    return datastore_browser.browse_datastore(si, datastore_name, path=path, pattern=pattern)
+    try:
+        si = _get_connection(target)
+        return datastore_browser.browse_datastore(si, datastore_name, path=path, pattern=pattern)
+    except Exception as e:
+        return [{"error": str(e), "hint": "Run 'vmware-aiops doctor' to verify connectivity and credentials."}]
 
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True})
 @vmware_tool(risk_level="low")
 def scan_datastore_images(target: str | None = None) -> dict:
     """[READ] Scan all accessible datastores for deployable images (OVA/ISO/OVF/VMDK).
@@ -161,8 +170,11 @@ def scan_datastore_images(target: str | None = None) -> dict:
     Args:
         target: Optional vCenter/ESXi target name from config.
     """
-    si = _get_connection(target)
-    return datastore_browser.update_registry(si)
+    try:
+        si = _get_connection(target)
+        return datastore_browser.update_registry(si)
+    except Exception as e:
+        return {"error": str(e), "hint": "Run 'vmware-aiops doctor' to verify connectivity and credentials."}
 
 
 # ---------------------------------------------------------------------------
@@ -170,7 +182,7 @@ def scan_datastore_images(target: str | None = None) -> dict:
 # ---------------------------------------------------------------------------
 
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": True})
 @vmware_tool(risk_level="medium")
 def deploy_vm_from_ova(
     ova_path: str,
@@ -197,16 +209,19 @@ def deploy_vm_from_ova(
         snapshot_name: Create a baseline snapshot with this name (optional).
         target: Optional vCenter/ESXi target name from config.
     """
-    si = _get_connection(target)
-    return vm_deploy.deploy_ova(
-        si, ova_path=ova_path, vm_name=vm_name,
-        datastore_name=datastore_name, network_name=network_name,
-        folder_path=folder_path, power_on=power_on,
-        snapshot_name=snapshot_name,
-    )
+    try:
+        si = _get_connection(target)
+        return vm_deploy.deploy_ova(
+            si, ova_path=ova_path, vm_name=vm_name,
+            datastore_name=datastore_name, network_name=network_name,
+            folder_path=folder_path, power_on=power_on,
+            snapshot_name=snapshot_name,
+        )
+    except Exception as e:
+        return f"Error: {e}. Run 'vmware-aiops doctor' to verify connectivity and credentials."
 
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": True})
 @vmware_tool(risk_level="medium")
 def deploy_vm_from_template(
     template_name: str,
@@ -230,15 +245,18 @@ def deploy_vm_from_template(
         snapshot_name: Create a baseline snapshot with this name (optional).
         target: Optional vCenter/ESXi target name from config.
     """
-    si = _get_connection(target)
-    return vm_deploy.deploy_from_template(
-        si, template_name=template_name, new_name=new_name,
-        datastore_name=datastore_name, cpu=cpu, memory_mb=memory_mb,
-        power_on=power_on, snapshot_name=snapshot_name,
-    )
+    try:
+        si = _get_connection(target)
+        return vm_deploy.deploy_from_template(
+            si, template_name=template_name, new_name=new_name,
+            datastore_name=datastore_name, cpu=cpu, memory_mb=memory_mb,
+            power_on=power_on, snapshot_name=snapshot_name,
+        )
+    except Exception as e:
+        return f"Error: {e}. Run 'vmware-aiops doctor' to verify connectivity and credentials."
 
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": True})
 @vmware_tool(risk_level="medium")
 def deploy_linked_clone(
     source_vm_name: str,
@@ -265,15 +283,18 @@ def deploy_linked_clone(
         baseline_snapshot: Create a new snapshot on the clone (optional).
         target: Optional vCenter/ESXi target name from config.
     """
-    si = _get_connection(target)
-    return vm_deploy.linked_clone(
-        si, source_vm_name=source_vm_name, new_name=new_name,
-        snapshot_name=snapshot_name, cpu=cpu, memory_mb=memory_mb,
-        power_on=power_on, baseline_snapshot=baseline_snapshot,
-    )
+    try:
+        si = _get_connection(target)
+        return vm_deploy.linked_clone(
+            si, source_vm_name=source_vm_name, new_name=new_name,
+            snapshot_name=snapshot_name, cpu=cpu, memory_mb=memory_mb,
+            power_on=power_on, baseline_snapshot=baseline_snapshot,
+        )
+    except Exception as e:
+        return f"Error: {e}. Run 'vmware-aiops doctor' to verify connectivity and credentials."
 
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": True})
 @vmware_tool(risk_level="medium")
 def attach_iso_to_vm(
     vm_name: str,
@@ -287,11 +308,14 @@ def attach_iso_to_vm(
         iso_ds_path: Datastore path, e.g. "[datastore1] iso/ubuntu.iso".
         target: Optional vCenter/ESXi target name from config.
     """
-    si = _get_connection(target)
-    return vm_deploy.attach_iso(si, vm_name, iso_ds_path)
+    try:
+        si = _get_connection(target)
+        return vm_deploy.attach_iso(si, vm_name, iso_ds_path)
+    except Exception as e:
+        return f"Error: {e}. Run 'vmware-aiops doctor' to verify connectivity and credentials."
 
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": True})
 @vmware_tool(risk_level="medium")
 def convert_vm_to_template(
     vm_name: str,
@@ -306,11 +330,14 @@ def convert_vm_to_template(
         vm_name: Name of the VM to convert (must be powered off).
         target: Optional vCenter/ESXi target name from config.
     """
-    si = _get_connection(target)
-    return vm_deploy.convert_to_template(si, vm_name)
+    try:
+        si = _get_connection(target)
+        return vm_deploy.convert_to_template(si, vm_name)
+    except Exception as e:
+        return f"Error: {e}. Run 'vmware-aiops doctor' to verify connectivity and credentials."
 
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": True})
 @vmware_tool(risk_level="medium")
 def batch_clone_vms(
     source_vm_name: str,
@@ -334,15 +361,18 @@ def batch_clone_vms(
         power_on: Power on each clone after creation.
         target: Optional vCenter/ESXi target name from config.
     """
-    si = _get_connection(target)
-    return vm_deploy.batch_clone(
-        si, source_vm_name=source_vm_name, vm_names=vm_names,
-        cpu=cpu, memory_mb=memory_mb,
-        snapshot_name=snapshot_name, power_on=power_on,
-    )
+    try:
+        si = _get_connection(target)
+        return vm_deploy.batch_clone(
+            si, source_vm_name=source_vm_name, vm_names=vm_names,
+            cpu=cpu, memory_mb=memory_mb,
+            snapshot_name=snapshot_name, power_on=power_on,
+        )
+    except Exception as e:
+        return [{"error": str(e), "hint": "Run 'vmware-aiops doctor' to verify connectivity and credentials."}]
 
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": True})
 @vmware_tool(risk_level="medium")
 def batch_linked_clone_vms(
     source_vm_name: str,
@@ -368,15 +398,18 @@ def batch_linked_clone_vms(
         baseline_snapshot: Create a new snapshot on each clone (optional).
         target: Optional vCenter/ESXi target name from config.
     """
-    si = _get_connection(target)
-    return vm_deploy.batch_linked_clone(
-        si, source_vm_name=source_vm_name, snapshot_name=snapshot_name,
-        vm_names=vm_names, cpu=cpu, memory_mb=memory_mb,
-        power_on=power_on, baseline_snapshot=baseline_snapshot,
-    )
+    try:
+        si = _get_connection(target)
+        return vm_deploy.batch_linked_clone(
+            si, source_vm_name=source_vm_name, snapshot_name=snapshot_name,
+            vm_names=vm_names, cpu=cpu, memory_mb=memory_mb,
+            power_on=power_on, baseline_snapshot=baseline_snapshot,
+        )
+    except Exception as e:
+        return [{"error": str(e), "hint": "Run 'vmware-aiops doctor' to verify connectivity and credentials."}]
 
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": True})
 @vmware_tool(risk_level="high")
 def batch_deploy_from_spec(
     spec_path: str,
@@ -395,8 +428,11 @@ def batch_deploy_from_spec(
         spec_path: Path to the deploy.yaml specification file.
         target: Optional vCenter/ESXi target name from config.
     """
-    si = _get_connection(target)
-    return vm_deploy.batch_deploy(si, spec_path)
+    try:
+        si = _get_connection(target)
+        return vm_deploy.batch_deploy(si, spec_path)
+    except Exception as e:
+        return [{"error": str(e), "hint": "Run 'vmware-aiops doctor' to verify connectivity and credentials."}]
 
 
 # ---------------------------------------------------------------------------
@@ -404,7 +440,7 @@ def batch_deploy_from_spec(
 # ---------------------------------------------------------------------------
 
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": True})
 @vmware_tool(risk_level="medium")
 def cluster_create(
     name: str,
@@ -424,15 +460,18 @@ def cluster_create(
         drs_behavior: DRS behavior: "fullyAutomated", "partiallyAutomated", or "manual".
         target: Optional vCenter target name from config.
     """
-    from vmware_aiops.ops.cluster_mgmt import create_cluster
-    si = _get_connection(target)
-    return create_cluster(
-        si, cluster_name=name, datacenter_name=datacenter,
-        ha_enabled=ha, drs_enabled=drs, drs_behavior=drs_behavior,
-    )
+    try:
+        from vmware_aiops.ops.cluster_mgmt import create_cluster
+        si = _get_connection(target)
+        return create_cluster(
+            si, cluster_name=name, datacenter_name=datacenter,
+            ha_enabled=ha, drs_enabled=drs, drs_behavior=drs_behavior,
+        )
+    except Exception as e:
+        return f"Error: {e}. Run 'vmware-aiops doctor' to verify connectivity and credentials."
 
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": True, "idempotentHint": False, "openWorldHint": True})
 @vmware_tool(risk_level="high")
 def cluster_delete(name: str, target: str | None = None) -> str:
     """[WRITE] Delete an empty cluster (no hosts must remain).
@@ -441,12 +480,15 @@ def cluster_delete(name: str, target: str | None = None) -> str:
         name: Name of the cluster to delete.
         target: Optional vCenter target name from config.
     """
-    from vmware_aiops.ops.cluster_mgmt import delete_cluster
-    si = _get_connection(target)
-    return delete_cluster(si, name)
+    try:
+        from vmware_aiops.ops.cluster_mgmt import delete_cluster
+        si = _get_connection(target)
+        return delete_cluster(si, name)
+    except Exception as e:
+        return f"Error: {e}. Run 'vmware-aiops doctor' to verify connectivity and credentials."
 
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": True})
 @vmware_tool(risk_level="medium")
 def cluster_add_host(
     cluster_name: str,
@@ -460,12 +502,15 @@ def cluster_add_host(
         host_name: ESXi host name to move into the cluster.
         target: Optional vCenter target name from config.
     """
-    from vmware_aiops.ops.cluster_mgmt import add_host_to_cluster
-    si = _get_connection(target)
-    return add_host_to_cluster(si, cluster_name=cluster_name, host_name=host_name)
+    try:
+        from vmware_aiops.ops.cluster_mgmt import add_host_to_cluster
+        si = _get_connection(target)
+        return add_host_to_cluster(si, cluster_name=cluster_name, host_name=host_name)
+    except Exception as e:
+        return f"Error: {e}. Run 'vmware-aiops doctor' to verify connectivity and credentials."
 
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": True, "idempotentHint": False, "openWorldHint": True})
 @vmware_tool(risk_level="medium")
 def cluster_remove_host(
     cluster_name: str,
@@ -479,12 +524,15 @@ def cluster_remove_host(
         host_name: ESXi host name to remove.
         target: Optional vCenter target name from config.
     """
-    from vmware_aiops.ops.cluster_mgmt import remove_host_from_cluster
-    si = _get_connection(target)
-    return remove_host_from_cluster(si, cluster_name=cluster_name, host_name=host_name)
+    try:
+        from vmware_aiops.ops.cluster_mgmt import remove_host_from_cluster
+        si = _get_connection(target)
+        return remove_host_from_cluster(si, cluster_name=cluster_name, host_name=host_name)
+    except Exception as e:
+        return f"Error: {e}. Run 'vmware-aiops doctor' to verify connectivity and credentials."
 
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": True})
 @vmware_tool(risk_level="medium")
 def cluster_configure(
     name: str,
@@ -502,15 +550,18 @@ def cluster_configure(
         drs_behavior: DRS behavior: "fullyAutomated", "partiallyAutomated", or "manual".
         target: Optional vCenter target name from config.
     """
-    from vmware_aiops.ops.cluster_mgmt import configure_cluster
-    si = _get_connection(target)
-    return configure_cluster(
-        si, cluster_name=name,
-        ha_enabled=ha, drs_enabled=drs, drs_behavior=drs_behavior,
-    )
+    try:
+        from vmware_aiops.ops.cluster_mgmt import configure_cluster
+        si = _get_connection(target)
+        return configure_cluster(
+            si, cluster_name=name,
+            ha_enabled=ha, drs_enabled=drs, drs_behavior=drs_behavior,
+        )
+    except Exception as e:
+        return f"Error: {e}. Run 'vmware-aiops doctor' to verify connectivity and credentials."
 
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True})
 @vmware_tool(risk_level="low")
 def cluster_info(name: str, target: str | None = None) -> dict:
     """[READ] Get detailed cluster information (hosts, HA/DRS config, resources).
@@ -519,9 +570,12 @@ def cluster_info(name: str, target: str | None = None) -> dict:
         name: Cluster name.
         target: Optional vCenter target name from config.
     """
-    from vmware_aiops.ops.cluster_mgmt import get_cluster_info
-    si = _get_connection(target)
-    return get_cluster_info(si, name)
+    try:
+        from vmware_aiops.ops.cluster_mgmt import get_cluster_info
+        si = _get_connection(target)
+        return get_cluster_info(si, name)
+    except Exception as e:
+        return {"error": str(e), "hint": "Run 'vmware-aiops doctor' to verify connectivity and credentials."}
 
 
 # ---------------------------------------------------------------------------
@@ -529,7 +583,7 @@ def cluster_info(name: str, target: str | None = None) -> dict:
 # ---------------------------------------------------------------------------
 
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": True})
 @vmware_tool(risk_level="medium")
 def vm_set_ttl(
     vm_name: str,
@@ -546,11 +600,14 @@ def vm_set_ttl(
         minutes: Minutes until deletion (minimum 1).
         target: Optional vCenter/ESXi target name from config.
     """
-    from vmware_aiops.ops.ttl import set_ttl as _set_ttl
-    return _set_ttl(vm_name, minutes, target=target)
+    try:
+        from vmware_aiops.ops.ttl import set_ttl as _set_ttl
+        return _set_ttl(vm_name, minutes, target=target)
+    except Exception as e:
+        return f"Error: {e}. Run 'vmware-aiops doctor' to verify connectivity and credentials."
 
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": True, "idempotentHint": False, "openWorldHint": True})
 @vmware_tool(risk_level="medium")
 def vm_cancel_ttl(vm_name: str) -> str:
     """[WRITE] Cancel an existing TTL for a VM (prevents auto-deletion).
@@ -558,22 +615,28 @@ def vm_cancel_ttl(vm_name: str) -> str:
     Args:
         vm_name: Name of the VM whose TTL should be cancelled.
     """
-    from vmware_aiops.ops.ttl import cancel_ttl as _cancel_ttl
-    return _cancel_ttl(vm_name)
+    try:
+        from vmware_aiops.ops.ttl import cancel_ttl as _cancel_ttl
+        return _cancel_ttl(vm_name)
+    except Exception as e:
+        return f"Error: {e}. Run 'vmware-aiops doctor' to verify connectivity and credentials."
 
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True})
 @vmware_tool(risk_level="low")
 def vm_list_ttl() -> list[dict]:
     """[READ] List all VMs with TTLs registered, including expiry time and status.
 
     Returns a list of TTL entries with remaining_minutes and expired flag.
     """
-    from vmware_aiops.ops.ttl import list_ttl as _list_ttl
-    return _list_ttl()
+    try:
+        from vmware_aiops.ops.ttl import list_ttl as _list_ttl
+        return _list_ttl()
+    except Exception as e:
+        return [{"error": str(e), "hint": "Run 'vmware-aiops doctor' to verify connectivity and credentials."}]
 
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": True, "idempotentHint": False, "openWorldHint": True})
 @vmware_tool(risk_level="high")
 def vm_clean_slate(
     vm_name: str,
@@ -591,9 +654,12 @@ def vm_clean_slate(
         snapshot_name: Snapshot name to revert to (default: "baseline").
         target: Optional vCenter/ESXi target name from config.
     """
-    from vmware_aiops.ops.vm_lifecycle import clean_slate
-    si = _get_connection(target)
-    return clean_slate(si, vm_name, snapshot_name=snapshot_name)
+    try:
+        from vmware_aiops.ops.vm_lifecycle import clean_slate
+        si = _get_connection(target)
+        return clean_slate(si, vm_name, snapshot_name=snapshot_name)
+    except Exception as e:
+        return f"Error: {e}. Run 'vmware-aiops doctor' to verify connectivity and credentials."
 
 
 # ---------------------------------------------------------------------------
@@ -601,7 +667,7 @@ def vm_clean_slate(
 # ---------------------------------------------------------------------------
 
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": True})
 @vmware_tool(risk_level="medium", sensitive_params=['password'])
 def vm_guest_exec(
     vm_name: str,
@@ -631,15 +697,18 @@ def vm_guest_exec(
         working_directory: Working directory inside guest (optional).
         target: Optional vCenter/ESXi target name from config.
     """
-    si = _get_connection(target)
-    return guest_exec(
-        si, vm_name, command, username, password,
-        arguments=arguments,
-        working_directory=working_directory,
-    )
+    try:
+        si = _get_connection(target)
+        return guest_exec(
+            si, vm_name, command, username, password,
+            arguments=arguments,
+            working_directory=working_directory,
+        )
+    except Exception as e:
+        return {"error": str(e), "hint": "Run 'vmware-aiops doctor' to verify connectivity and credentials."}
 
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": True})
 @vmware_tool(risk_level="medium", sensitive_params=['password'])
 def vm_guest_exec_output(
     vm_name: str,
@@ -665,11 +734,14 @@ def vm_guest_exec_output(
         timeout: Max wait seconds (default 300).
         target: Optional vCenter/ESXi target name from config.
     """
-    si = _get_connection(target)
-    return guest_exec_with_output(si, vm_name, command, username, password, timeout=timeout)
+    try:
+        si = _get_connection(target)
+        return guest_exec_with_output(si, vm_name, command, username, password, timeout=timeout)
+    except Exception as e:
+        return {"error": str(e), "hint": "Run 'vmware-aiops doctor' to verify connectivity and credentials."}
 
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": True})
 @vmware_tool(risk_level="medium", sensitive_params=['password'])
 def vm_guest_upload(
     vm_name: str,
@@ -691,11 +763,14 @@ def vm_guest_upload(
         password: Guest OS password.
         target: Optional vCenter/ESXi target name from config.
     """
-    si = _get_connection(target)
-    return guest_upload(si, vm_name, local_path, guest_path, username, password)
+    try:
+        si = _get_connection(target)
+        return guest_upload(si, vm_name, local_path, guest_path, username, password)
+    except Exception as e:
+        return f"Error: {e}. Run 'vmware-aiops doctor' to verify connectivity and credentials."
 
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True})
 @vmware_tool(risk_level="medium", sensitive_params=['password'])
 def vm_guest_download(
     vm_name: str,
@@ -717,11 +792,14 @@ def vm_guest_download(
         password: Guest OS password.
         target: Optional vCenter/ESXi target name from config.
     """
-    si = _get_connection(target)
-    return guest_download(si, vm_name, guest_path, local_path, username, password)
+    try:
+        si = _get_connection(target)
+        return guest_download(si, vm_name, guest_path, local_path, username, password)
+    except Exception as e:
+        return f"Error: {e}. Run 'vmware-aiops doctor' to verify connectivity and credentials."
 
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": True})
 @vmware_tool(risk_level="medium", sensitive_params=['password'])
 def vm_guest_provision(
     vm_name: str,
@@ -761,8 +839,11 @@ def vm_guest_provision(
             {"type": "service", "name": "nginx", "action": "start"},
         ]
     """
-    si = _get_connection(target)
-    return guest_provision(si, vm_name, username, password, steps, timeout=timeout)
+    try:
+        si = _get_connection(target)
+        return guest_provision(si, vm_name, username, password, steps, timeout=timeout)
+    except Exception as e:
+        return {"error": str(e), "hint": "Run 'vmware-aiops doctor' to verify connectivity and credentials."}
 
 
 # ---------------------------------------------------------------------------
@@ -770,7 +851,7 @@ def vm_guest_provision(
 # ---------------------------------------------------------------------------
 
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": True})
 @vmware_tool(risk_level="medium")
 def vm_create_plan(
     operations: list[dict[str, Any]],
@@ -803,11 +884,14 @@ def vm_create_plan(
         operations: List of operation dicts, each with "action" + params.
         target: Optional vCenter/ESXi target name from config.
     """
-    si = _get_connection(target)
-    return create_plan(si, operations, target=target)
+    try:
+        si = _get_connection(target)
+        return create_plan(si, operations, target=target)
+    except Exception as e:
+        return {"error": str(e), "hint": "Run 'vmware-aiops doctor' to verify connectivity and credentials."}
 
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": True})
 @vmware_tool(risk_level="medium")
 def vm_apply_plan(plan_id: str, target: str | None = None) -> dict:
     """[WRITE] Execute a previously created plan step by step.
@@ -823,19 +907,22 @@ def vm_apply_plan(plan_id: str, target: str | None = None) -> dict:
         plan_id: The plan ID returned by vm_create_plan.
         target: Optional vCenter/ESXi target name from config.
     """
-    si = _get_connection(target)
-    result = apply_plan(si, plan_id)
+    try:
+        si = _get_connection(target)
+        result = apply_plan(si, plan_id)
 
-    # If failed with rollback available, hint to the agent
-    if result.get("status") == "failed" and result.get("rollback_available"):
-        result["hint"] = (
-            "Plan failed. Ask the user: 'Do you want to rollback the "
-            "already-executed steps?' If yes, call vm_rollback_plan."
-        )
-    return result
+        # If failed with rollback available, hint to the agent
+        if result.get("status") == "failed" and result.get("rollback_available"):
+            result["hint"] = (
+                "Plan failed. Ask the user: 'Do you want to rollback the "
+                "already-executed steps?' If yes, call vm_rollback_plan."
+            )
+        return result
+    except Exception as e:
+        return {"error": str(e), "hint": "Run 'vmware-aiops doctor' to verify connectivity and credentials."}
 
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": True, "idempotentHint": False, "openWorldHint": True})
 @vmware_tool(risk_level="medium")
 def vm_rollback_plan(plan_id: str, target: str | None = None) -> dict:
     """[WRITE] Rollback executed steps of a failed plan in reverse order.
@@ -848,11 +935,14 @@ def vm_rollback_plan(plan_id: str, target: str | None = None) -> dict:
         plan_id: The plan ID of the failed plan.
         target: Optional vCenter/ESXi target name from config.
     """
-    si = _get_connection(target)
-    return rollback_plan(si, plan_id)
+    try:
+        si = _get_connection(target)
+        return rollback_plan(si, plan_id)
+    except Exception as e:
+        return {"error": str(e), "hint": "Run 'vmware-aiops doctor' to verify connectivity and credentials."}
 
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True})
 @vmware_tool(risk_level="low")
 def vm_list_plans() -> list[dict]:
     """[READ] List all pending/failed plans.
@@ -860,7 +950,10 @@ def vm_list_plans() -> list[dict]:
     Returns plan summaries (plan_id, created_at, status, steps count,
     VMs affected). Stale plans (>24h) are auto-cleaned.
     """
-    return list_plans()
+    try:
+        return list_plans()
+    except Exception as e:
+        return [{"error": str(e), "hint": "Run 'vmware-aiops doctor' to verify connectivity and credentials."}]
 
 
 # ---------------------------------------------------------------------------
@@ -868,7 +961,7 @@ def vm_list_plans() -> list[dict]:
 # ---------------------------------------------------------------------------
 
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True})
 @vmware_tool(risk_level="low")
 def list_vcenter_alarms(
     target: str | None = None,
@@ -883,14 +976,17 @@ def list_vcenter_alarms(
         target: Optional vCenter target name from config. Uses default if omitted.
         limit: Max number of alarms to return (None = all). Use when many alarms are active.
     """
-    si = _get_connection(target)
-    results = list_alarms(si)
-    if limit is not None:
-        results = results[:limit]
-    return results
+    try:
+        si = _get_connection(target)
+        results = list_alarms(si)
+        if limit is not None:
+            results = results[:limit]
+        return results
+    except Exception as e:
+        return [{"error": str(e), "hint": "Run 'vmware-aiops doctor' to verify connectivity and credentials."}]
 
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": True})
 @vmware_tool(risk_level="medium")
 def acknowledge_vcenter_alarm(
     entity_name: str,
@@ -908,11 +1004,14 @@ def acknowledge_vcenter_alarm(
         alarm_name: Exact alarm definition name from list_vcenter_alarms output.
         target: Optional vCenter target name from config.
     """
-    si = _get_connection(target)
-    return acknowledge_alarm(si, entity_name, alarm_name, target_name=target or "default")
+    try:
+        si = _get_connection(target)
+        return acknowledge_alarm(si, entity_name, alarm_name, target_name=target or "default")
+    except Exception as e:
+        return {"error": str(e), "hint": "Run 'vmware-aiops doctor' to verify connectivity and credentials."}
 
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": True})
 @vmware_tool(risk_level="medium")
 def reset_vcenter_alarm(
     entity_name: str,
@@ -930,8 +1029,11 @@ def reset_vcenter_alarm(
         alarm_name: Exact alarm definition name from list_vcenter_alarms output.
         target: Optional vCenter target name from config.
     """
-    si = _get_connection(target)
-    return reset_alarm(si, entity_name, alarm_name, target_name=target or "default")
+    try:
+        si = _get_connection(target)
+        return reset_alarm(si, entity_name, alarm_name, target_name=target or "default")
+    except Exception as e:
+        return {"error": str(e), "hint": "Run 'vmware-aiops doctor' to verify connectivity and credentials."}
 
 
 # ---------------------------------------------------------------------------
