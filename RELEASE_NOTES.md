@@ -1,3 +1,11 @@
+## v1.5.12 (2026-04-17)
+
+**Bug fixes from code review by @yjs-2026**
+
+- **fix:** `_count_children` — guard `childSnapshotList` against None (pyVmomi may return None instead of empty list), preventing `TypeError` on snapshot count
+- **fix:** `migrate_vm` — return clear error when `vm.runtime.host` is None (VM provisioning / detached), instead of proceeding with confusing API failure
+- **fix(security):** `_upload_disk` — SSL verification now respects target config instead of unconditionally disabling cert checks for all VMDK uploads
+
 ## v1.5.11 (2026-04-17)
 
 - Align with VMware skill family v1.5.11 (AVI 22.x fixes from @timwangbc)

@@ -111,7 +111,7 @@ def _count_snapshots(snapshot_info) -> int:
 
 def _count_children(snap_tree) -> int:
     count = 0
-    for child in snap_tree.childSnapshotList:
+    for child in (snap_tree.childSnapshotList or []):
         count += 1 + _count_children(child)
     return count
 
@@ -431,7 +431,10 @@ def migrate_vm(si: ServiceInstance, vm_name: str, target_host_name: str) -> str:
     if target_host is None:
         return f"Target host '{target_host_name}' not found."
 
-    current_host = vm.runtime.host.name if vm.runtime.host else "unknown"
+    if not vm.runtime.host:
+        return f"VM '{vm_name}' has no current host (may be provisioning). Cannot migrate."
+
+    current_host = vm.runtime.host.name
     if current_host == target_host_name:
         return f"VM '{vm_name}' is already on host '{target_host_name}'."
 

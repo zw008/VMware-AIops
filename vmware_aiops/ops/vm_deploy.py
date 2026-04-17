@@ -171,11 +171,16 @@ def _upload_disk(
         },
     )
 
-    # SSL verification disabled for ESXi self-signed certificates only
+    # SSL context: respect verify_ssl from the lease's ServiceInstance.
+    # Only disable verification when the target uses self-signed certs.
     import ssl
-    ctx = ssl.create_default_context()
-    ctx.check_hostname = False
-    ctx.verify_mode = ssl.CERT_NONE  # nosec B501 — ESXi self-signed certs
+    verify_ssl = getattr(lease, "_vmware_verify_ssl", True)
+    if verify_ssl:
+        ctx = ssl.create_default_context()
+    else:
+        ctx = ssl.create_default_context()
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE  # nosec B501 — ESXi self-signed certs
 
     urlopen(req, context=ctx)  # nosec B310 — scheme validated above
 
