@@ -47,7 +47,7 @@ This writes the MCP server config directly into `~/.cursor/mcp.json`.
 3. Fill in:
    - **Name**: `vmware-aiops`
    - **Type**: `stdio`
-   - **Command**: `uvx --from vmware-aiops vmware-aiops-mcp`
+   - **Command**: `vmware-aiops mcp` (v1.5.15+; legacy: `uvx --from vmware-aiops vmware-aiops-mcp`)
    - **Env**: `VMWARE_AIOPS_CONFIG=~/.vmware-aiops/config.yaml`
 
 ### Option C: Manual — mcp.json
@@ -58,8 +58,8 @@ Add to `~/.cursor/mcp.json` (create if it doesn't exist):
 {
   "mcpServers": {
     "vmware-aiops": {
-      "command": "uvx",
-      "args": ["--from", "vmware-aiops", "vmware-aiops-mcp"],
+      "command": "vmware-aiops",
+      "args": ["mcp"],
       "env": {
         "VMWARE_AIOPS_CONFIG": "~/.vmware-aiops/config.yaml"
       }

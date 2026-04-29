@@ -36,5 +36,19 @@ app.add_typer(hub_app, name="hub")
 app.command("doctor")(doctor_cmd)
 
 
+@app.command("mcp")
+def mcp_cmd() -> None:
+    """Start the MCP server (stdio transport).
+
+    Single-command entry point for MCP clients (Claude Desktop, Cursor, etc.):
+        vmware-aiops mcp
+
+    Equivalent to the legacy `vmware-aiops-mcp` console script.
+    """
+    from mcp_server.server import main as _mcp_main
+
+    _mcp_main()
+
+
 if __name__ == "__main__":
     app()

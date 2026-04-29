@@ -442,12 +442,14 @@ cp kimi-skill/SKILL.md ~/.kimi/skills/vmware-aiops/SKILL.md
 
 MCP 服务器通过 [Model Context Protocol](https://modelcontextprotocol.io) 将 VMware 操作暴露为工具，兼容所有 MCP 客户端（Claude Desktop、Cursor 等）。
 
+**v1.5.15+ 推荐方式**：完成 `uv tool install vmware-aiops` 后，**一条命令启动 MCP**：
+
 ```bash
-# 通过 uvx 运行（推荐 — 适用于 uv tool install 安装方式）
-uvx --from vmware-aiops vmware-aiops-mcp
+# 推荐 — 单命令，无网络依赖
+vmware-aiops mcp
 
 # 指定配置路径
-VMWARE_AIOPS_CONFIG=/path/to/config.yaml uvx --from vmware-aiops vmware-aiops-mcp
+VMWARE_AIOPS_CONFIG=/path/to/config.yaml vmware-aiops mcp
 ```
 
 **Claude Desktop 配置** (`claude_desktop_config.json`)：
@@ -455,8 +457,8 @@ VMWARE_AIOPS_CONFIG=/path/to/config.yaml uvx --from vmware-aiops vmware-aiops-mc
 {
   "mcpServers": {
     "vmware-aiops": {
-      "command": "uvx",
-      "args": ["--from", "vmware-aiops", "vmware-aiops-mcp"],
+      "command": "vmware-aiops",
+      "args": ["mcp"],
       "env": {
         "VMWARE_AIOPS_CONFIG": "/path/to/config.yaml"
       }
@@ -464,6 +466,22 @@ VMWARE_AIOPS_CONFIG=/path/to/config.yaml uvx --from vmware-aiops vmware-aiops-mc
   }
 }
 ```
+
+<details>
+<summary>备选方案：uvx（不安装）或 legacy 入口</summary>
+
+```bash
+# 不想安装，临时运行（每次需要联网 resolve 依赖）
+uvx --from vmware-aiops vmware-aiops mcp
+
+# 旧 entry point（仍可用，向后兼容）
+vmware-aiops-mcp
+```
+
+> **公司 TLS 代理网络下？** uvx 可能报 `invalid peer certificate: UnknownIssuer`。
+> 推荐使用上面的 `vmware-aiops mcp`（无需联网），或 `export UV_NATIVE_TLS=true`。
+
+</details>
 
 **通过 Smithery 安装**：
 ```bash

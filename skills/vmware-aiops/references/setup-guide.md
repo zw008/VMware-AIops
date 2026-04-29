@@ -108,8 +108,8 @@ For Claude Code / Cursor users who prefer structured tool calls, add to `~/.clau
 {
   "mcpServers": {
     "vmware-aiops": {
-      "command": "uvx",
-      "args": ["--from", "vmware-aiops", "vmware-aiops-mcp"],
+      "command": "vmware-aiops",
+      "args": ["mcp"],
       "env": {
         "VMWARE_AIOPS_CONFIG": "~/.vmware-aiops/config.yaml"
       }
@@ -117,5 +117,10 @@ For Claude Code / Cursor users who prefer structured tool calls, add to `~/.clau
   }
 }
 ```
+
+> v1.5.15+ recommends the single-command form `vmware-aiops mcp`. Pre-1.5.15 used
+> `uvx --from vmware-aiops vmware-aiops-mcp`, which still works but re-resolves from
+> PyPI on each launch and breaks behind corporate TLS proxies. The legacy
+> `vmware-aiops-mcp` entry point is also kept for backward compatibility.
 
 MCP exposes 31 tools across 6 categories. All accept optional `target` parameter.

@@ -1,3 +1,12 @@
+## v1.5.15 (2026-04-29)
+
+**UX improvements from real user feedback**
+
+- **feat:** New top-level CLI subcommand `vmware-aiops mcp` starts the MCP server. Single command, single binary on PATH after `uv tool install vmware-aiops` — no more `uvx --from`, no PyPI re-resolve, no TLS-proxy issues.
+- **feat:** Default `verify_ssl: true` on new targets (was `false`). Self-signed cert environments must now opt in explicitly with `verify_ssl: false` in `config.yaml`. Strengthens default security posture and addresses VirusTotal "disableSslCertValidation" finding.
+- **docs:** README, SKILL.md, setup-guide.md, and all `examples/mcp-configs/*.json` switched to `command: "vmware-aiops"`, `args: ["mcp"]`. uvx form moved to fallback section with TLS-proxy troubleshooting note.
+- **compat:** Legacy `vmware-aiops-mcp` console script kept — existing user configs continue to work unchanged.
+
 ## v1.5.14 (2026-04-21)
 
 - Align with VMware skill family v1.5.14 (code review follow-up fixes by @yjs-2026)

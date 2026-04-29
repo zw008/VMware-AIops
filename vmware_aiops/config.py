@@ -56,7 +56,7 @@ class TargetConfig:
     username: str
     type: Literal["vcenter", "esxi"] = "vcenter"
     port: int = 443
-    verify_ssl: bool = False
+    verify_ssl: bool = True
 
     @property
     def password(self) -> str:
@@ -130,7 +130,7 @@ def load_config(config_path: Path | None = None) -> AppConfig:
             username=t.get("username", "administrator@vsphere.local"),
             type=t.get("type", "vcenter"),
             port=t.get("port", 443),
-            verify_ssl=t.get("verify_ssl", False),
+            verify_ssl=t.get("verify_ssl", True),
         )
         for t in raw.get("targets", [])
     )

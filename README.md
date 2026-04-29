@@ -581,12 +581,14 @@ cp kimi-skill/SKILL.md ~/.kimi/skills/vmware-aiops/SKILL.md
 
 The MCP server exposes VMware operations as tools via the [Model Context Protocol](https://modelcontextprotocol.io). Works with any MCP-compatible client (Claude Desktop, Cursor, etc.).
 
+**After `uv tool install vmware-aiops`, start the MCP server with one command** (v1.5.15+):
+
 ```bash
-# Run via uvx (recommended — works with uv tool install)
-uvx --from vmware-aiops vmware-aiops-mcp
+# Recommended — single command, no network re-resolve
+vmware-aiops mcp
 
 # With a custom config path
-VMWARE_AIOPS_CONFIG=/path/to/config.yaml uvx --from vmware-aiops vmware-aiops-mcp
+VMWARE_AIOPS_CONFIG=/path/to/config.yaml vmware-aiops mcp
 ```
 
 **Claude Desktop config** (`claude_desktop_config.json`):
@@ -594,8 +596,8 @@ VMWARE_AIOPS_CONFIG=/path/to/config.yaml uvx --from vmware-aiops vmware-aiops-mc
 {
   "mcpServers": {
     "vmware-aiops": {
-      "command": "uvx",
-      "args": ["--from", "vmware-aiops", "vmware-aiops-mcp"],
+      "command": "vmware-aiops",
+      "args": ["mcp"],
       "env": {
         "VMWARE_AIOPS_CONFIG": "/path/to/config.yaml"
       }
@@ -603,6 +605,22 @@ VMWARE_AIOPS_CONFIG=/path/to/config.yaml uvx --from vmware-aiops vmware-aiops-mc
   }
 }
 ```
+
+<details>
+<summary>Alternative: uvx (no install) or legacy entry point</summary>
+
+```bash
+# Run without installing (requires PyPI access each launch)
+uvx --from vmware-aiops vmware-aiops mcp
+
+# Legacy entry point (still works, kept for backward compatibility)
+vmware-aiops-mcp
+```
+
+> **Behind a corporate TLS proxy?** uvx may fail with `invalid peer certificate: UnknownIssuer`.
+> Use the recommended `vmware-aiops mcp` form above (no network needed), or set `UV_NATIVE_TLS=true`.
+
+</details>
 
 **Install via Smithery**:
 ```bash

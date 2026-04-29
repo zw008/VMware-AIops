@@ -46,7 +46,7 @@ This writes the extension config directly into `~/.config/goose/config.yaml`.
 goose configure
 # Select: Add Extension → MCP Server
 # Name: vmware-aiops
-# Command: uvx --from vmware-aiops vmware-aiops-mcp
+# Command: vmware-aiops mcp     # v1.5.15+; legacy: uvx --from vmware-aiops vmware-aiops-mcp
 # Env: VMWARE_AIOPS_CONFIG=~/.vmware-aiops/config.yaml
 ```
 
@@ -58,11 +58,9 @@ Add to `~/.config/goose/config.yaml`:
 extensions:
   vmware-aiops:
     type: stdio
-    cmd: uvx
+    cmd: vmware-aiops
     args:
-      - --from
-      - vmware-aiops
-      - vmware-aiops-mcp
+      - mcp
     env:
       VMWARE_AIOPS_CONFIG: ~/.vmware-aiops/config.yaml
     enabled: true
@@ -158,7 +156,8 @@ See [examples/ollama-local-setup.md](../../examples/ollama-local-setup.md) for f
 
 | Issue | Solution |
 |-------|----------|
-| Extension not found | Check that `uvx --from vmware-aiops vmware-aiops-mcp` runs successfully |
+| Extension not found | Check that `vmware-aiops mcp` runs successfully (v1.5.15+) or `which vmware-aiops` returns a PATH |
+| `invalid peer certificate: UnknownIssuer` (uvx) | Corporate TLS proxy not trusted by uv. Use `vmware-aiops mcp` instead, or `export UV_NATIVE_TLS=true` |
 | Auth failure | Run `vmware-aiops doctor` to verify vCenter connectivity |
 | Tool call timeout | Large inventories may take 10–30s; Goose default timeout may need increasing |
 | `VMWARE_AIOPS_CONFIG` not found | Use absolute path, not `~` expansion in config |
