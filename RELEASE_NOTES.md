@@ -1,3 +1,12 @@
+## v1.5.16 (2026-04-30)
+
+**Enterprise Harness Engineering alignment** — adapted from the Linkloud × addxai framework articles ([part 1](https://mp.weixin.qq.com/s/hz4W7ILHJ1yz_pG0Z1xP-A), [part 2](https://mp.weixin.qq.com/s/F3qYbyB3S8oIqx-Y4BrWNQ)).
+
+- **docs:** New `references/investigation-protocol.md` — causal-chain root cause analysis protocol with 4 completeness criteria (falsifiability/sufficiency/necessity/mechanism) and up-to-3-rounds deepening loop. Common Workflows now point to it before any diagnostic remediation.
+- **docs:** "Automation Level Reference" section in `references/capabilities.md` — every operation tagged L1-L5 per the EHE framework.
+- **docs:** Common Workflows in `SKILL.md` rewritten from step-by-step API call lists into judgment-encoded expert decision logic — pre-flight checks, decision rules, safety gates surfaced explicitly (deploy lab env, batch clone, vMotion).
+- **align:** Family version bump to v1.5.16.
+
 ## v1.5.15 (2026-04-29)
 
 **UX improvements from real user feedback**

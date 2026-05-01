@@ -1,5 +1,22 @@
 # Capabilities Reference
 
+## Automation Level Reference
+
+Each operation is classified by autonomy level per the Enterprise Harness Engineering framework. This tells AI agents how much human gating each tool needs:
+
+| Level | Meaning | Agent autonomy | Examples in this skill |
+|:-:|---|---|---|
+| **L1** | Read-only, raw data | Always auto-run | `vm_info`, `cluster_info`, `datastore_browse`, `vm_list`, `host_list` |
+| **L2** | Read + analysis / recommendation | Always auto-run | scheduled scan reports, alarm/event correlation, log pattern analysis |
+| **L3** | Single write — user must approve | Only after explicit confirmation; high-risk ops require double-confirm (see Confirmation column) | `vm_power_on`, `vm_power_off`, `vm_delete`, `vm_snapshot_create`, `vm_clone`, `vm_migrate` |
+| **L4** | Multi-step plan / apply workflow | Plan generation auto; apply gated by user approval | `vm_create_plan` → `vm_apply_plan` → `vm_rollback_plan`, batch-clone, batch-deploy YAML |
+| **L5** | Auto-remediation from learned pattern | Pattern library only; requires `risk:low` + `reversible:true` + `repeatable:true` + signed approval | *(roadmap — not implemented; candidates: snapshot consolidation, orphaned VM cleanup)* |
+
+**Notes**:
+- L1/L2 tools are always safe for agents to call without confirmation.
+- L3+ tools always pass through the `@vmware_tool` decorator: connection check → policy check → audit log → optional double-confirm.
+- See [vmware-pilot](https://github.com/zw008/VMware-Pilot) for cross-skill L4 orchestration and the Dispatcher/Subagent pattern.
+
 ## VM Lifecycle
 
 | Operation | Command | Confirmation | vCenter | ESXi |

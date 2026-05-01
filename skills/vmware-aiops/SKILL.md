@@ -103,24 +103,52 @@ vmware-aiops is the entry point. Add modules for additional capabilities:
 
 ## Common Workflows
 
+> **Diagnostic investigations**: Before remediating any "why is X slow / failing / down" issue, follow [`references/investigation-protocol.md`](references/investigation-protocol.md). It enforces the four root-cause completeness criteria (falsifiability / sufficiency / necessity / mechanism) and the up-to-three-rounds deepening loop. Only invoke L3+ write tools after the four criteria are satisfied AND the user has approved a remediation plan.
+
 ### Deploy a Lab Environment
-1. Browse datastore for OVA images → `vmware-aiops datastore browse <ds> --pattern "*.ova"`
-2. Deploy VM from OVA → `vmware-aiops deploy ova ./image.ova --name lab-vm --datastore ds1`
-3. Run provisioning script inside VM → `vmware-aiops vm guest-exec lab-vm --cmd /usr/bin/python3 --args "setup.py" --user admin`
-4. Create baseline snapshot → `vmware-aiops vm snapshot-create lab-vm --name baseline`
-5. Set TTL for auto-cleanup → `vmware-aiops vm set-ttl lab-vm --minutes 480`
+
+**Pre-flight (judgment, not blind sequence)**:
+- Free space: target datastore must have ≥ OVA size × 2 (delta files + thin-provision overhead). If multiple datastores qualify, prefer one with lowest current IOPS pressure (cross-check `vmware-aria` if available).
+- Name hygiene: prefix with date or owner (`lab-2026-04-30-alice`) so the TTL cleanup audit trail is meaningful.
+- TTL: always set. 480 min for a single test session, 7200 min for a week-long sandbox. **Never deploy a "lab" VM without a TTL** — that is how datastores fill up at 3 AM.
+- Snapshot timing: take the baseline **after** provisioning succeeds, not before — a pre-provision snapshot is just an empty checkpoint.
+
+**Steps**:
+1. `vmware-aiops datastore browse <ds> --pattern "*.ova"` → confirm image present and size
+2. `vmware-aiops deploy ova <path> --name <date>-<owner>-<purpose> --datastore <ds>`
+3. `vmware-aiops vm guest-exec <name> --cmd /usr/bin/python3 --args "setup.py" --user admin` → if exit ≠ 0, **stop**, do not snapshot a half-provisioned VM
+4. `vmware-aiops vm snapshot-create <name> --name baseline` (only if multi-iteration testing; skip for one-shot)
+5. `vmware-aiops vm set-ttl <name> --minutes 480`
 
 ### Batch Clone for Testing
-1. Create plan: `vm_create_plan` with multiple clone + reconfigure steps
-2. Review plan with user (shows affected VMs, irreversible warnings)
-3. Apply: `vm_apply_plan` executes sequentially, stops on failure
-4. If failed: `vm_rollback_plan` reverses executed steps
-5. Set TTL on all clones for auto-cleanup
+
+**Pre-flight**:
+- Source VM state: powered-off is safest. If powered-on, VMware Tools must be running and quiesce-capable, else clones may have inconsistent disk state.
+- Capacity math: `free_space ≥ source.size × count × 1.2` (full clone) or `≥ count × 2 GB` (linked clone, delta-only).
+- Decision rule: **count > 10 → use linked clones** (`deploy linked-clone`); seconds vs minutes per clone, ~100× less storage. Tradeoff: linked clones depend on source snapshot — deleting the snapshot breaks all children.
+- Network exhaustion: each clone gets a unique MAC from the vSphere pool; if you batch > 200, verify pool capacity in advance.
+- TTL: every clone must have one. Use the plan's metadata to track ownership.
+
+**Steps**:
+1. `vm_create_plan` with clone + reconfigure + set-ttl steps grouped per VM (atomic per clone)
+2. Review the plan with the user — surface count, datastore, irreversible warnings
+3. `vm_apply_plan` — stops on first failure (intentional, do not auto-resume)
+4. On failure: `vm_rollback_plan` → reverses completed clones; manually verify rollback before retrying
 
 ### Migrate VM to Another Host
-1. Check VM info via `vmware-monitor` → verify power state and current host
-2. Migrate: `vmware-aiops vm migrate my-vm --to-host esxi-02`
-3. Verify migration completed
+
+**Pre-flight (ALL must pass before issuing migrate)**:
+- CPU compatibility: target host CPU family must match source, OR cluster must be in EVC mode. Live migration across mismatched CPUs **fails mid-flight** and may leave the VM stunned.
+- Network parity: every portgroup the VM uses must exist on the target host's vSwitch with the same VLAN. Missing portgroup → vNICs disconnected post-migration.
+- Storage visibility: target host must see all of the VM's datastores; otherwise this is a Storage vMotion, not a host migration — different (slower) operation.
+- Affinity rules: if the VM is pinned to source by a DRS host-affinity rule, migration silently violates intent. Check `cluster info` first.
+- Hardware passthrough: VMs with PCI passthrough (GPU, USB) **cannot live-migrate** — schedule a cold migration window.
+
+**Steps**:
+1. Verify VM state and current host via `vmware-monitor vm info <name>`
+2. Verify target host: same cluster, EVC compatible, has required networks/datastores
+3. `vmware-aiops vm migrate <name> --to-host <target>` — wait for task completion, do not assume success on return
+4. Post-check: `vm info` confirms new host AND power state unchanged AND vNICs connected
 
 ## Usage Mode
 
