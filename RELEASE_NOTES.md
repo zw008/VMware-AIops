@@ -1,3 +1,11 @@
+## v1.5.17 (2026-05-01)
+
+**Family alignment** — no source changes in this skill.
+
+This release tracks vmware-pilot v1.5.17 (new `investigate_alert` template + `review_workflow` MCP tool + `parallel_group` step type) and vmware-policy v1.5.17 (L5 pattern matcher integrated into `@vmware_tool`). Both work with the existing skill MCP surface unchanged.
+
+- **align:** Family version bump to v1.5.17.
+
 ## v1.5.16 (2026-04-30)
 
 **Enterprise Harness Engineering alignment** — adapted from the Linkloud × addxai framework articles ([part 1](https://mp.weixin.qq.com/s/hz4W7ILHJ1yz_pG0Z1xP-A), [part 2](https://mp.weixin.qq.com/s/F3qYbyB3S8oIqx-Y4BrWNQ)).
