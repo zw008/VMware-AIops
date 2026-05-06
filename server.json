@@ -7,12 +7,12 @@
     "url": "https://github.com/zw008/VMware-AIops",
     "source": "github"
   },
-  "version": "1.5.18",
+  "version": "1.5.19",
   "packages": [
     {
       "registryType": "pypi",
       "identifier": "vmware-aiops",
-      "version": "1.5.18",
+      "version": "1.5.19",
       "transport": {
         "type": "stdio"
       }

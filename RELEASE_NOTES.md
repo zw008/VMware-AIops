@@ -1,3 +1,11 @@
+## v1.5.19 (2026-05-06)
+
+**Family alignment** — no source changes in this skill.
+
+- **build:** Bumped `requires-python` from `>=3.10` to `>=3.11` (regression eval suite uses `tomllib`, a Py3.11+ stdlib module).
+- **smoke:** Family `scripts/family_smoke.sh` now adds Check 3b — recursive `--help` on every Typer subcommand to trigger lazy imports. This catches the `import re`-style bug class without needing live infrastructure (yjs review 2026-05-06; CLAUDE.md 踩坑 #27).
+- **align:** Tracks v1.5.19 fixes in vmware-nsx (CLI import bug, CRITICAL), vmware-vks (delete_tkc_cluster ApiClient leak), vmware-harden (snapshot_id indexes + LEFT JOIN report), and vmware-policy (approval gate AND→OR + singleton lock).
+
 ## v1.5.18 (2026-05-02)
 
 **Family alignment + tooling normalization** — no source changes in this skill.
