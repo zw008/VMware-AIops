@@ -1,3 +1,10 @@
+## v1.5.21 (2026-05-08)
+
+**Family alignment** — no source changes in this skill.
+
+- **deps:** Bumped `python-multipart` 0.0.26 → 0.0.27 (transitive, fixes GHSA HIGH DoS via unbounded multipart headers).
+- **align:** Tracks v1.5.21 family bump driven by vmware-monitor folder_path feature (community PR #11).
+
 ## v1.5.20 (2026-05-08)
 
 **Family alignment** — no source changes in this skill.
