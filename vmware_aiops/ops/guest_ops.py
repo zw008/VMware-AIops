@@ -17,6 +17,7 @@ from pyVmomi import vim
 
 from vmware_policy import sanitize
 
+from vmware_aiops.connection import get_verify_ssl
 from vmware_aiops.ops.inventory import find_vm_by_name
 from vmware_aiops.ops.vm_lifecycle import VMNotFoundError
 
@@ -415,7 +416,7 @@ def guest_upload(
 
     # Upload via HTTPS PUT
     # The URL returned may use the vCenter/ESXi hostname; honour target SSL config.
-    verify_ssl = getattr(si, "_vmware_aiops_verify_ssl", True)
+    verify_ssl = get_verify_ssl(si)
     ctx = ssl.create_default_context()
     if not verify_ssl:
         ctx.check_hostname = False
@@ -469,7 +470,7 @@ def guest_download(
 
     # Download via HTTPS GET
     # Honour target SSL config carried on the ServiceInstance.
-    verify_ssl = getattr(si, "_vmware_aiops_verify_ssl", True)
+    verify_ssl = get_verify_ssl(si)
     ctx = ssl.create_default_context()
     if not verify_ssl:
         ctx.check_hostname = False

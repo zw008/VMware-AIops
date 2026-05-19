@@ -24,6 +24,7 @@ from urllib.request import Request, urlopen
 import yaml
 from pyVmomi import vim
 
+from vmware_aiops.connection import get_verify_ssl
 from vmware_aiops.ops.inventory import (
     find_datastore_by_name,
     find_vm_by_name,
@@ -283,8 +284,7 @@ def deploy_ova(
     if lease.state == vim.HttpNfcLease.State.error:
         return f"Import lease error: {lease.error.msg if lease.error else 'Unknown'}"
 
-    # Read SSL verify setting from the ServiceInstance (set by connection.py)
-    _ova_verify_ssl = getattr(si, "_vmware_aiops_verify_ssl", True)
+    _ova_verify_ssl = get_verify_ssl(si)
 
     # Upload disks
     try:

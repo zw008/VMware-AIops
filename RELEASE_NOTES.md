@@ -1,3 +1,20 @@
+## v1.5.24 (2026-05-19)
+
+**Fix — pyVmomi 8.x compatibility (踩坑 #32)** — `connection.py` previously set
+`si._vmware_<skill>_verify_ssl = ...` on the pyVmomi `ServiceInstance`. pyVmomi 8.x
+rejects attribute writes on `ManagedObject` with `Managed object attributes are
+read-only`, which surfaced as `vmware-<skill> doctor` → `vSphere authentication: Auth
+failed: Managed object attributes are read-only` on vCenter 8.0U3 even though raw
+`SmartConnect()` worked fine.
+
+- `connection.py`: introduce module-level `_SI_VERIFY_SSL: dict[int, bool]` keyed by
+  `id(si)` plus `get_verify_ssl(si)` helper. Cleanup is wired into the same `atexit`
+  hook that runs `Disconnect`.
+- Downstream consumers (`ops/guest_ops.py`, `ops/vm_deploy.py`, `ops/supervisor.py`)
+  switched from `getattr(si, "_vmware_*_verify_ssl", True)` to `get_verify_ssl(si)`.
+- `scripts/family_smoke.sh`: new cross-skill check forbids `setattr` on pyVmomi
+  ManagedObjects across the entire family (catches the same regression in future).
+
 ## v1.5.23 (2026-05-19)
 
 **VCF 9.0 / 9.1 compatibility declared** — family-wide docs sync.

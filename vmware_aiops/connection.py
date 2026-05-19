@@ -18,6 +18,22 @@ if TYPE_CHECKING:
 from vmware_aiops.config import AppConfig, TargetConfig, load_config
 
 
+# ServiceInstance is a pyVmomi ManagedObject — its __setattr__ rejects any
+# attribute not in its allowed list (raises "Managed object attributes are
+# read-only" on pyVmomi 8.x). We keep per-connection metadata in this module
+# dict, keyed by id(si). Cleared via atexit when the SI is disconnected.
+# 踩坑 #32 (2026-05-19, 客户 vCenter 8.0U3 现场).
+_SI_VERIFY_SSL: dict[int, bool] = {}
+
+
+def get_verify_ssl(si: ServiceInstance) -> bool:
+    """Return verify_ssl flag stashed by the connect() that created ``si``.
+
+    Defaults to True (strict) if the SI was created outside this manager.
+    """
+    return _SI_VERIFY_SSL.get(id(si), True)
+
+
 class ConnectionManager:
     """Manages connections to multiple vCenter/ESXi targets."""
 
@@ -91,10 +107,19 @@ class ConnectionManager:
             sslContext=context,
             disableSslCertValidation=not target.verify_ssl,
         )
-        # Tag the ServiceInstance so downstream guest-ops transport calls
-        # can honour the same SSL verification setting without re-reading config.
-        si._vmware_aiops_verify_ssl = target.verify_ssl
-        atexit.register(Disconnect, si)
+        # Stash verify_ssl in module dict (NOT on si — pyVmomi 8.x rejects
+        # setattr on ManagedObject, see 踩坑 #32). Consumers in ops/* read via
+        # get_verify_ssl(si).
+        _SI_VERIFY_SSL[id(si)] = target.verify_ssl
+
+        def _cleanup(_si: ServiceInstance = si) -> None:
+            _SI_VERIFY_SSL.pop(id(_si), None)
+            try:
+                Disconnect(_si)
+            except Exception:
+                pass
+
+        atexit.register(_cleanup)
         return si
 
 
