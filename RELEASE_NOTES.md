@@ -1,3 +1,12 @@
+## v1.5.23 (2026-05-19)
+
+**VCF 9.0 / 9.1 compatibility declared** — family-wide docs sync.
+
+- **docs:** README version-compatibility table now explicitly lists vSphere 9.0 / 9.0U1 / 9.1 as ✅ Full. pyVmomi 8.0.3+ (currently pinned `<10.0`) continues to work against vSphere 9 SOAP API; no code changes required.
+- **docs:** Added `Official Broadcom References` pointer to [VCF Python SDK](https://developer.broadcom.com/sdks) (the new unified SDK in VCF 9+ that bundles pyVmomi + vSAN SDK) and [Developer Portal Tools](https://developer.broadcom.com/tools) (PowerCLI 9.1, ESXCLI, OVF Tool).
+- **chore:** `tests/fixtures/token_corpus/` added to `.gitignore` (local-only test data).
+- **align:** Family v1.5.23 — all 9 skills tracking VCF 9.0 / 9.1 compatibility declaration.
+
 ## v1.5.22 (2026-05-08)
 
 **Family alignment** — no source changes in this skill.

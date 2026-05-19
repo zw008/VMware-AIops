@@ -107,14 +107,22 @@ ESXi Standalone Host ──→ VM
 
 ### Version Compatibility
 
-| vSphere Version | Support | Notes |
+| vSphere / VCF Version | Support | Notes |
 |----------------|---------|-------|
+| VCF 9.1 / vSphere 9.1 | ✅ Full | Released 2026-05-12. pyVmomi `<10.0` resolves and connects via SOAP; new REST-only features (`PATCH /deployment/size`, IPv6-only GOSC) not yet wrapped — see [VCF Python SDK](https://developer.broadcom.com/sdks) for those. |
+| VCF 9.0 / vSphere 9.0 | ✅ Full | pyVmomi 8.0.3+ connects against vSphere 9 SOAP API. From VCF 9, pyVmomi is also bundled inside the unified VCF Python SDK. |
 | 8.0 / 8.0U1-U3 | ✅ Full | `CreateSnapshot_Task` deprecated → use `CreateSnapshotEx_Task` |
 | 7.0 / 7.0U1-U3 | ✅ Full | All APIs supported |
 | 6.7 | ✅ Compatible | Backward-compatible, tested |
 | 6.5 | ✅ Compatible | Backward-compatible, tested |
 
-> pyVmomi auto-negotiates the API version during SOAP handshake — no manual configuration needed. The same codebase manages both 7.0 and 8.0 environments seamlessly.
+> pyVmomi auto-negotiates the API version during SOAP handshake — no manual configuration needed. The same codebase manages 7.0 / 8.0 / 9.0 / 9.1 environments seamlessly.
+
+#### Official Broadcom References
+
+- **SDKs**: <https://developer.broadcom.com/sdks> — VCF Python SDK (recommended for VCF 9+, bundles pyVmomi + vSAN SDK), vSphere Automation SDK for Python (REST APIs)
+- **REST APIs**: <https://developer.broadcom.com/xapis> — vSphere Automation API, VCF API, SDDC Manager API
+- **CLI Tools**: <https://developer.broadcom.com/tools> — PowerCLI 9.1, ESXCLI, OVF Tool
 
 ---
 
