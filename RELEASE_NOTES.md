@@ -1,3 +1,49 @@
+## v1.5.26 (2026-05-20)
+
+**Family-wide MCP server fix — Python 3.10 compatibility (踩坑 #33)** — `vmware-aiops mcp`
+crashed at decorator time on Python 3.10 with `subclass() arg 1 must be a class`.
+Root cause: `mcp_server/server.py` used PEP 604 `X | None` in tool signatures
+plus `from __future__ import annotations`; on Python 3.10 + older mcp/pydantic
+combos, `typing.get_type_hints()` evaluates `"str | None"` to a
+`types.UnionType` instance, which FastMCP/Pydantic then feeds to `issubclass()`.
+Reported by a goose user (qwen3.6:27, Python 3.10).
+
+- `mcp_server/server.py`: all `X | None` → `Optional[X]`; ops layer untouched.
+- `<pkg>/cli.py` `mcp_cmd()`: hard guard — exits with installation fix command
+  if Python < 3.11 (defense in depth, our actual lower bound).
+- `pyproject.toml`: `mcp[cli]>=1.10,<2.0` (was `>=1.0`) so uv doesn't pick
+  an ancient version that has the same issubclass bug.
+- **fix — clone falls on template's host (real user incident)** — `clone_vm()` built
+  an empty `vim.vm.RelocateSpec()`, so vCenter placed the clone on the source
+  VM/template's host+datastore. CLI `vmware-aiops vm clone` now takes `--to-host`
+  and `--to-datastore`; same for `deploy_from_template`, `linked_clone`, batch
+  variants.
+- **fix — migrate fails when no shared storage** — `migrate_vm()` only set host+pool;
+  cross-host vMotion in homelab setups (Office NAS vs Home SSD) hit
+  `destination host has no access to the source datastores`. Now pre-flights
+  storage accessibility and gives a teaching error pointing to `--to-datastore`.
+- **mcp — 7 new write tools** — `vm_clone` / `vm_migrate` / `vm_delete` /
+  `vm_create_snapshot` / `vm_revert_snapshot` / `vm_delete_snapshot` /
+  `vm_list_snapshots`. CLI exposed these but MCP didn't — agents using
+  vmware-aiops via MCP could not clone, migrate, snapshot, or delete VMs.
+- **fix — `cli/mcp_config.py` NameError** — used `json.loads` without importing
+  json. `mcp-config install` crashed on first invocation when merging into
+  an existing config file.
+- **fix — fault chain preserved in `_wait_for_task()`** — previously dropped
+  `faultCause` and `faultMessage`, so users got "Task failed: A specified
+  parameter was not correct" with no way to tell whether host, datastore,
+  or pool was the offender.
+
+
+**Tooling — family smoke gains MCP schema-build check** — `scripts/family_smoke.sh`
+new Check 4b runs `asyncio.run(mcp.list_tools())` per skill, forcing FastMCP to
+build Pydantic models for every declared tool. Supports both module-level `mcp`
+and `build_server()` factory patterns.
+
+**Docs — CLAUDE.md gains 踩坑 #33 (PEP 604 / Python 3.10) and #34 (CLI/MCP exposure parity).**
+
+---
+
 ## v1.5.24 (2026-05-19)
 
 **Fix — pyVmomi 8.x compatibility (踩坑 #32)** — `connection.py` previously set

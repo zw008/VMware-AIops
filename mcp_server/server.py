@@ -36,7 +36,7 @@ from __future__ import annotations
 import logging
 import os
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
 from mcp.server.fastmcp import FastMCP
 from vmware_policy import vmware_tool
@@ -49,8 +49,15 @@ from vmware_aiops.ops.plan_executor import apply_plan, rollback_plan
 from vmware_aiops.ops.planner import create_plan, list_plans
 from vmware_aiops.ops.alarm_mgmt import acknowledge_alarm, list_alarms, reset_alarm
 from vmware_aiops.ops.vm_lifecycle import (
+    clone_vm,
+    create_snapshot,
+    delete_snapshot,
+    delete_vm,
+    list_snapshots,
+    migrate_vm,
     power_off_vm,
     power_on_vm,
+    revert_to_snapshot,
 )
 
 logger = logging.getLogger(__name__)
@@ -72,10 +79,10 @@ mcp = FastMCP(
 # Connection helper
 # ---------------------------------------------------------------------------
 
-_conn_mgr: ConnectionManager | None = None
+_conn_mgr: Optional[ConnectionManager] = None
 
 
-def _get_connection(target: str | None = None) -> Any:
+def _get_connection(target: Optional[str] = None) -> Any:
     """Return a pyVmomi ServiceInstance, lazily initialising the manager."""
     global _conn_mgr  # noqa: PLW0603
     if _conn_mgr is None:
@@ -93,7 +100,7 @@ def _get_connection(target: str | None = None) -> Any:
 
 @mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True})
 @vmware_tool(risk_level="medium")
-def vm_power_on(vm_name: str, target: str | None = None) -> str:
+def vm_power_on(vm_name: str, target: Optional[str] = None) -> str:
     """[WRITE] Power on a virtual machine.
 
     Args:
@@ -112,7 +119,7 @@ def vm_power_on(vm_name: str, target: str | None = None) -> str:
 def vm_power_off(
     vm_name: str,
     force: bool = False,
-    target: str | None = None,
+    target: Optional[str] = None,
 ) -> str:
     """[WRITE] Power off a virtual machine. Graceful shutdown by default, force if specified.
 
@@ -128,6 +135,169 @@ def vm_power_off(
         return f"Error: {e}. Run 'vmware-aiops doctor' to verify connectivity and credentials."
 
 
+@mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": True})
+@vmware_tool(risk_level="high")
+def vm_clone(
+    vm_name: str,
+    new_name: str,
+    to_host: Optional[str] = None,
+    to_datastore: Optional[str] = None,
+    power_on: bool = False,
+    target: Optional[str] = None,
+) -> str:
+    """[WRITE] Clone a VM. Without to_host/to_datastore the clone lands on the source's host+datastore.
+
+    Args:
+        vm_name: Source VM (or template) name.
+        new_name: Name for the new clone.
+        to_host: Target ESXi host name (default: source's host).
+        to_datastore: Target datastore name (default: source's datastore).
+        power_on: Power on the clone after creation.
+        target: vCenter/ESXi target name from config.
+    """
+    try:
+        si = _get_connection(target)
+        return clone_vm(
+            si, vm_name, new_name,
+            target_host=to_host,
+            target_datastore=to_datastore,
+            power_on=power_on,
+        )
+    except Exception as e:
+        return f"Error: {e}. Run 'vmware-aiops doctor' to verify connectivity and credentials."
+
+
+@mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": True})
+@vmware_tool(risk_level="high")
+def vm_migrate(
+    vm_name: str,
+    to_host: str,
+    to_datastore: Optional[str] = None,
+    target: Optional[str] = None,
+) -> str:
+    """[WRITE] Migrate (vMotion) a VM to another host, optionally with storage vMotion.
+
+    If the target host has no access to the VM's current datastore, you MUST pass
+    to_datastore — vCenter rejects cross-host vMotion without shared storage.
+
+    Args:
+        vm_name: VM to migrate.
+        to_host: Target ESXi host name.
+        to_datastore: Target datastore (required for cross-storage hosts).
+        target: vCenter/ESXi target name from config.
+    """
+    try:
+        si = _get_connection(target)
+        return migrate_vm(si, vm_name, to_host, target_datastore=to_datastore)
+    except Exception as e:
+        return f"Error: {e}. Run 'vmware-aiops doctor' to verify connectivity and credentials."
+
+
+@mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": True, "idempotentHint": False, "openWorldHint": True})
+@vmware_tool(risk_level="critical")
+def vm_delete(vm_name: str, target: Optional[str] = None) -> str:
+    """[WRITE] Delete a VM (irreversible). VM must be powered off.
+
+    Args:
+        vm_name: VM to delete. Must be powered off.
+        target: vCenter/ESXi target name from config.
+    """
+    try:
+        si = _get_connection(target)
+        return delete_vm(si, vm_name)
+    except Exception as e:
+        return f"Error: {e}. Run 'vmware-aiops doctor' to verify connectivity and credentials."
+
+
+@mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True})
+@vmware_tool(risk_level="medium")
+def vm_create_snapshot(
+    vm_name: str,
+    snapshot_name: str,
+    description: str = "",
+    memory: bool = False,
+    target: Optional[str] = None,
+) -> str:
+    """[WRITE] Create a snapshot of a VM.
+
+    Args:
+        vm_name: VM to snapshot.
+        snapshot_name: Snapshot name.
+        description: Optional description.
+        memory: Include memory state (heavier, allows resume).
+        target: vCenter/ESXi target name from config.
+    """
+    try:
+        si = _get_connection(target)
+        return create_snapshot(si, vm_name, snapshot_name, description=description, memory=memory)
+    except Exception as e:
+        return f"Error: {e}. Run 'vmware-aiops doctor' to verify connectivity and credentials."
+
+
+@mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": True, "idempotentHint": False, "openWorldHint": True})
+@vmware_tool(risk_level="high")
+def vm_revert_snapshot(
+    vm_name: str,
+    snapshot_name: str,
+    target: Optional[str] = None,
+) -> str:
+    """[WRITE] Revert a VM to a named snapshot (loses changes since snapshot).
+
+    Args:
+        vm_name: VM to revert.
+        snapshot_name: Snapshot to revert to.
+        target: vCenter/ESXi target name from config.
+    """
+    try:
+        si = _get_connection(target)
+        return revert_to_snapshot(si, vm_name, snapshot_name)
+    except Exception as e:
+        return f"Error: {e}. Run 'vmware-aiops doctor' to verify connectivity and credentials."
+
+
+@mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": True, "idempotentHint": False, "openWorldHint": True})
+@vmware_tool(risk_level="high")
+def vm_delete_snapshot(
+    vm_name: str,
+    snapshot_name: str,
+    remove_children: bool = False,
+    target: Optional[str] = None,
+) -> str:
+    """[WRITE] Delete a named snapshot from a VM.
+
+    Args:
+        vm_name: VM owning the snapshot.
+        snapshot_name: Snapshot to delete.
+        remove_children: If True, also remove all child snapshots.
+        target: vCenter/ESXi target name from config.
+    """
+    try:
+        si = _get_connection(target)
+        return delete_snapshot(si, vm_name, snapshot_name, remove_children=remove_children)
+    except Exception as e:
+        return f"Error: {e}. Run 'vmware-aiops doctor' to verify connectivity and credentials."
+
+
+@mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True})
+@vmware_tool(risk_level="low")
+def vm_list_snapshots(vm_name: str, target: Optional[str] = None) -> list[dict]:
+    """[READ] List all snapshots of a VM.
+
+    Args:
+        vm_name: VM name.
+        target: vCenter/ESXi target name from config.
+    """
+    try:
+        si = _get_connection(target)
+        snaps = list_snapshots(si, vm_name)
+        return [
+            {k: v for k, v in s.items() if k != "snapshot_ref"}
+            for s in snaps
+        ]
+    except Exception as e:
+        return [{"error": str(e), "hint": "Run 'vmware-aiops doctor' to verify connectivity."}]
+
+
 # ---------------------------------------------------------------------------
 # Datastore tools
 # ---------------------------------------------------------------------------
@@ -139,7 +309,7 @@ def browse_datastore(
     datastore_name: str,
     path: str = "",
     pattern: str = "*",
-    target: str | None = None,
+    target: Optional[str] = None,
 ) -> list[dict]:
     """[READ] Browse files in a vSphere datastore directory.
 
@@ -161,7 +331,7 @@ def browse_datastore(
 
 @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True})
 @vmware_tool(risk_level="low")
-def scan_datastore_images(target: str | None = None) -> dict:
+def scan_datastore_images(target: Optional[str] = None) -> dict:
     """[READ] Scan all accessible datastores for deployable images (OVA/ISO/OVF/VMDK).
 
     Results are cached locally in ~/.vmware-aiops/image_registry.json for
@@ -189,10 +359,10 @@ def deploy_vm_from_ova(
     vm_name: str,
     datastore_name: str,
     network_name: str = "VM Network",
-    folder_path: str | None = None,
+    folder_path: Optional[str] = None,
     power_on: bool = False,
-    snapshot_name: str | None = None,
-    target: str | None = None,
+    snapshot_name: Optional[str] = None,
+    target: Optional[str] = None,
 ) -> str:
     """[WRITE] Deploy a VM from a local OVA file.
 
@@ -226,12 +396,12 @@ def deploy_vm_from_ova(
 def deploy_vm_from_template(
     template_name: str,
     new_name: str,
-    datastore_name: str | None = None,
-    cpu: int | None = None,
-    memory_mb: int | None = None,
+    datastore_name: Optional[str] = None,
+    cpu: Optional[int] = None,
+    memory_mb: Optional[int] = None,
     power_on: bool = False,
-    snapshot_name: str | None = None,
-    target: str | None = None,
+    snapshot_name: Optional[str] = None,
+    target: Optional[str] = None,
 ) -> str:
     """[WRITE] Deploy a new VM by cloning from a vSphere template.
 
@@ -262,11 +432,11 @@ def deploy_linked_clone(
     source_vm_name: str,
     snapshot_name: str,
     new_name: str,
-    cpu: int | None = None,
-    memory_mb: int | None = None,
+    cpu: Optional[int] = None,
+    memory_mb: Optional[int] = None,
     power_on: bool = False,
-    baseline_snapshot: str | None = None,
-    target: str | None = None,
+    baseline_snapshot: Optional[str] = None,
+    target: Optional[str] = None,
 ) -> str:
     """[WRITE] Create a linked clone from a VM snapshot (near-instant, minimal disk).
 
@@ -299,7 +469,7 @@ def deploy_linked_clone(
 def attach_iso_to_vm(
     vm_name: str,
     iso_ds_path: str,
-    target: str | None = None,
+    target: Optional[str] = None,
 ) -> str:
     """[WRITE] Attach an ISO from a datastore to a VM's CD-ROM drive.
 
@@ -319,7 +489,7 @@ def attach_iso_to_vm(
 @vmware_tool(risk_level="medium")
 def convert_vm_to_template(
     vm_name: str,
-    target: str | None = None,
+    target: Optional[str] = None,
 ) -> str:
     """[WRITE] Convert a powered-off VM to a vSphere template.
 
@@ -342,11 +512,11 @@ def convert_vm_to_template(
 def batch_clone_vms(
     source_vm_name: str,
     vm_names: list[str],
-    cpu: int | None = None,
-    memory_mb: int | None = None,
-    snapshot_name: str | None = None,
+    cpu: Optional[int] = None,
+    memory_mb: Optional[int] = None,
+    snapshot_name: Optional[str] = None,
     power_on: bool = False,
-    target: str | None = None,
+    target: Optional[str] = None,
 ) -> list[dict]:
     """[WRITE] Batch clone multiple VMs from a source VM (gold image).
 
@@ -378,11 +548,11 @@ def batch_linked_clone_vms(
     source_vm_name: str,
     snapshot_name: str,
     vm_names: list[str],
-    cpu: int | None = None,
-    memory_mb: int | None = None,
+    cpu: Optional[int] = None,
+    memory_mb: Optional[int] = None,
     power_on: bool = False,
-    baseline_snapshot: str | None = None,
-    target: str | None = None,
+    baseline_snapshot: Optional[str] = None,
+    target: Optional[str] = None,
 ) -> list[dict]:
     """[WRITE] Batch create linked clones from a VM snapshot (fastest batch provisioning).
 
@@ -413,7 +583,7 @@ def batch_linked_clone_vms(
 @vmware_tool(risk_level="high")
 def batch_deploy_from_spec(
     spec_path: str,
-    target: str | None = None,
+    target: Optional[str] = None,
 ) -> list[dict]:
     """[WRITE] Batch deploy VMs from a YAML specification file.
 
@@ -444,11 +614,11 @@ def batch_deploy_from_spec(
 @vmware_tool(risk_level="medium")
 def cluster_create(
     name: str,
-    datacenter: str | None = None,
+    datacenter: Optional[str] = None,
     ha: bool = False,
     drs: bool = False,
     drs_behavior: str = "fullyAutomated",
-    target: str | None = None,
+    target: Optional[str] = None,
 ) -> str:
     """[WRITE] Create a new cluster with optional HA and DRS configuration.
 
@@ -473,7 +643,7 @@ def cluster_create(
 
 @mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": True, "idempotentHint": False, "openWorldHint": True})
 @vmware_tool(risk_level="high")
-def cluster_delete(name: str, target: str | None = None) -> str:
+def cluster_delete(name: str, target: Optional[str] = None) -> str:
     """[WRITE] Delete an empty cluster (no hosts must remain).
 
     Args:
@@ -493,7 +663,7 @@ def cluster_delete(name: str, target: str | None = None) -> str:
 def cluster_add_host(
     cluster_name: str,
     host_name: str,
-    target: str | None = None,
+    target: Optional[str] = None,
 ) -> str:
     """[WRITE] Move a host into a cluster.
 
@@ -515,7 +685,7 @@ def cluster_add_host(
 def cluster_remove_host(
     cluster_name: str,
     host_name: str,
-    target: str | None = None,
+    target: Optional[str] = None,
 ) -> str:
     """[WRITE] Remove a host from a cluster (host must be in maintenance mode).
 
@@ -536,10 +706,10 @@ def cluster_remove_host(
 @vmware_tool(risk_level="medium")
 def cluster_configure(
     name: str,
-    ha: bool | None = None,
-    drs: bool | None = None,
-    drs_behavior: str | None = None,
-    target: str | None = None,
+    ha: Optional[bool] = None,
+    drs: Optional[bool] = None,
+    drs_behavior: Optional[str] = None,
+    target: Optional[str] = None,
 ) -> str:
     """[WRITE] Reconfigure cluster HA/DRS settings.
 
@@ -563,7 +733,7 @@ def cluster_configure(
 
 @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True})
 @vmware_tool(risk_level="low")
-def cluster_info(name: str, target: str | None = None) -> dict:
+def cluster_info(name: str, target: Optional[str] = None) -> dict:
     """[READ] Get detailed cluster information (hosts, HA/DRS config, resources).
 
     Args:
@@ -588,7 +758,7 @@ def cluster_info(name: str, target: str | None = None) -> dict:
 def vm_set_ttl(
     vm_name: str,
     minutes: int,
-    target: str | None = None,
+    target: Optional[str] = None,
 ) -> str:
     """[WRITE] Set a Time-To-Live (TTL) for a VM. The daemon auto-deletes it when expired.
 
@@ -641,7 +811,7 @@ def vm_list_ttl() -> list[dict]:
 def vm_clean_slate(
     vm_name: str,
     snapshot_name: str = "baseline",
-    target: str | None = None,
+    target: Optional[str] = None,
 ) -> str:
     """[WRITE] Revert a VM to its baseline snapshot (Clean Slate).
 
@@ -675,8 +845,8 @@ def vm_guest_exec(
     arguments: str = "",
     username: str = "root",
     password: str = "",
-    working_directory: str | None = None,
-    target: str | None = None,
+    working_directory: Optional[str] = None,
+    target: Optional[str] = None,
 ) -> dict:
     """[WRITE] Execute a command inside a VM via VMware Tools.
 
@@ -716,7 +886,7 @@ def vm_guest_exec_output(
     username: str = "root",
     password: str = "",
     timeout: int = 300,
-    target: str | None = None,
+    target: Optional[str] = None,
 ) -> dict:
     """[WRITE] Execute a shell command inside a VM and capture stdout + stderr.
 
@@ -749,7 +919,7 @@ def vm_guest_upload(
     guest_path: str,
     username: str = "root",
     password: str = "",
-    target: str | None = None,
+    target: Optional[str] = None,
 ) -> str:
     """[WRITE] Upload a file from local machine to a VM via VMware Tools.
 
@@ -778,7 +948,7 @@ def vm_guest_download(
     local_path: str,
     username: str = "root",
     password: str = "",
-    target: str | None = None,
+    target: Optional[str] = None,
 ) -> str:
     """[READ] Download a file from a VM to local machine via VMware Tools.
 
@@ -807,7 +977,7 @@ def vm_guest_provision(
     password: str,
     steps: list[dict],
     timeout: int = 300,
-    target: str | None = None,
+    target: Optional[str] = None,
 ) -> dict:
     """[WRITE] Provision a VM by running a sequence of guest operations (exec / upload / service).
 
@@ -855,7 +1025,7 @@ def vm_guest_provision(
 @vmware_tool(risk_level="medium")
 def vm_create_plan(
     operations: list[dict[str, Any]],
-    target: str | None = None,
+    target: Optional[str] = None,
 ) -> dict:
     """[WRITE] Create an execution plan for multi-step VM operations.
 
@@ -893,7 +1063,7 @@ def vm_create_plan(
 
 @mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": True})
 @vmware_tool(risk_level="medium")
-def vm_apply_plan(plan_id: str, target: str | None = None) -> dict:
+def vm_apply_plan(plan_id: str, target: Optional[str] = None) -> dict:
     """[WRITE] Execute a previously created plan step by step.
 
     Steps run sequentially. On failure: stops immediately, keeps the plan
@@ -924,7 +1094,7 @@ def vm_apply_plan(plan_id: str, target: str | None = None) -> dict:
 
 @mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": True, "idempotentHint": False, "openWorldHint": True})
 @vmware_tool(risk_level="medium")
-def vm_rollback_plan(plan_id: str, target: str | None = None) -> dict:
+def vm_rollback_plan(plan_id: str, target: Optional[str] = None) -> dict:
     """[WRITE] Rollback executed steps of a failed plan in reverse order.
 
     Only call this after vm_apply_plan returns status='failed' and the
@@ -964,8 +1134,8 @@ def vm_list_plans() -> list[dict]:
 @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True})
 @vmware_tool(risk_level="low")
 def list_vcenter_alarms(
-    target: str | None = None,
-    limit: int | None = None,
+    target: Optional[str] = None,
+    limit: Optional[int] = None,
 ) -> list[dict]:
     """[READ] List active/triggered alarms across the vCenter inventory.
 
@@ -991,7 +1161,7 @@ def list_vcenter_alarms(
 def acknowledge_vcenter_alarm(
     entity_name: str,
     alarm_name: str,
-    target: str | None = None,
+    target: Optional[str] = None,
 ) -> dict:
     """[WRITE] Acknowledge a triggered vCenter alarm on a VM, host, or cluster.
 
@@ -1016,7 +1186,7 @@ def acknowledge_vcenter_alarm(
 def reset_vcenter_alarm(
     entity_name: str,
     alarm_name: str,
-    target: str | None = None,
+    target: Optional[str] = None,
 ) -> dict:
     """[WRITE] Reset a triggered vCenter alarm to cleared state (gray).
 

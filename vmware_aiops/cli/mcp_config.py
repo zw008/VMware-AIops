@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import Annotated
 
@@ -191,12 +192,15 @@ def mcp_config_install(
                 existing.update(new_entry)
             dest.write_text(json.dumps(existing, indent=2) + "\n")
             console.print(f"[green]✓ Merged vmware-aiops into: {dest}[/]")
-        except (json.JSONDecodeError, Exception) as e:
-            console.print(f"[red]Failed to merge into existing config: {e}[/]")
+        except json.JSONDecodeError as e:
+            console.print(f"[red]Existing config is not valid JSON: {e}[/]")
             console.print("[yellow]Writing new config (backup original first).[/]")
             dest.with_suffix(".bak").write_text(dest.read_text())
             dest.write_text(content)
             console.print(f"[green]✓ Written: {dest} (backup: {dest.with_suffix('.bak')})[/]")
+        except OSError as e:
+            console.print(f"[red]Failed to read/write config: {e}[/]")
+            raise typer.Exit(1) from e
     else:
         dest.write_text(content)
         console.print(f"[green]✓ Written: {dest}[/]")

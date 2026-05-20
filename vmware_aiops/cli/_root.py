@@ -45,6 +45,19 @@ def mcp_cmd() -> None:
 
     Equivalent to the legacy `vmware-aiops-mcp` console script.
     """
+    import sys
+
+    if sys.version_info < (3, 11):
+        typer.echo(
+            f"ERROR: vmware-aiops MCP server requires Python >= 3.11 "
+            f"(got {sys.version_info.major}.{sys.version_info.minor}).\n"
+            f"Interpreter: {sys.executable}\n"
+            f"Fix: uv python install 3.12 && "
+            f"uv tool install --python 3.12 --force vmware-aiops",
+            err=True,
+        )
+        raise typer.Exit(2)
+
     from mcp_server.server import main as _mcp_main
 
     _mcp_main()

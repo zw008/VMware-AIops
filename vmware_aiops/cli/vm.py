@@ -371,33 +371,54 @@ def vm_snapshot_delete(
 def vm_clone(
     name: str,
     new_name: Annotated[str, typer.Option("--new-name", help="Name for the clone")],
+    to_host: Annotated[
+        str | None,
+        typer.Option("--to-host", help="Target ESXi host (default: source's host)"),
+    ] = None,
+    to_datastore: Annotated[
+        str | None,
+        typer.Option("--to-datastore", help="Target datastore (default: source's datastore)"),
+    ] = None,
+    power_on: Annotated[
+        bool, typer.Option("--power-on/--no-power-on", help="Power on after clone")
+    ] = False,
     target: TargetOption = None,
     config: ConfigOption = None,
     dry_run: DryRunOption = False,
 ) -> None:
-    """Clone a VM."""
+    """Clone a VM. Use --to-host and --to-datastore to land it on a specific host/storage."""
     from vmware_aiops.ops.vm_lifecycle import clone_vm, get_vm_info
 
     si, _ = _get_connection(target, config)
     before = get_vm_info(si, name)
+    params = {"new_name": new_name, "to_host": to_host, "to_datastore": to_datastore, "power_on": power_on}
     if dry_run:
         _dry_run_print(
             target=_resolve_target(target), vm_name=name, operation="clone_vm",
             api_call="vim.VirtualMachine.Clone()",
-            parameters={"new_name": new_name},
+            parameters=params,
             before_state={"cpu": before.get("cpu"), "memory_mb": before.get("memory_mb")},
         )
         return
     _show_state_preview(before, "克隆", name)
     console.print(f"[bold yellow]  Clone name: {new_name}[/]")
+    if to_host:
+        console.print(f"[bold yellow]  Target host: {to_host}[/]")
+    if to_datastore:
+        console.print(f"[bold yellow]  Target datastore: {to_datastore}[/]")
     _double_confirm(f"克隆为 '{new_name}'", name, _resolve_target(target))
-    result = clone_vm(si, name, new_name)
+    result = clone_vm(
+        si, name, new_name,
+        target_host=to_host,
+        target_datastore=to_datastore,
+        power_on=power_on,
+    )
     console.print(f"[green]{result}[/]")
     _audit.log(
         target=_resolve_target(target),
         operation="clone_vm",
         resource=name,
-        parameters={"new_name": new_name},
+        parameters=params,
         before_state={"cpu": before.get("cpu"), "memory_mb": before.get("memory_mb")},
         result=result,
     )
@@ -407,34 +428,44 @@ def vm_clone(
 def vm_migrate(
     name: str,
     to_host: Annotated[str, typer.Option("--to-host", help="Target ESXi host name")],
+    to_datastore: Annotated[
+        str | None,
+        typer.Option(
+            "--to-datastore",
+            help="Target datastore (required when target host has no access to source datastore)",
+        ),
+    ] = None,
     target: TargetOption = None,
     config: ConfigOption = None,
     dry_run: DryRunOption = False,
 ) -> None:
-    """Migrate (vMotion) a VM to another host."""
+    """Migrate (vMotion) a VM to another host, optionally with storage vMotion."""
     from vmware_aiops.ops.vm_lifecycle import get_vm_info, migrate_vm
 
     si, _ = _get_connection(target, config)
     before = get_vm_info(si, name)
+    params = {"to_host": to_host, "to_datastore": to_datastore}
     if dry_run:
         _dry_run_print(
             target=_resolve_target(target), vm_name=name, operation="migrate_vm",
             api_call="vim.VirtualMachine.Relocate()",
-            parameters={"to_host": to_host},
+            parameters=params,
             before_state={"host": before.get("host")},
             expected_after={"host": to_host},
         )
         return
     _show_state_preview(before, "迁移", name)
     console.print(f"[bold yellow]  Target host: {to_host}[/]")
+    if to_datastore:
+        console.print(f"[bold yellow]  Target datastore: {to_datastore}[/]")
     _double_confirm(f"迁移到 '{to_host}'", name, _resolve_target(target))
-    result = migrate_vm(si, name, to_host)
+    result = migrate_vm(si, name, to_host, target_datastore=to_datastore)
     console.print(f"[green]{result}[/]")
     _audit.log(
         target=_resolve_target(target),
         operation="migrate_vm",
         resource=name,
-        parameters={"to_host": to_host},
+        parameters=params,
         before_state={"host": before.get("host")},
         after_state={"host": to_host},
         result=result,

@@ -37,8 +37,27 @@ def _wait_for_task(task, timeout: int = 300) -> object:
 
     if task.info.state == vim.TaskInfo.State.success:
         return task.info.result
-    error_msg = str(task.info.error.msg) if task.info.error else "Unknown error"
-    raise TaskFailedError(f"Task failed: {error_msg}")
+
+    err = task.info.error
+    if err is None:
+        raise TaskFailedError("Task failed: unknown error (no fault attached)")
+
+    parts: list[str] = []
+    primary = getattr(err, "msg", None) or type(err).__name__
+    parts.append(str(primary))
+    fault_type = type(err).__name__
+    if fault_type and fault_type not in primary:
+        parts.append(f"fault={fault_type}")
+    cause = getattr(err, "faultCause", None)
+    if cause is not None and getattr(cause, "msg", None):
+        parts.append(f"caused_by={cause.msg}")
+    fault_msgs = getattr(err, "faultMessage", None) or []
+    for fm in fault_msgs:
+        m = getattr(fm, "message", None)
+        if m:
+            parts.append(f"detail={m}")
+
+    raise TaskFailedError("Task failed: " + " | ".join(parts))
 
 
 def _require_vm(si: ServiceInstance, vm_name: str) -> vim.VirtualMachine:
@@ -404,28 +423,85 @@ def delete_snapshot(
 # ─── Clone ────────────────────────────────────────────────────────────────────
 
 
-def clone_vm(si: ServiceInstance, vm_name: str, new_name: str) -> str:
-    """Clone a VM with the same configuration."""
+def clone_vm(
+    si: ServiceInstance,
+    vm_name: str,
+    new_name: str,
+    *,
+    target_host: str | None = None,
+    target_datastore: str | None = None,
+    power_on: bool = False,
+) -> str:
+    """Clone a VM with the same configuration.
+
+    Without ``target_host`` / ``target_datastore`` vCenter places the clone on
+    the **source VM/template's** host and datastore. To land it elsewhere
+    (different site, different cluster, different storage), pass both.
+    """
     vm = _require_vm(si, vm_name)
     folder = vm.parent
 
     relocate_spec = vim.vm.RelocateSpec()
+
+    if target_host:
+        host = find_host_by_name(si, target_host)
+        if host is None:
+            return (
+                f"Target host '{target_host}' not found. "
+                f"List hosts: vmware-aiops cluster list-hosts"
+            )
+        relocate_spec.host = host
+        if host.parent and getattr(host.parent, "resourcePool", None):
+            relocate_spec.pool = host.parent.resourcePool
+        else:
+            return (
+                f"Target host '{target_host}' has no resource pool "
+                "(standalone host outside cluster?). Cannot clone."
+            )
+
+    if target_datastore:
+        ds = find_datastore_by_name(si, target_datastore)
+        if ds is None:
+            return (
+                f"Target datastore '{target_datastore}' not found. "
+                f"List: vmware-aiops datastore list"
+            )
+        relocate_spec.datastore = ds
+
     clone_spec = vim.vm.CloneSpec(
         location=relocate_spec,
-        powerOn=False,
+        powerOn=power_on,
         template=False,
     )
 
     task = vm.Clone(folder=folder, name=new_name, spec=clone_spec)
     _wait_for_task(task, timeout=600)
-    return f"VM '{vm_name}' cloned as '{new_name}'."
+
+    placement = []
+    if target_host:
+        placement.append(f"host={target_host}")
+    if target_datastore:
+        placement.append(f"datastore={target_datastore}")
+    where = f" ({', '.join(placement)})" if placement else " (inherited from source)"
+    return f"VM '{vm_name}' cloned as '{new_name}'{where}."
 
 
 # ─── Migrate (vMotion) ───────────────────────────────────────────────────────
 
 
-def migrate_vm(si: ServiceInstance, vm_name: str, target_host_name: str) -> str:
-    """Migrate (vMotion) a VM to another host."""
+def migrate_vm(
+    si: ServiceInstance,
+    vm_name: str,
+    target_host_name: str,
+    *,
+    target_datastore: str | None = None,
+) -> str:
+    """Migrate (vMotion) a VM to another host, optionally with storage vMotion.
+
+    If the target host does not have access to the VM's current datastore,
+    ``target_datastore`` is **required** — otherwise vCenter rejects the
+    Relocate task with "host has no access to the source datastore".
+    """
     vm = _require_vm(si, vm_name)
     target_host = find_host_by_name(si, target_host_name)
     if target_host is None:
@@ -435,17 +511,45 @@ def migrate_vm(si: ServiceInstance, vm_name: str, target_host_name: str) -> str:
         return f"VM '{vm_name}' has no current host (may be provisioning). Cannot migrate."
 
     current_host = vm.runtime.host.name
-    if current_host == target_host_name:
+    if current_host == target_host_name and target_datastore is None:
         return f"VM '{vm_name}' is already on host '{target_host_name}'."
+
+    if target_host.parent is None or getattr(target_host.parent, "resourcePool", None) is None:
+        return (
+            f"Target host '{target_host_name}' has no resource pool "
+            "(standalone host outside cluster?). Cannot migrate."
+        )
+
+    # Pre-flight: storage accessibility (run before building RelocateSpec)
+    src_ds = vm.datastore[0] if vm.datastore else None
+    resolved_ds = None
+    if target_datastore:
+        resolved_ds = find_datastore_by_name(si, target_datastore)
+        if resolved_ds is None:
+            return (
+                f"Target datastore '{target_datastore}' not found. "
+                f"List: vmware-aiops datastore list"
+            )
+    elif src_ds is not None and target_host not in src_ds.host:
+        return (
+            f"Target host '{target_host_name}' has no access to source datastore "
+            f"'{src_ds.name}'. Cross-host vMotion requires shared storage OR "
+            f"pass --to-datastore=<name> to also perform storage vMotion. "
+            f"List datastores: vmware-aiops datastore list"
+        )
 
     relocate_spec = vim.vm.RelocateSpec(
         host=target_host,
         pool=target_host.parent.resourcePool,
     )
+    if resolved_ds is not None:
+        relocate_spec.datastore = resolved_ds
 
     task = vm.Relocate(spec=relocate_spec)
     _wait_for_task(task, timeout=600)
-    return f"VM '{vm_name}' migrated from '{current_host}' to '{target_host_name}'."
+
+    ds_note = f" + datastore={target_datastore}" if target_datastore else ""
+    return f"VM '{vm_name}' migrated from '{current_host}' to '{target_host_name}'{ds_note}."
 
 
 # ─── Clean Slate ──────────────────────────────────────────────────────────────

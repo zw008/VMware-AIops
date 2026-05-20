@@ -482,6 +482,7 @@ def linked_clone(
     memory_mb: int | None = None,
     power_on: bool = False,
     baseline_snapshot: str | None = None,
+    target_host: str | None = None,
 ) -> str:
     """Create a linked clone from a VM snapshot.
 
@@ -519,6 +520,16 @@ def linked_clone(
     relocate_spec = vim.vm.RelocateSpec(
         diskMoveType=vim.vm.RelocateSpec.DiskMoveOptions.createNewChildDiskBacking,
     )
+    if target_host:
+        from vmware_aiops.ops.inventory import find_host_by_name
+
+        host = find_host_by_name(si, target_host)
+        if host is None:
+            return f"Target host '{target_host}' not found."
+        if host.parent is None or getattr(host.parent, "resourcePool", None) is None:
+            return f"Target host '{target_host}' has no resource pool."
+        relocate_spec.host = host
+        relocate_spec.pool = host.parent.resourcePool
     clone_spec = vim.vm.CloneSpec(
         location=relocate_spec,
         powerOn=False,
@@ -612,8 +623,12 @@ def deploy_from_template(
     memory_mb: int | None = None,
     power_on: bool = False,
     snapshot_name: str | None = None,
+    target_host: str | None = None,
 ) -> str:
     """Deploy a new VM by cloning from a vSphere template.
+
+    Without ``target_host`` the new VM lands on the **template's** host —
+    pass ``target_host`` to place it on a specific ESXi.
 
     Args:
         template_name: Name of the source template.
@@ -623,7 +638,10 @@ def deploy_from_template(
         memory_mb: Override memory (optional).
         power_on: Power on after deploy.
         snapshot_name: Create baseline snapshot (optional).
+        target_host: Target ESXi host name (optional, uses template's host if omitted).
     """
+    from vmware_aiops.ops.inventory import find_host_by_name
+
     template = find_vm_by_name(si, template_name)
     if template is None:
         return f"Template '{template_name}' not found."
@@ -632,6 +650,14 @@ def deploy_from_template(
         return f"'{template_name}' is not a template. Use 'clone' instead."
 
     relocate_spec = vim.vm.RelocateSpec()
+    if target_host:
+        host = find_host_by_name(si, target_host)
+        if host is None:
+            return f"Target host '{target_host}' not found."
+        if host.parent is None or getattr(host.parent, "resourcePool", None) is None:
+            return f"Target host '{target_host}' has no resource pool."
+        relocate_spec.host = host
+        relocate_spec.pool = host.parent.resourcePool
     if datastore_name:
         ds = find_datastore_by_name(si, datastore_name)
         if ds is None:
