@@ -1,3 +1,18 @@
+## v1.5.28 (2026-05-20)
+
+**Fix `subclass() arg 1 must be a class` in goose/old mcp environments** —
+v1.5.25–1.5.27 replaced `X | None` with `Optional[X]` but kept
+`from __future__ import annotations` at the top of `mcp_server/server.py`.
+Under mcp 1.10–1.13 (which Goose and some sandboxes pin), `Tool.from_function`
+calls `issubclass(param.annotation, Context)` without resolving forward refs,
+so string annotations crash the entire server load. Removed
+`from __future__ import annotations` from `mcp_server/server.py` so annotations
+are real classes; verified all tools load under mcp 1.10 and 1.14.
+
+Traceback location: `mcp/server/fastmcp/tools/base.py:67`. CLAUDE.md 踩坑 #33
+updated. family_smoke.sh Check 4b now installs `mcp==1.10.0` to catch this
+regression class.
+
 ## v1.5.27 (2026-05-20)
 
 **Loosen Python requirement: now supports Python >= 3.10** — v1.5.25/26 fixed
