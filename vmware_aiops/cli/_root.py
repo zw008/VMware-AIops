@@ -47,9 +47,9 @@ def mcp_cmd() -> None:
     """
     import sys
 
-    if sys.version_info < (3, 11):
+    if sys.version_info < (3, 10):
         typer.echo(
-            f"ERROR: vmware-aiops MCP server requires Python >= 3.11 "
+            f"ERROR: vmware-aiops MCP server requires Python >= 3.10 "
             f"(got {sys.version_info.major}.{sys.version_info.minor}).\n"
             f"Interpreter: {sys.executable}\n"
             f"Fix: uv python install 3.12 && "

@@ -1,4 +1,20 @@
-## v1.5.26 (2026-05-20)
+## v1.5.27 (2026-05-20)
+
+**Loosen Python requirement: now supports Python >= 3.10** — v1.5.25/26 fixed
+the PEP 604 root cause in MCP tool signatures (Optional[X] instead of X | None),
+but kept `requires-python = ">=3.11"` and a 3.11 hard guard in `mcp_cmd`. Both
+relaxed to 3.10 so users on Python 3.10 (e.g. Goose default sandbox, Ubuntu
+22.04 system python) can install and run directly without a Python upgrade.
+
+- `pyproject.toml`: `requires-python = ">=3.10"` (was `>=3.11`; VMware-VKS
+  was `>=3.12`, now also `>=3.10` for family alignment).
+- `<pkg>/cli.py` `mcp_cmd()`: version guard now triggers on `< (3, 10)`.
+- Behavior on Python 3.10 matches 3.11/3.12 — the Optional[X] fix from v1.5.25
+  is what actually enables this; this release just stops blocking installs.
+
+---
+
+## v1.5.26
 
 **Family-wide MCP server fix — Python 3.10 compatibility (踩坑 #33)** — `vmware-aiops mcp`
 crashed at decorator time on Python 3.10 with `subclass() arg 1 must be a class`.

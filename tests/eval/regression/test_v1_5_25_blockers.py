@@ -174,8 +174,8 @@ def test_mcp_cmd_guards_python_version() -> None:
     import vmware_aiops.cli._root as root
 
     src = inspect.getsource(root.mcp_cmd)
-    assert "version_info" in src and "3, 11" in src, \
-        "mcp_cmd must guard against Python < 3.11"
+    assert "version_info" in src and "3, 10" in src, \
+        "mcp_cmd must guard against Python < 3.10 (v1.5.27 loosened from 3.11)"
 
 
 def test_mcp_server_uses_optional_not_pep604() -> None:
