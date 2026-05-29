@@ -14,12 +14,12 @@ vmware-aiops vm power-off <vm-name> [--force]
 vmware-aiops vm create <name> [--cpu <n>] [--memory <mb>] [--disk <gb>]
 vmware-aiops vm delete <vm-name>
 vmware-aiops vm reconfigure <vm-name> [--cpu <n>] [--memory <mb>]
-vmware-aiops vm snapshot-create <vm-name> --name <snap-name>
+vmware-aiops vm snapshot-create <vm-name> --name <snap-name> [--description <text>] [--memory]
 vmware-aiops vm snapshot-list <vm-name>
 vmware-aiops vm snapshot-revert <vm-name> --name <snap-name>
-vmware-aiops vm snapshot-delete <vm-name> --name <snap-name>
-vmware-aiops vm clone <vm-name> --new-name <name>
-vmware-aiops vm migrate <vm-name> --to-host <host>
+vmware-aiops vm snapshot-delete <vm-name> --name <snap-name> [--remove-children]
+vmware-aiops vm clone <vm-name> --new-name <name> [--to-host <host>] [--to-datastore <ds>] [--power-on]
+vmware-aiops vm migrate <vm-name> --to-host <host> [--to-datastore <ds>]
 vmware-aiops vm set-ttl <vm-name> --minutes <n>
 vmware-aiops vm cancel-ttl <vm-name>
 vmware-aiops vm list-ttl

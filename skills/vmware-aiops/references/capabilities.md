@@ -30,12 +30,12 @@ Each operation is classified by autonomy level per the Enterprise Harness Engine
 | Create VM | `vm create <name> --cpu --memory --disk` | — | ✅ | ✅ |
 | Delete VM | `vm delete <name>` | Double | ✅ | ✅ |
 | Reconfigure | `vm reconfigure <name> --cpu --memory` | Double | ✅ | ✅ |
-| Create Snapshot | `vm snapshot-create <name> --name <snap>` | — | ✅ | ✅ |
+| Create Snapshot | `vm snapshot-create <name> --name <snap> [--description <text>] [--memory]` | — | ✅ | ✅ |
 | List Snapshots | `vm snapshot-list <name>` | — | ✅ | ✅ |
-| Revert Snapshot | `vm snapshot-revert <name> --name <snap>` | — | ✅ | ✅ |
-| Delete Snapshot | `vm snapshot-delete <name> --name <snap>` | — | ✅ | ✅ |
-| Clone VM | `vm clone <name> --new-name <new>` | — | ✅ | ✅ |
-| vMotion | `vm migrate <name> --to-host <host>` | — | ✅ | ❌ |
+| Revert Snapshot | `vm snapshot-revert <name> --name <snap>` | Double | ✅ | ✅ |
+| Delete Snapshot | `vm snapshot-delete <name> --name <snap> [--remove-children]` | Double | ✅ | ✅ |
+| Clone VM | `vm clone <name> --new-name <new> [--to-host <host>] [--to-datastore <ds>]` | Double | ✅ | ✅ |
+| vMotion | `vm migrate <name> --to-host <host> [--to-datastore <ds>]` | Double | ✅ | ❌ |
 | Set TTL | `vm set-ttl <name> --minutes <n>` | — | ✅ | ✅ |
 | Cancel TTL | `vm cancel-ttl <name>` | — | ✅ | ✅ |
 | List TTLs | `vm list-ttl` | — | ✅ | ✅ |

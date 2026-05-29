@@ -27,7 +27,7 @@ compatibility: >
 
 > **Disclaimer**: This is a community-maintained open-source project and is **not affiliated with, endorsed by, or sponsored by VMware, Inc. or Broadcom Inc.** "VMware" and "vSphere" are trademarks of Broadcom. Source code is publicly auditable at [github.com/zw008/VMware-AIops](https://github.com/zw008/VMware-AIops) under the MIT license.
 
-VMware family entry point — AI-powered VM lifecycle, deployment, and alarm management — 34 MCP tools.
+VMware family entry point — AI-powered VM lifecycle, deployment, and alarm management — 41 MCP tools.
 
 > **Start here**: install vmware-aiops first, then add modules as needed.
 > Run `vmware-aiops hub status` to see which family members are installed.
@@ -38,7 +38,7 @@ VMware family entry point — AI-powered VM lifecycle, deployment, and alarm man
 
 | Category | Tools | Count |
 |----------|-------|:-----:|
-| **VM Lifecycle** | power on/off, TTL auto-delete, clean slate | 6 |
+| **VM Lifecycle** | power on/off, clone, migrate, delete, snapshot CRUD, TTL auto-delete, clean slate | 13 |
 | **Deployment** | OVA, template, linked clone, batch clone/deploy | 8 |
 | **Guest Ops** | exec commands, upload/download files, provision | 5 |
 | **Plan/Apply** | multi-step planning with rollback | 4 |
@@ -159,24 +159,24 @@ vmware-aiops is the entry point. Add modules for additional capabilities:
 | Cloud models (Claude, GPT-4o) | Either | MCP gives structured JSON I/O |
 | Automated pipelines | **MCP** | Type-safe parameters, structured output |
 
-## MCP Tools (34 — 20 read, 14 write)
+## MCP Tools (41 — 8 read, 33 write)
 
 | Category | Tools | R/W |
 |----------|-------|:---:|
-| VM Lifecycle (6) | `vm_list_ttl` | Read |
-| | `vm_power_on`, `vm_power_off`, `vm_set_ttl`, `vm_cancel_ttl`, `vm_clean_slate` | Write |
+| VM Lifecycle (13) | `vm_list_ttl`, `vm_list_snapshots` | Read |
+| | `vm_power_on`, `vm_power_off`, `vm_clone`, `vm_migrate`, `vm_delete`, `vm_create_snapshot`, `vm_revert_snapshot`, `vm_delete_snapshot`, `vm_set_ttl`, `vm_cancel_ttl`, `vm_clean_slate` | Write |
 | Deployment (8) | `deploy_vm_from_ova`, `deploy_vm_from_template`, `deploy_linked_clone`, `attach_iso_to_vm`, `convert_vm_to_template`, `batch_clone_vms`, `batch_linked_clone_vms`, `batch_deploy_from_spec` | Write |
-| Guest Ops (5) | `vm_guest_exec_output`, `vm_guest_download` | Read |
-| | `vm_guest_exec`, `vm_guest_upload`, `vm_guest_provision` | Write |
-| Plan/Apply (4) | `vm_list_plans`, `vm_create_plan` | Read |
-| | `vm_apply_plan`, `vm_rollback_plan` | Write |
+| Guest Ops (5) | `vm_guest_download` | Read |
+| | `vm_guest_exec`, `vm_guest_exec_output`, `vm_guest_upload`, `vm_guest_provision` | Write |
+| Plan/Apply (4) | `vm_list_plans` | Read |
+| | `vm_create_plan`, `vm_apply_plan`, `vm_rollback_plan` | Write |
 | Datastore (2) | `browse_datastore`, `scan_datastore_images` | Read |
 | Cluster (6) | `cluster_info` | Read |
 | | `cluster_create`, `cluster_delete`, `cluster_add_host`, `cluster_remove_host`, `cluster_configure` | Write |
 | Alarm Management (3) | `list_vcenter_alarms` | Read |
 | | `acknowledge_vcenter_alarm`, `reset_vcenter_alarm` | Write |
 
-**Read/write split**: 20 tools are read-only, 14 modify state. All write tools require explicit parameters and are audit-logged. Destructive operations (delete, force power-off) require double confirmation.
+**Read/write split**: 8 tools are read-only (per `[READ]` docstring marker), 33 modify state. All write tools require explicit parameters and are audit-logged. Destructive operations (`vm_delete`, `vm_revert_snapshot`, `vm_delete_snapshot`, force power-off, cluster delete/remove-host) require double confirmation at the CLI layer.
 
 ## CLI Quick Reference
 
@@ -186,8 +186,12 @@ vmware-aiops vm power-on <name> [--target <t>]
 vmware-aiops vm power-off <name> [--force]
 vmware-aiops vm create <name> --cpu 4 --memory 8192 --disk 100
 vmware-aiops vm delete <name>
-vmware-aiops vm clone <name> --new-name <new>
-vmware-aiops vm migrate <name> --to-host <host>
+vmware-aiops vm clone <name> --new-name <new> [--to-host <host>] [--to-datastore <ds>] [--power-on]
+vmware-aiops vm migrate <name> --to-host <host> [--to-datastore <ds>]
+vmware-aiops vm snapshot-create <name> --name <snap> [--description <text>] [--memory]
+vmware-aiops vm snapshot-list <name>
+vmware-aiops vm snapshot-revert <name> --name <snap>
+vmware-aiops vm snapshot-delete <name> --name <snap> [--remove-children]
 
 # Guest operations (requires VMware Tools)
 vmware-aiops vm guest-exec <name> --cmd <script-path> --args "<args>" --user <username>
