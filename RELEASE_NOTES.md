@@ -1,3 +1,14 @@
+## v1.5.29 (2026-05-29) — Documentation Sync for v1.5.26 Tools
+
+### Documentation
+- SKILL.md, capabilities.md, cli-reference.md now reflect the 7 VM lifecycle MCP tools added in v1.5.26 (`vm_clone`, `vm_migrate`, `vm_delete`, `vm_create_snapshot`, `vm_revert_snapshot`, `vm_delete_snapshot`, `vm_list_snapshots`).
+- MCP tool count corrected from 34 → **41** (8 read / 33 write) based on `[READ]`/`[WRITE]` markers in `mcp_server/server.py`.
+- `vm_guest_exec_output` and `vm_create_plan` reclassified Read → Write to match their docstring markers.
+- CLI Quick Reference now includes new flags (`--to-host`, `--to-datastore`, `--power-on`) and 4 snapshot subcommands.
+
+### No code changes
+This is a documentation-only release closing the v1.5.26 doc gap. Family v1.5.29 alignment release.
+
 ## v1.5.28 (2026-05-20)
 
 **Fix `subclass() arg 1 must be a class` in goose/old mcp environments** —
