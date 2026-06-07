@@ -1,3 +1,15 @@
+## v1.5.30 (2026-06-07) — Tool description quality (Glama TDQS)
+
+### Improved
+- Rewrote 11 MCP tool descriptions flagged by Glama's Tool Description Quality Score
+  review (cluster_add_host, attach_iso_to_vm, snapshot tools, deploy tools, and more):
+  per-parameter semantics, return fields, sibling-tool routing, prerequisites, and
+  behavioral transparency. Also covered the two tools added after the last Glama scan
+  (deploy_linked_clone, cluster_info).
+- Annotated guest-side `/tmp` path in guest_ops with `# nosec B108` (false positive:
+  path is inside the remote guest VM, uuid-randomized).
+- No functional changes.
+
 ## v1.5.29 (2026-05-29) — Documentation Sync for v1.5.26 Tools
 
 ### Documentation

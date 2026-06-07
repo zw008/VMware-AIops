@@ -120,12 +120,21 @@ def vm_power_off(
     force: bool = False,
     target: Optional[str] = None,
 ) -> str:
-    """[WRITE] Power off a virtual machine. Graceful shutdown by default, force if specified.
+    """[WRITE] Power off a VM — graceful guest shutdown by default, hard power-off with force=True.
+
+    Graceful mode calls VMware Tools guest shutdown and waits up to 120s; if Tools is not
+    running or shutdown stalls, the response tells you to retry with force=True. An
+    already-off VM returns success without change. Audited to ~/.vmware/audit.db.
+    Use vm_power_on to start a VM; vm_delete requires the VM to be off first.
 
     Args:
-        vm_name: Exact name of the virtual machine.
-        force: If True, hard power off. If False, graceful guest shutdown.
-        target: Optional vCenter/ESXi target name from config. Uses default if omitted.
+        vm_name: Exact VM name as shown in vCenter inventory (case-sensitive).
+        force: False (default) = graceful guest shutdown via VMware Tools;
+            True = immediate hard power-off (risks guest filesystem damage).
+        target: vCenter/ESXi target name from config.yaml; omit to use the default target.
+
+    Returns:
+        Status string: shut down, force powered off, already off, or a Tools-unavailable hint.
     """
     try:
         si = _get_connection(target)
@@ -262,13 +271,22 @@ def vm_delete_snapshot(
     remove_children: bool = False,
     target: Optional[str] = None,
 ) -> str:
-    """[WRITE] Delete a named snapshot from a VM.
+    """[WRITE] Permanently delete a named snapshot, consolidating its delta disk into the parent.
+
+    Frees disk space and does NOT change the VM's current state (unlike vm_revert_snapshot,
+    which discards changes since the snapshot). Works while the VM is powered on. Run
+    vm_list_snapshots first for exact names — unknown names return the available list.
+    Irreversible: confirm with the user before calling. Audited to ~/.vmware/audit.db.
 
     Args:
-        vm_name: VM owning the snapshot.
-        snapshot_name: Snapshot to delete.
-        remove_children: If True, also remove all child snapshots.
-        target: vCenter/ESXi target name from config.
+        vm_name: Exact name of the VM owning the snapshot.
+        snapshot_name: Exact snapshot name from vm_list_snapshots output.
+        remove_children: False (default) = children are kept and consolidated;
+            True = delete the entire snapshot subtree below this one as well.
+        target: vCenter/ESXi target name from config.yaml; omit to use the default target.
+
+    Returns:
+        Status string confirming deletion, or a not-found message listing available snapshots.
     """
     try:
         si = _get_connection(target)
@@ -280,11 +298,20 @@ def vm_delete_snapshot(
 @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True})
 @vmware_tool(risk_level="low")
 def vm_list_snapshots(vm_name: str, target: Optional[str] = None) -> list[dict]:
-    """[READ] List all snapshots of a VM.
+    """[READ] List the full snapshot tree of a VM, including nested child snapshots.
+
+    Read-only, no side effects. Call this before vm_revert_snapshot, vm_delete_snapshot,
+    or deploy_linked_clone to get exact snapshot names. Returns an empty list when the
+    VM has no snapshots.
 
     Args:
-        vm_name: VM name.
-        target: vCenter/ESXi target name from config.
+        vm_name: Exact VM name as shown in vCenter inventory.
+        target: vCenter/ESXi target name from config.yaml; omit to use the default target.
+
+    Returns:
+        One dict per snapshot: name, description, created (timestamp), state
+        (poweredOn/poweredOff at snapshot time), level (0 = root, higher = nesting
+        depth). No pagination — snapshot trees are small.
     """
     try:
         si = _get_connection(target)
@@ -363,20 +390,25 @@ def deploy_vm_from_ova(
     snapshot_name: Optional[str] = None,
     target: Optional[str] = None,
 ) -> str:
-    """[WRITE] Deploy a VM from a local OVA file.
+    """[WRITE] Create a new VM by importing a local .ova file (OVF parse + VMDK upload).
 
-    Parses the OVF descriptor, creates import spec, uploads VMDKs via
-    HTTP NFC lease. Optionally powers on and creates a baseline snapshot.
+    Use for OVA appliance files on the local machine. For vSphere templates use
+    deploy_vm_from_template; to copy an existing VM use vm_clone or deploy_linked_clone.
+    Upload time scales with OVA size. Fails before creating anything if the datastore
+    is not found. Audited to ~/.vmware/audit.db.
 
     Args:
-        ova_path: Local file path to the .ova file.
-        vm_name: Desired name for the new VM.
-        datastore_name: Target datastore for the VM.
-        network_name: Network to attach (default "VM Network").
-        folder_path: VM folder path in vCenter (optional).
-        power_on: Power on after deployment.
-        snapshot_name: Create a baseline snapshot with this name (optional).
-        target: Optional vCenter/ESXi target name from config.
+        ova_path: Local filesystem path to the .ova file (must be readable by this server).
+        vm_name: Name for the new VM; must not already exist.
+        datastore_name: Target datastore name; discover with browse_datastore.
+        network_name: Port group for the VM's NICs (default "VM Network").
+        folder_path: vCenter VM folder path; omit to use the datacenter's root VM folder.
+        power_on: True powers the VM on after import (default False).
+        snapshot_name: If set, creates a baseline snapshot with this name after deploy.
+        target: vCenter/ESXi target name from config.yaml; omit to use the default target.
+
+    Returns:
+        Status string with the deployed VM name, or an error naming the missing resource.
     """
     try:
         si = _get_connection(target)
@@ -437,20 +469,26 @@ def deploy_linked_clone(
     baseline_snapshot: Optional[str] = None,
     target: Optional[str] = None,
 ) -> str:
-    """[WRITE] Create a linked clone from a VM snapshot (near-instant, minimal disk).
+    """[WRITE] Create a linked clone from a VM snapshot — near-instant, minimal disk usage.
 
-    Linked clones share the source disk and use copy-on-write delta disks.
-    This is the fastest provisioning method.
+    The clone shares the source's base disk and writes changes to a copy-on-write delta
+    disk, so it depends on the source VM staying intact. Fastest provisioning method for
+    test/dev fleets; use vm_clone or deploy_vm_from_template for fully independent copies.
+    Requires the source VM to have the named snapshot — run vm_list_snapshots first;
+    unknown names return the available list. Audited to ~/.vmware/audit.db.
 
     Args:
-        source_vm_name: Source VM to clone from.
-        snapshot_name: Snapshot on the source VM to use as clone base.
-        new_name: Name for the new linked clone.
-        cpu: Override CPU count (optional).
-        memory_mb: Override memory in MB (optional).
-        power_on: Power on after creation.
-        baseline_snapshot: Create a new snapshot on the clone (optional).
-        target: Optional vCenter/ESXi target name from config.
+        source_vm_name: Exact name of the source VM (must have at least one snapshot).
+        snapshot_name: Snapshot on the source to use as the clone base (from vm_list_snapshots).
+        new_name: Name for the new linked clone; must not already exist.
+        cpu: Override vCPU count; omit to keep the source's value.
+        memory_mb: Override memory in MB; omit to keep the source's value.
+        power_on: True powers the clone on after creation (default False).
+        baseline_snapshot: If set, creates a snapshot with this name on the new clone.
+        target: vCenter/ESXi target name from config.yaml; omit to use the default target.
+
+    Returns:
+        Status string with the new clone name, or a snapshot/VM-not-found error.
     """
     try:
         si = _get_connection(target)
@@ -470,12 +508,23 @@ def attach_iso_to_vm(
     iso_ds_path: str,
     target: Optional[str] = None,
 ) -> str:
-    """[WRITE] Attach an ISO from a datastore to a VM's CD-ROM drive.
+    """[WRITE] Mount a datastore ISO into a VM's virtual CD-ROM drive.
+
+    Reconfigures the existing CD-ROM (replacing any currently mounted ISO) or adds a
+    new CD-ROM on the VM's IDE controller if none exists; fails with a clear message
+    if the VM has no IDE controller. Works whether the VM is powered on or off — the
+    device is set connected and start-connected. Find ISO files first with
+    browse_datastore using pattern "*.iso". Audited to ~/.vmware/audit.db.
 
     Args:
-        vm_name: Target VM name.
-        iso_ds_path: Datastore path, e.g. "[datastore1] iso/ubuntu.iso".
-        target: Optional vCenter/ESXi target name from config.
+        vm_name: Exact VM name as shown in vCenter inventory.
+        iso_ds_path: Full datastore path in bracket format, e.g.
+            "[datastore1] iso/ubuntu-22.04.iso" (datastore name in brackets, then
+            the path relative to the datastore root).
+        target: vCenter/ESXi target name from config.yaml; omit to use the default target.
+
+    Returns:
+        Status string confirming attachment, or a VM-not-found / no-IDE-controller error.
     """
     try:
         si = _get_connection(target)
@@ -584,18 +633,22 @@ def batch_deploy_from_spec(
     spec_path: str,
     target: Optional[str] = None,
 ) -> list[dict]:
-    """[WRITE] Batch deploy VMs from a YAML specification file.
+    """[WRITE] Deploy multiple VMs in one call from a declarative YAML spec file.
 
-    The YAML spec supports all provisioning channels:
-    - source: clone from a VM
-    - template: clone from a vSphere template
-    - linked_clone: instant clone from a snapshot
-    - Per-VM ova: deploy from OVA file
-    - Fallback: create empty VMs (optionally with ISO)
+    Use for fleet provisioning (several VMs, shared defaults); for a single VM prefer
+    deploy_vm_from_template, vm_clone, deploy_vm_from_ova, or deploy_linked_clone.
+    The provisioning channel is chosen by spec keys: top-level "source" (full clone),
+    "template", "linked_clone: {source, snapshot}", per-VM "ova", else empty-VM creation
+    (optionally with "iso"). A "defaults" block sets cpu/memory_mb/disk_gb/network/
+    datastore/snapshot/power_on, overridable per VM. VMs deploy sequentially; one VM's
+    failure is recorded and the rest continue. Audited to ~/.vmware/audit.db.
 
     Args:
-        spec_path: Path to the deploy.yaml specification file.
-        target: Optional vCenter/ESXi target name from config.
+        spec_path: Local filesystem path to the deploy.yaml specification file.
+        target: vCenter/ESXi target name from config.yaml; omit to use the default target.
+
+    Returns:
+        One dict per VM: name, status ("ok" or "error"), and messages with per-step results.
     """
     try:
         si = _get_connection(target)
@@ -619,15 +672,24 @@ def cluster_create(
     drs_behavior: str = "fullyAutomated",
     target: Optional[str] = None,
 ) -> str:
-    """[WRITE] Create a new cluster with optional HA and DRS configuration.
+    """[WRITE] Create a new empty cluster in a datacenter, optionally enabling HA and DRS.
+
+    Fails with a clear error (no partial state) if a cluster with that name already
+    exists or drs_behavior is invalid. After creation, add hosts with cluster_add_host;
+    change HA/DRS later with cluster_configure; verify with cluster_info.
+    Audited to ~/.vmware/audit.db.
 
     Args:
-        name: Name for the new cluster.
-        datacenter: Datacenter name (uses first datacenter if omitted).
-        ha: Enable vSphere HA (default False).
-        drs: Enable DRS (default False).
-        drs_behavior: DRS behavior: "fullyAutomated", "partiallyAutomated", or "manual".
-        target: Optional vCenter target name from config.
+        name: Name for the new cluster; must be unique in the datacenter.
+        datacenter: Datacenter name; omit to use the first datacenter on the target.
+        ha: True enables vSphere HA (default False).
+        drs: True enables DRS (default False).
+        drs_behavior: "fullyAutomated" (default), "partiallyAutomated", or "manual".
+            Only takes effect when drs=True.
+        target: vCenter target name from config.yaml; omit to use the default target.
+
+    Returns:
+        Status string confirming creation and which features (HA/DRS) were enabled.
     """
     try:
         from vmware_aiops.ops.cluster_mgmt import create_cluster
@@ -664,12 +726,23 @@ def cluster_add_host(
     host_name: str,
     target: Optional[str] = None,
 ) -> str:
-    """[WRITE] Move a host into a cluster.
+    """[WRITE] Move an ESXi host that vCenter already manages into a cluster.
+
+    The host must already be in vCenter inventory (standalone or in another cluster) —
+    this tool does NOT register brand-new hosts and takes no host credentials; use the
+    vCenter UI for first-time host registration. Idempotent: a host already in the
+    cluster returns success without change. Maintenance mode is not required to join
+    (it IS required by cluster_remove_host). Check membership with cluster_info.
+    Audited to ~/.vmware/audit.db.
 
     Args:
-        cluster_name: Target cluster name.
-        host_name: ESXi host name to move into the cluster.
-        target: Optional vCenter target name from config.
+        cluster_name: Existing destination cluster name (create with cluster_create).
+        host_name: Host name exactly as shown in vCenter inventory, typically the
+            FQDN, e.g. "esxi-01.lab.local".
+        target: vCenter target name from config.yaml; omit to use the default target.
+
+    Returns:
+        Status string: moved, already-in-cluster, or host/cluster-not-found error.
     """
     try:
         from vmware_aiops.ops.cluster_mgmt import add_host_to_cluster
@@ -733,11 +806,19 @@ def cluster_configure(
 @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True})
 @vmware_tool(risk_level="low")
 def cluster_info(name: str, target: Optional[str] = None) -> dict:
-    """[READ] Get detailed cluster information (hosts, HA/DRS config, resources).
+    """[READ] Get detailed cluster information: member hosts, HA/DRS config, resource capacity.
+
+    Read-only, no side effects. Use before cluster_add_host / cluster_remove_host (shows
+    membership and per-host maintenance mode) and to verify cluster_configure changes.
 
     Args:
-        name: Cluster name.
-        target: Optional vCenter target name from config.
+        name: Exact cluster name.
+        target: vCenter target name from config.yaml; omit to use the default target.
+
+    Returns:
+        Dict with name, host_count, hosts (each: name, connection_state, power_state,
+        maintenance_mode), ha_enabled, ha_admission_control, drs_enabled, drs_behavior,
+        total/effective CPU (MHz) and memory (GB). Errors return a dict with "error" + hint.
     """
     try:
         from vmware_aiops.ops.cluster_mgmt import get_cluster_info
@@ -1162,16 +1243,22 @@ def acknowledge_vcenter_alarm(
     alarm_name: str,
     target: Optional[str] = None,
 ) -> dict:
-    """[WRITE] Acknowledge a triggered vCenter alarm on a VM, host, or cluster.
+    """[WRITE] Acknowledge a triggered vCenter alarm — marks it as seen WITHOUT clearing it.
 
-    Marks the alarm as seen by an operator. The alarm remains in the triggered
-    list but is flagged as acknowledged. Use list_vcenter_alarms to find
-    entity_name and alarm_name values.
+    The alarm stays in the active list with acknowledged=true until its condition clears
+    or it is reset. To remove the alarm entirely after fixing the root cause, use
+    reset_vcenter_alarm instead. Get exact entity_name and alarm_name values from
+    list_vcenter_alarms first; an unknown pair returns a not-found error.
+    Audited to ~/.vmware/audit.db.
 
     Args:
-        entity_name: Name of the entity with the alarm (VM name, host name, or cluster name).
-        alarm_name: Exact alarm definition name from list_vcenter_alarms output.
-        target: Optional vCenter target name from config.
+        entity_name: Name of the VM, ESXi host, or cluster the alarm fired on
+            (from list_vcenter_alarms output).
+        alarm_name: Exact alarm definition name, e.g. "Virtual machine CPU usage".
+        target: vCenter target name from config.yaml; omit to use the default target.
+
+    Returns:
+        Dict: entity_name, alarm_name, action ("acknowledged"), acknowledged (true).
     """
     try:
         si = _get_connection(target)

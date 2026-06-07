@@ -199,7 +199,7 @@ def guest_exec_with_output(
         wrapped = f"{command} > {tmp_out} 2>&1"
         shell_arg = f"{flag} \"{wrapped}\""
     else:
-        tmp_out = f"/tmp/.vmops_{run_id}.txt"
+        tmp_out = f"/tmp/.vmops_{run_id}.txt"  # nosec B108 — path is inside the remote guest VM, not the local FS; name is uuid-randomized
         # POSIX: quote the redirect destination to guard against special chars,
         # then quote the whole wrapped string as a single shell argument.
         wrapped = f"{command} > {shlex.quote(tmp_out)} 2>&1"
