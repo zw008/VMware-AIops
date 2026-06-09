@@ -17,6 +17,22 @@ if TYPE_CHECKING:
 
 from vmware_aiops.config import AppConfig, TargetConfig, load_config
 
+# Component 6: per-request backend-credential routing (shared resolver lib).
+# Optional - absent in local/stdio dev; routing then no-ops and the startup
+# config credentials are used. vmware-monitor + vmware-aiops both front the
+# PROD vCenter, so both resolve `MCP - <role> - vcenter-prod`. syseng-only per
+# the C5 validator ACCESS matrix; the backend account's own RBAC enforces
+# read-vs-write (aiops is write-capable, so only syseng_elevated reaches it).
+try:
+    import uaa_hub_routing
+
+    _HUB_ROUTING = True
+    _VCENTER_SELECTOR = uaa_hub_routing.priority_selector(
+        ("syseng_elevated", "syseng_readonly")
+    )
+except ImportError:
+    _HUB_ROUTING = False
+
 
 # ServiceInstance is a pyVmomi ManagedObject — its __setattr__ rejects any
 # attribute not in its allowed list (raises "Managed object attributes are
@@ -47,24 +63,50 @@ class ConnectionManager:
         return cls(cfg)
 
     def connect(self, target_name: str | None = None) -> ServiceInstance:
-        """Connect to a target by name, or the default target."""
+        """Connect to a target by name, or the default target.
+
+        Component 6: when the hub validator routes the request (X-Hub-Roles
+        present), resolve the per-role vCenter username/password from 1Password
+        (`MCP - <role> - vcenter-prod`) and open the session with THOSE creds -
+        host/port/tls unchanged - cached per (target, routed account). No
+        routing signal (legacy bearer / non-hub / stdio) -> the startup-config
+        session, unchanged. Fail closed: a present-but-unresolvable signal
+        raises and the request is denied; it never falls back to the startup
+        credential on a routing miss.
+        """
         target = (
             self._config.get_target(target_name)
             if target_name
             else self._config.default_target
         )
 
-        if target.name in self._connections:
-            si = self._connections[target.name]
+        routed = (
+            uaa_hub_routing.routing_item("vcenter-prod", _VCENTER_SELECTOR)
+            if _HUB_ROUTING
+            else None
+        )
+        cache_key = target.name if routed is None else f"{target.name}#{routed}"
+
+        if cache_key in self._connections:
+            si = self._connections[cache_key]
             try:
                 # Test if session is still alive
                 _ = si.content.sessionManager.currentSession
                 return si
             except (vmodl.fault.NotAuthenticated, Exception):
-                del self._connections[target.name]
+                del self._connections[cache_key]
 
-        si = self._create_connection(target)
-        self._connections[target.name] = si
+        if routed is None:
+            si = self._create_connection(target)
+        else:
+            fields = uaa_hub_routing.resolve_fields(routed)
+            user, pw = fields.get("username"), fields.get("password")
+            if not user or not pw:
+                raise uaa_hub_routing.RoutingError(
+                    f"1P item {routed!r} missing username/password"
+                )
+            si = self._create_connection(target, user=user, pwd=pw)
+        self._connections[cache_key] = si
         return si
 
     def disconnect(self, target_name: str) -> None:
@@ -89,8 +131,15 @@ class ConnectionManager:
         return list(self._connections.keys())
 
     @staticmethod
-    def _create_connection(target: TargetConfig) -> ServiceInstance:
-        """Create a new pyVmomi connection."""
+    def _create_connection(
+        target: TargetConfig, *, user: str | None = None, pwd: str | None = None
+    ) -> ServiceInstance:
+        """Create a new pyVmomi connection.
+
+        ``user``/``pwd`` override the target's startup credentials (Component 6
+        per-role routing); when omitted, the target's own username + env
+        password are used (legacy/startup path).
+        """
         from pyVim.connect import Disconnect, SmartConnect
 
         context = None
@@ -101,8 +150,8 @@ class ConnectionManager:
 
         si = SmartConnect(
             host=target.host,
-            user=target.username,
-            pwd=target.password,
+            user=user or target.username,
+            pwd=pwd if pwd is not None else target.password,
             port=target.port,
             sslContext=context,
             disableSslCertValidation=not target.verify_ssl,
