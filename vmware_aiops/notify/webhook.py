@@ -55,7 +55,8 @@ class WebhookNotifier:
             logger.warning(
                 "Webhook returned %d: %s",
                 response.status_code,
-                response.text[:200],
+                # Strip CR/LF so a hostile endpoint can't inject forged log lines.
+                response.text[:200].replace("\n", " ").replace("\r", " "),
             )
             return False
         except httpx.HTTPError as e:

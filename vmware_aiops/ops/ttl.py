@@ -45,9 +45,12 @@ def _load_ttl_store() -> dict[str, dict]:
 
 
 def _save_ttl_store(store: dict[str, dict]) -> None:
-    """Persist the TTL store to disk."""
-    _TTL_FILE.parent.mkdir(parents=True, exist_ok=True)
+    """Persist the TTL store to disk (owner-only)."""
+    from vmware_aiops._fsutil import secure_chmod_file, secure_mkdir
+
+    secure_mkdir(_TTL_FILE.parent)
     _TTL_FILE.write_text(json.dumps(store, indent=2))
+    secure_chmod_file(_TTL_FILE)
 
 
 # ---------------------------------------------------------------------------

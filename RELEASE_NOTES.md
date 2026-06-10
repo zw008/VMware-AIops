@@ -1,3 +1,15 @@
+## v1.5.35 (2026-06-10) — security hardening: safe errors, path validation, tighter file perms
+
+### Fixed
+- **MCP tools no longer return raw exception text / tracebacks** to the agent — a
+  central `_safe_error()` logs full detail server-side and returns a sanitized message.
+- **Guest file transfer** validates paths: upload source must be a real readable file;
+  download refuses to write through a symlink.
+- **Audit dir/log** 0700/0600; TTL store, plans, and image registry are written 0600.
+- **Webhook** response bodies are CR/LF-stripped before logging (no log injection).
+
+This release aligns the whole family back to a single version (1.5.35); vmware-policy and vmware-pilot return to the shared number after sitting at 1.5.22.
+
 ## v1.5.32 (2026-06-08) — Invented pyVmomi methods fixed + alarm/sensor/migrate corrections
 
 A pyVmomi introspection audit found two invented SDK methods (passed import,

@@ -19,7 +19,7 @@ from vmware_aiops.config import CONFIG_DIR, CONFIG_FILE, ENV_FILE
 
 console = Console()
 
-_PASS = "[green]✓[/]"
+_PASS = "[green]✓[/]"  # nosec B105 — rich color markup, not a password
 _FAIL = "[red]✗[/]"
 _WARN = "[yellow]![/]"
 _INFO = "[cyan]i[/]"

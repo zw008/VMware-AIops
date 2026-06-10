@@ -38,7 +38,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 from mcp.server.fastmcp import FastMCP
-from vmware_policy import vmware_tool
+from vmware_policy import sanitize, vmware_tool
 
 from vmware_aiops.config import load_config
 from vmware_aiops.connection import ConnectionManager
@@ -60,6 +60,21 @@ from vmware_aiops.ops.vm_lifecycle import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _safe_error(exc: Exception, tool: str) -> str:
+    """Return an agent-safe error string; log full detail server-side only.
+
+    Raw exception text can carry vSphere response bodies, internal paths, or
+    host:port pairs. Full traceback goes to the server log; the agent sees only
+    a control-char-stripped, length-capped message. Intentional validation
+    errors (ValueError/FileNotFoundError/KeyError) pass through sanitized.
+    """
+    logger.error("Tool %s failed", tool, exc_info=True)
+    if isinstance(exc, (ValueError, FileNotFoundError, KeyError, PermissionError)):
+        return sanitize(str(exc), 300)
+    return f"{type(exc).__name__}: operation failed."
+
 
 mcp = FastMCP(
     "vmware-aiops",
@@ -110,7 +125,7 @@ def vm_power_on(vm_name: str, target: Optional[str] = None) -> str:
         si = _get_connection(target)
         return power_on_vm(si, vm_name)
     except Exception as e:
-        return f"Error: {e}. Run 'vmware-aiops doctor' to verify connectivity and credentials."
+        return f"Error: {_safe_error(e, 'aiops')} Run 'vmware-aiops doctor' to verify connectivity and credentials."
 
 
 @mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": True, "idempotentHint": False, "openWorldHint": True})
@@ -140,7 +155,7 @@ def vm_power_off(
         si = _get_connection(target)
         return power_off_vm(si, vm_name, force=force)
     except Exception as e:
-        return f"Error: {e}. Run 'vmware-aiops doctor' to verify connectivity and credentials."
+        return f"Error: {_safe_error(e, 'aiops')} Run 'vmware-aiops doctor' to verify connectivity and credentials."
 
 
 @mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": True})
@@ -172,7 +187,7 @@ def vm_clone(
             power_on=power_on,
         )
     except Exception as e:
-        return f"Error: {e}. Run 'vmware-aiops doctor' to verify connectivity and credentials."
+        return f"Error: {_safe_error(e, 'aiops')} Run 'vmware-aiops doctor' to verify connectivity and credentials."
 
 
 @mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": True})
@@ -198,7 +213,7 @@ def vm_migrate(
         si = _get_connection(target)
         return migrate_vm(si, vm_name, to_host, target_datastore=to_datastore)
     except Exception as e:
-        return f"Error: {e}. Run 'vmware-aiops doctor' to verify connectivity and credentials."
+        return f"Error: {_safe_error(e, 'aiops')} Run 'vmware-aiops doctor' to verify connectivity and credentials."
 
 
 @mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": True, "idempotentHint": False, "openWorldHint": True})
@@ -214,7 +229,7 @@ def vm_delete(vm_name: str, target: Optional[str] = None) -> str:
         si = _get_connection(target)
         return delete_vm(si, vm_name)
     except Exception as e:
-        return f"Error: {e}. Run 'vmware-aiops doctor' to verify connectivity and credentials."
+        return f"Error: {_safe_error(e, 'aiops')} Run 'vmware-aiops doctor' to verify connectivity and credentials."
 
 
 @mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True})
@@ -239,7 +254,7 @@ def vm_create_snapshot(
         si = _get_connection(target)
         return create_snapshot(si, vm_name, snapshot_name, description=description, memory=memory)
     except Exception as e:
-        return f"Error: {e}. Run 'vmware-aiops doctor' to verify connectivity and credentials."
+        return f"Error: {_safe_error(e, 'aiops')} Run 'vmware-aiops doctor' to verify connectivity and credentials."
 
 
 @mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": True, "idempotentHint": False, "openWorldHint": True})
@@ -260,7 +275,7 @@ def vm_revert_snapshot(
         si = _get_connection(target)
         return revert_to_snapshot(si, vm_name, snapshot_name)
     except Exception as e:
-        return f"Error: {e}. Run 'vmware-aiops doctor' to verify connectivity and credentials."
+        return f"Error: {_safe_error(e, 'aiops')} Run 'vmware-aiops doctor' to verify connectivity and credentials."
 
 
 @mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": True, "idempotentHint": False, "openWorldHint": True})
@@ -292,7 +307,7 @@ def vm_delete_snapshot(
         si = _get_connection(target)
         return delete_snapshot(si, vm_name, snapshot_name, remove_children=remove_children)
     except Exception as e:
-        return f"Error: {e}. Run 'vmware-aiops doctor' to verify connectivity and credentials."
+        return f"Error: {_safe_error(e, 'aiops')} Run 'vmware-aiops doctor' to verify connectivity and credentials."
 
 
 @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True})
@@ -321,7 +336,7 @@ def vm_list_snapshots(vm_name: str, target: Optional[str] = None) -> list[dict]:
             for s in snaps
         ]
     except Exception as e:
-        return [{"error": str(e), "hint": "Run 'vmware-aiops doctor' to verify connectivity."}]
+        return [{"error": _safe_error(e, "aiops"), "hint": "Run 'vmware-aiops doctor' to verify connectivity."}]
 
 
 # ---------------------------------------------------------------------------
@@ -352,7 +367,7 @@ def browse_datastore(
         si = _get_connection(target)
         return datastore_browser.browse_datastore(si, datastore_name, path=path, pattern=pattern)
     except Exception as e:
-        return [{"error": str(e), "hint": "Run 'vmware-aiops doctor' to verify connectivity and credentials."}]
+        return [{"error": _safe_error(e, "aiops"), "hint": "Run 'vmware-aiops doctor' to verify connectivity and credentials."}]
 
 
 @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True})
@@ -370,7 +385,7 @@ def scan_datastore_images(target: Optional[str] = None) -> dict:
         si = _get_connection(target)
         return datastore_browser.update_registry(si)
     except Exception as e:
-        return {"error": str(e), "hint": "Run 'vmware-aiops doctor' to verify connectivity and credentials."}
+        return {"error": _safe_error(e, "aiops"), "hint": "Run 'vmware-aiops doctor' to verify connectivity and credentials."}
 
 
 # ---------------------------------------------------------------------------
@@ -419,7 +434,7 @@ def deploy_vm_from_ova(
             snapshot_name=snapshot_name,
         )
     except Exception as e:
-        return f"Error: {e}. Run 'vmware-aiops doctor' to verify connectivity and credentials."
+        return f"Error: {_safe_error(e, 'aiops')} Run 'vmware-aiops doctor' to verify connectivity and credentials."
 
 
 @mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": True})
@@ -454,7 +469,7 @@ def deploy_vm_from_template(
             power_on=power_on, snapshot_name=snapshot_name,
         )
     except Exception as e:
-        return f"Error: {e}. Run 'vmware-aiops doctor' to verify connectivity and credentials."
+        return f"Error: {_safe_error(e, 'aiops')} Run 'vmware-aiops doctor' to verify connectivity and credentials."
 
 
 @mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": True})
@@ -498,7 +513,7 @@ def deploy_linked_clone(
             power_on=power_on, baseline_snapshot=baseline_snapshot,
         )
     except Exception as e:
-        return f"Error: {e}. Run 'vmware-aiops doctor' to verify connectivity and credentials."
+        return f"Error: {_safe_error(e, 'aiops')} Run 'vmware-aiops doctor' to verify connectivity and credentials."
 
 
 @mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": True})
@@ -530,7 +545,7 @@ def attach_iso_to_vm(
         si = _get_connection(target)
         return vm_deploy.attach_iso(si, vm_name, iso_ds_path)
     except Exception as e:
-        return f"Error: {e}. Run 'vmware-aiops doctor' to verify connectivity and credentials."
+        return f"Error: {_safe_error(e, 'aiops')} Run 'vmware-aiops doctor' to verify connectivity and credentials."
 
 
 @mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": True})
@@ -552,7 +567,7 @@ def convert_vm_to_template(
         si = _get_connection(target)
         return vm_deploy.convert_to_template(si, vm_name)
     except Exception as e:
-        return f"Error: {e}. Run 'vmware-aiops doctor' to verify connectivity and credentials."
+        return f"Error: {_safe_error(e, 'aiops')} Run 'vmware-aiops doctor' to verify connectivity and credentials."
 
 
 @mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": True})
@@ -587,7 +602,7 @@ def batch_clone_vms(
             snapshot_name=snapshot_name, power_on=power_on,
         )
     except Exception as e:
-        return [{"error": str(e), "hint": "Run 'vmware-aiops doctor' to verify connectivity and credentials."}]
+        return [{"error": _safe_error(e, "aiops"), "hint": "Run 'vmware-aiops doctor' to verify connectivity and credentials."}]
 
 
 @mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": True})
@@ -624,7 +639,7 @@ def batch_linked_clone_vms(
             power_on=power_on, baseline_snapshot=baseline_snapshot,
         )
     except Exception as e:
-        return [{"error": str(e), "hint": "Run 'vmware-aiops doctor' to verify connectivity and credentials."}]
+        return [{"error": _safe_error(e, "aiops"), "hint": "Run 'vmware-aiops doctor' to verify connectivity and credentials."}]
 
 
 @mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": True})
@@ -654,7 +669,7 @@ def batch_deploy_from_spec(
         si = _get_connection(target)
         return vm_deploy.batch_deploy(si, spec_path)
     except Exception as e:
-        return [{"error": str(e), "hint": "Run 'vmware-aiops doctor' to verify connectivity and credentials."}]
+        return [{"error": _safe_error(e, "aiops"), "hint": "Run 'vmware-aiops doctor' to verify connectivity and credentials."}]
 
 
 # ---------------------------------------------------------------------------
@@ -699,7 +714,7 @@ def cluster_create(
             ha_enabled=ha, drs_enabled=drs, drs_behavior=drs_behavior,
         )
     except Exception as e:
-        return f"Error: {e}. Run 'vmware-aiops doctor' to verify connectivity and credentials."
+        return f"Error: {_safe_error(e, 'aiops')} Run 'vmware-aiops doctor' to verify connectivity and credentials."
 
 
 @mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": True, "idempotentHint": False, "openWorldHint": True})
@@ -716,7 +731,7 @@ def cluster_delete(name: str, target: Optional[str] = None) -> str:
         si = _get_connection(target)
         return delete_cluster(si, name)
     except Exception as e:
-        return f"Error: {e}. Run 'vmware-aiops doctor' to verify connectivity and credentials."
+        return f"Error: {_safe_error(e, 'aiops')} Run 'vmware-aiops doctor' to verify connectivity and credentials."
 
 
 @mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": True})
@@ -749,7 +764,7 @@ def cluster_add_host(
         si = _get_connection(target)
         return add_host_to_cluster(si, cluster_name=cluster_name, host_name=host_name)
     except Exception as e:
-        return f"Error: {e}. Run 'vmware-aiops doctor' to verify connectivity and credentials."
+        return f"Error: {_safe_error(e, 'aiops')} Run 'vmware-aiops doctor' to verify connectivity and credentials."
 
 
 @mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": True, "idempotentHint": False, "openWorldHint": True})
@@ -771,7 +786,7 @@ def cluster_remove_host(
         si = _get_connection(target)
         return remove_host_from_cluster(si, cluster_name=cluster_name, host_name=host_name)
     except Exception as e:
-        return f"Error: {e}. Run 'vmware-aiops doctor' to verify connectivity and credentials."
+        return f"Error: {_safe_error(e, 'aiops')} Run 'vmware-aiops doctor' to verify connectivity and credentials."
 
 
 @mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": True})
@@ -800,7 +815,7 @@ def cluster_configure(
             ha_enabled=ha, drs_enabled=drs, drs_behavior=drs_behavior,
         )
     except Exception as e:
-        return f"Error: {e}. Run 'vmware-aiops doctor' to verify connectivity and credentials."
+        return f"Error: {_safe_error(e, 'aiops')} Run 'vmware-aiops doctor' to verify connectivity and credentials."
 
 
 @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True})
@@ -825,7 +840,7 @@ def cluster_info(name: str, target: Optional[str] = None) -> dict:
         si = _get_connection(target)
         return get_cluster_info(si, name)
     except Exception as e:
-        return {"error": str(e), "hint": "Run 'vmware-aiops doctor' to verify connectivity and credentials."}
+        return {"error": _safe_error(e, "aiops"), "hint": "Run 'vmware-aiops doctor' to verify connectivity and credentials."}
 
 
 # ---------------------------------------------------------------------------
@@ -854,7 +869,7 @@ def vm_set_ttl(
         from vmware_aiops.ops.ttl import set_ttl as _set_ttl
         return _set_ttl(vm_name, minutes, target=target)
     except Exception as e:
-        return f"Error: {e}. Run 'vmware-aiops doctor' to verify connectivity and credentials."
+        return f"Error: {_safe_error(e, 'aiops')} Run 'vmware-aiops doctor' to verify connectivity and credentials."
 
 
 @mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": True, "idempotentHint": False, "openWorldHint": True})
@@ -869,7 +884,7 @@ def vm_cancel_ttl(vm_name: str) -> str:
         from vmware_aiops.ops.ttl import cancel_ttl as _cancel_ttl
         return _cancel_ttl(vm_name)
     except Exception as e:
-        return f"Error: {e}. Run 'vmware-aiops doctor' to verify connectivity and credentials."
+        return f"Error: {_safe_error(e, 'aiops')} Run 'vmware-aiops doctor' to verify connectivity and credentials."
 
 
 @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True})
@@ -883,7 +898,7 @@ def vm_list_ttl() -> list[dict]:
         from vmware_aiops.ops.ttl import list_ttl as _list_ttl
         return _list_ttl()
     except Exception as e:
-        return [{"error": str(e), "hint": "Run 'vmware-aiops doctor' to verify connectivity and credentials."}]
+        return [{"error": _safe_error(e, "aiops"), "hint": "Run 'vmware-aiops doctor' to verify connectivity and credentials."}]
 
 
 @mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": True, "idempotentHint": False, "openWorldHint": True})
@@ -909,7 +924,7 @@ def vm_clean_slate(
         si = _get_connection(target)
         return clean_slate(si, vm_name, snapshot_name=snapshot_name)
     except Exception as e:
-        return f"Error: {e}. Run 'vmware-aiops doctor' to verify connectivity and credentials."
+        return f"Error: {_safe_error(e, 'aiops')} Run 'vmware-aiops doctor' to verify connectivity and credentials."
 
 
 # ---------------------------------------------------------------------------
@@ -955,7 +970,7 @@ def vm_guest_exec(
             working_directory=working_directory,
         )
     except Exception as e:
-        return {"error": str(e), "hint": "Run 'vmware-aiops doctor' to verify connectivity and credentials."}
+        return {"error": _safe_error(e, "aiops"), "hint": "Run 'vmware-aiops doctor' to verify connectivity and credentials."}
 
 
 @mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": True})
@@ -988,7 +1003,7 @@ def vm_guest_exec_output(
         si = _get_connection(target)
         return guest_exec_with_output(si, vm_name, command, username, password, timeout=timeout)
     except Exception as e:
-        return {"error": str(e), "hint": "Run 'vmware-aiops doctor' to verify connectivity and credentials."}
+        return {"error": _safe_error(e, "aiops"), "hint": "Run 'vmware-aiops doctor' to verify connectivity and credentials."}
 
 
 @mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": True})
@@ -1017,7 +1032,7 @@ def vm_guest_upload(
         si = _get_connection(target)
         return guest_upload(si, vm_name, local_path, guest_path, username, password)
     except Exception as e:
-        return f"Error: {e}. Run 'vmware-aiops doctor' to verify connectivity and credentials."
+        return f"Error: {_safe_error(e, 'aiops')} Run 'vmware-aiops doctor' to verify connectivity and credentials."
 
 
 @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True})
@@ -1046,7 +1061,7 @@ def vm_guest_download(
         si = _get_connection(target)
         return guest_download(si, vm_name, guest_path, local_path, username, password)
     except Exception as e:
-        return f"Error: {e}. Run 'vmware-aiops doctor' to verify connectivity and credentials."
+        return f"Error: {_safe_error(e, 'aiops')} Run 'vmware-aiops doctor' to verify connectivity and credentials."
 
 
 @mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": True})
@@ -1093,7 +1108,7 @@ def vm_guest_provision(
         si = _get_connection(target)
         return guest_provision(si, vm_name, username, password, steps, timeout=timeout)
     except Exception as e:
-        return {"error": str(e), "hint": "Run 'vmware-aiops doctor' to verify connectivity and credentials."}
+        return {"error": _safe_error(e, "aiops"), "hint": "Run 'vmware-aiops doctor' to verify connectivity and credentials."}
 
 
 # ---------------------------------------------------------------------------
@@ -1138,7 +1153,7 @@ def vm_create_plan(
         si = _get_connection(target)
         return create_plan(si, operations, target=target)
     except Exception as e:
-        return {"error": str(e), "hint": "Run 'vmware-aiops doctor' to verify connectivity and credentials."}
+        return {"error": _safe_error(e, "aiops"), "hint": "Run 'vmware-aiops doctor' to verify connectivity and credentials."}
 
 
 @mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": True})
@@ -1169,7 +1184,7 @@ def vm_apply_plan(plan_id: str, target: Optional[str] = None) -> dict:
             )
         return result
     except Exception as e:
-        return {"error": str(e), "hint": "Run 'vmware-aiops doctor' to verify connectivity and credentials."}
+        return {"error": _safe_error(e, "aiops"), "hint": "Run 'vmware-aiops doctor' to verify connectivity and credentials."}
 
 
 @mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": True, "idempotentHint": False, "openWorldHint": True})
@@ -1189,7 +1204,7 @@ def vm_rollback_plan(plan_id: str, target: Optional[str] = None) -> dict:
         si = _get_connection(target)
         return rollback_plan(si, plan_id)
     except Exception as e:
-        return {"error": str(e), "hint": "Run 'vmware-aiops doctor' to verify connectivity and credentials."}
+        return {"error": _safe_error(e, "aiops"), "hint": "Run 'vmware-aiops doctor' to verify connectivity and credentials."}
 
 
 @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True})
@@ -1203,7 +1218,7 @@ def vm_list_plans() -> list[dict]:
     try:
         return list_plans()
     except Exception as e:
-        return [{"error": str(e), "hint": "Run 'vmware-aiops doctor' to verify connectivity and credentials."}]
+        return [{"error": _safe_error(e, "aiops"), "hint": "Run 'vmware-aiops doctor' to verify connectivity and credentials."}]
 
 
 # ---------------------------------------------------------------------------
@@ -1233,7 +1248,7 @@ def list_vcenter_alarms(
             results = results[:limit]
         return results
     except Exception as e:
-        return [{"error": str(e), "hint": "Run 'vmware-aiops doctor' to verify connectivity and credentials."}]
+        return [{"error": _safe_error(e, "aiops"), "hint": "Run 'vmware-aiops doctor' to verify connectivity and credentials."}]
 
 
 @mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": True})
@@ -1264,7 +1279,7 @@ def acknowledge_vcenter_alarm(
         si = _get_connection(target)
         return acknowledge_alarm(si, entity_name, alarm_name, target_name=target or "default")
     except Exception as e:
-        return {"error": str(e), "hint": "Run 'vmware-aiops doctor' to verify connectivity and credentials."}
+        return {"error": _safe_error(e, "aiops"), "hint": "Run 'vmware-aiops doctor' to verify connectivity and credentials."}
 
 
 @mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": True})
@@ -1293,7 +1308,7 @@ def reset_vcenter_alarm(
         si = _get_connection(target)
         return reset_alarm(si, entity_name, alarm_name, target_name=target or "default")
     except Exception as e:
-        return {"error": str(e), "hint": "Run 'vmware-aiops doctor' to verify connectivity and credentials."}
+        return {"error": _safe_error(e, "aiops"), "hint": "Run 'vmware-aiops doctor' to verify connectivity and credentials."}
 
 
 # ---------------------------------------------------------------------------

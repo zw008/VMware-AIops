@@ -438,10 +438,13 @@ def create_plan(
         },
     )
 
-    # 4. Persist
-    _PLANS_DIR.mkdir(parents=True, exist_ok=True)
+    # 4. Persist (owner-only — plans carry VM names + operations)
+    from vmware_aiops._fsutil import secure_chmod_file, secure_mkdir
+
+    secure_mkdir(_PLANS_DIR)
     plan_path = _PLANS_DIR / f"{plan_id}.json"
     plan_path.write_text(json.dumps(plan.to_dict(), indent=2, ensure_ascii=False))
+    secure_chmod_file(plan_path)
     logger.info("Plan created: %s (%d steps)", plan_id, len(steps))
 
     return plan.to_dict()
@@ -456,9 +459,12 @@ def load_plan(plan_id: str) -> dict | None:
 
 
 def save_plan(plan: dict) -> None:
-    """Write updated plan back to disk."""
+    """Write updated plan back to disk (owner-only)."""
+    from vmware_aiops._fsutil import secure_chmod_file
+
     plan_path = _PLANS_DIR / f"{plan['plan_id']}.json"
     plan_path.write_text(json.dumps(plan, indent=2, ensure_ascii=False))
+    secure_chmod_file(plan_path)
 
 
 def delete_plan(plan_id: str) -> None:

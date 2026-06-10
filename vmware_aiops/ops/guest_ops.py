@@ -7,10 +7,12 @@ Uses the GuestOperationsManager API (VIX-like, over SOAP).
 from __future__ import annotations
 
 import logging
+import os
 import shlex
 import tempfile
 import time
 import uuid
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from pyVmomi import vim
@@ -400,8 +402,15 @@ def guest_upload(
 
     auth = _guest_auth(username, password)
 
-    # Read local file
-    with open(local_path, "rb") as f:
+    # Read local file — must be an existing regular file (not a dir/device/fifo).
+    local = Path(local_path).expanduser()
+    if not local.is_file():
+        raise ValueError(
+            f"Local upload source not found or not a regular file: {local_path}"
+        )
+    if not os.access(local, os.R_OK):
+        raise PermissionError(f"Cannot read local upload source: {local_path}")
+    with open(local, "rb") as f:
         file_data = f.read()
 
     file_size = len(file_data)
@@ -479,8 +488,14 @@ def guest_download(
     resp = urllib.request.urlopen(transfer_info.url, context=ctx)  # nosec B310
     file_data = resp.read()
 
-    # Write to local file
-    with open(local_path, "wb") as f:
+    # Write to local file. Refuse to follow a symlink at the destination so the
+    # download can't be redirected to clobber a file elsewhere; create the
+    # parent dir if needed.
+    local = Path(local_path).expanduser()
+    if local.is_symlink():
+        raise ValueError(f"Refusing to write download through a symlink: {local_path}")
+    local.parent.mkdir(parents=True, exist_ok=True)
+    with open(local, "wb") as f:
         f.write(file_data)
 
     logger.info(
