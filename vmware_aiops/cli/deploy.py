@@ -16,6 +16,7 @@ from vmware_aiops.cli._common import (
     _dry_run_print,
     _get_connection,
     _resolve_target,
+    cli_errors,
     console,
 )
 
@@ -27,6 +28,7 @@ datastore_app = typer.Typer(help="Datastore browsing and image discovery.")
 
 
 @datastore_app.command("browse")
+@cli_errors
 def ds_browse(
     name: Annotated[str, typer.Argument(help="Datastore name")],
     path: Annotated[str, typer.Option(help="Subdirectory path")] = "",
@@ -54,6 +56,7 @@ def ds_browse(
 
 
 @datastore_app.command("scan-images")
+@cli_errors
 def ds_scan_images(
     target: TargetOption = None,
     config: ConfigOption = None,
@@ -85,6 +88,7 @@ def ds_scan_images(
 
 
 @deploy_app.command("ova")
+@cli_errors
 def deploy_ova_cmd(
     ova_path: Annotated[str, typer.Argument(help="Local path to .ova file")],
     name: Annotated[str, typer.Option(help="VM name")],
@@ -124,6 +128,7 @@ def deploy_ova_cmd(
 
 
 @deploy_app.command("template")
+@cli_errors
 def deploy_template_cmd(
     template_name: Annotated[str, typer.Argument(help="Source template name")],
     name: Annotated[str, typer.Option(help="New VM name")],
@@ -162,6 +167,7 @@ def deploy_template_cmd(
 
 
 @deploy_app.command("linked-clone")
+@cli_errors
 def deploy_linked_clone_cmd(
     source: Annotated[str, typer.Option(help="Source VM name")],
     snap: Annotated[str, typer.Option("--snapshot", help="Source snapshot name")],
@@ -200,6 +206,7 @@ def deploy_linked_clone_cmd(
 
 
 @deploy_app.command("batch")
+@cli_errors
 def deploy_batch_cmd(
     spec: Annotated[str, typer.Argument(help="Path to deploy.yaml spec file")],
     target: TargetOption = None,
@@ -251,6 +258,7 @@ def deploy_batch_cmd(
 
 
 @deploy_app.command("batch-clone")
+@cli_errors
 def deploy_batch_clone_cmd(
     source: Annotated[str, typer.Option(help="Source VM name")],
     prefix: Annotated[str, typer.Option(help="VM name prefix")] = "vm",
@@ -301,6 +309,7 @@ def deploy_batch_clone_cmd(
 
 
 @deploy_app.command("mark-template")
+@cli_errors
 def deploy_mark_template(
     name: str,
     target: TargetOption = None,
@@ -320,6 +329,7 @@ def deploy_mark_template(
 
 
 @deploy_app.command("iso")
+@cli_errors
 def deploy_iso_cmd(
     vm_name: Annotated[str, typer.Argument(help="VM name")],
     iso: Annotated[str, typer.Option(help="ISO datastore path, e.g. '[ds1] iso/ubuntu.iso'")],

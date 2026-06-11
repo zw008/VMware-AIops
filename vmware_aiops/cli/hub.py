@@ -5,12 +5,13 @@ from __future__ import annotations
 import typer
 from rich.table import Table
 
-from vmware_aiops.cli._common import console
+from vmware_aiops.cli._common import cli_errors, console
 
 hub_app = typer.Typer(help="VMware skill family management.")
 
 
 @hub_app.command("status")
+@cli_errors
 def hub_status() -> None:
     """Show installed VMware skill family members and available modules."""
     import shutil

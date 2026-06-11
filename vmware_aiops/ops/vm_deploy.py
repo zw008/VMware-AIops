@@ -43,6 +43,8 @@ if TYPE_CHECKING:
 
 _log = logging.getLogger("vmware-aiops.deploy")
 
+_HTTP_TIMEOUT = 300  # seconds — VMDK upload urlopen must never hang the MCP server
+
 
 # ─── OVA Deploy ──────────────────────────────────────────────────────────────
 
@@ -183,7 +185,8 @@ def _upload_disk(
         ctx.check_hostname = False
         ctx.verify_mode = ssl.CERT_NONE  # nosec B501 — ESXi self-signed certs
 
-    urlopen(req, context=ctx)  # nosec B310 — scheme validated above
+    with urlopen(req, context=ctx, timeout=_HTTP_TIMEOUT):  # nosec B310 — scheme validated above
+        pass
 
 
 def deploy_ova(

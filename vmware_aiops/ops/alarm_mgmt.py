@@ -69,17 +69,17 @@ def _find_triggered_alarm(
         container = content.viewManager.CreateContainerView(
             content.rootFolder, [obj_type], True
         )
-        for entity in container.view:
-            if entity.name != entity_name:
-                continue
-            if not hasattr(entity, "triggeredAlarmState"):
-                container.Destroy()
-                continue
-            for alarm_state in entity.triggeredAlarmState:
-                if alarm_state.alarm.info.name == alarm_name:
-                    container.Destroy()
-                    return entity, alarm_state
-        container.Destroy()
+        try:
+            for entity in container.view:
+                if entity.name != entity_name:
+                    continue
+                if not hasattr(entity, "triggeredAlarmState"):
+                    continue
+                for alarm_state in entity.triggeredAlarmState:
+                    if alarm_state.alarm.info.name == alarm_name:
+                        return entity, alarm_state
+        finally:
+            container.Destroy()
 
     raise ValueError(
         f"Triggered alarm '{alarm_name}' on entity '{entity_name}' not found. "

@@ -6,7 +6,10 @@ from typing import Annotated
 
 import typer
 
+from vmware_aiops.cli._common import cli_errors
 
+
+@cli_errors
 def doctor_cmd(
     skip_auth: Annotated[
         bool,

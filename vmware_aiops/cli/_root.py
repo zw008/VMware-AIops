@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import typer
 
+from vmware_aiops.cli._common import cli_errors
 from vmware_aiops.cli.alarm import alarm_app
 from vmware_aiops.cli.cluster import cluster_app
 from vmware_aiops.cli.deploy import datastore_app, deploy_app
@@ -37,6 +38,7 @@ app.command("doctor")(doctor_cmd)
 
 
 @app.command("mcp")
+@cli_errors
 def mcp_cmd() -> None:
     """Start the MCP server (stdio transport).
 

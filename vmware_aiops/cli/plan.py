@@ -5,12 +5,13 @@ from __future__ import annotations
 import typer
 from rich.table import Table
 
-from vmware_aiops.cli._common import console
+from vmware_aiops.cli._common import cli_errors, console
 
 plan_app = typer.Typer(help="Plan → Apply: view and manage operation plans.")
 
 
 @plan_app.command("list")
+@cli_errors
 def plan_list() -> None:
     """List all pending/failed operation plans."""
     from vmware_aiops.ops.planner import list_plans

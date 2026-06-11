@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import functools
 from pathlib import Path
 from typing import Annotated
 
@@ -27,6 +28,56 @@ DryRunOption = Annotated[
 
 
 # ─── Shared helpers ───────────────────────────────────────────────────────────
+
+
+def _cli_error_types() -> tuple[type[BaseException], ...]:
+    """Exception types translated to a one-line teaching error (踩坑 #37).
+
+    Domain exceptions carry teaching messages already; infra exceptions
+    (missing config, missing password env, unreachable vCenter, timeouts)
+    are common user mistakes that must not surface as raw tracebacks.
+    OSError covers FileNotFoundError / ConnectionError / TimeoutError.
+    """
+    from pyVmomi import vim
+
+    from vmware_aiops.ops.cluster_mgmt import ClusterError, ClusterNotFoundError
+    from vmware_aiops.ops.guest_ops import GuestOpsError
+    from vmware_aiops.ops.vm_lifecycle import TaskFailedError, VMNotFoundError
+
+    return (
+        VMNotFoundError,
+        GuestOpsError,
+        TaskFailedError,
+        ClusterNotFoundError,
+        ClusterError,
+        KeyError,
+        OSError,
+        vim.fault.InvalidLogin,
+    )
+
+
+def cli_errors(fn):
+    """Decorator: translate known exceptions into one red line + exit code 1.
+
+    Applied to CLI command functions so bad VM names, missing config/password
+    env vars, and unreachable vCenters print a single teaching message instead
+    of a Python traceback. typer.Exit / typer.Abort pass through untouched.
+    """
+
+    @functools.wraps(fn)
+    def wrapper(*args, **kwargs):
+        try:
+            return fn(*args, **kwargs)
+        except (typer.Exit, typer.Abort):
+            raise
+        except _cli_error_types() as e:
+            message = getattr(e, "msg", None) or str(e)
+            if isinstance(e, KeyError):
+                message = f"Missing required key or environment variable: {message}"
+            console.print(f"[red]Error: {message}[/]")
+            raise typer.Exit(1) from e
+
+    return wrapper
 
 
 def _dry_run_print(

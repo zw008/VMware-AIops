@@ -16,6 +16,7 @@ from vmware_aiops.cli._common import (
     _dry_run_print,
     _get_connection,
     _resolve_target,
+    cli_errors,
     console,
 )
 
@@ -23,6 +24,7 @@ alarm_app = typer.Typer(help="vCenter alarm management: list, acknowledge, reset
 
 
 @alarm_app.command("list")
+@cli_errors
 def alarm_list(
     target: TargetOption = None,
     config: ConfigOption = None,
@@ -58,6 +60,7 @@ def alarm_list(
 
 
 @alarm_app.command("acknowledge")
+@cli_errors
 def alarm_acknowledge(
     entity_name: Annotated[str, typer.Argument(help="Entity name (VM/host/cluster)")],
     alarm_name: Annotated[str, typer.Argument(help="Alarm definition name")],
@@ -90,6 +93,7 @@ def alarm_acknowledge(
 
 
 @alarm_app.command("reset")
+@cli_errors
 def alarm_reset(
     entity_name: Annotated[str, typer.Argument(help="Entity name (VM/host/cluster)")],
     alarm_name: Annotated[str, typer.Argument(help="Alarm definition name")],

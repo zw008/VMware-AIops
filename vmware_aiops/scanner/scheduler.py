@@ -16,7 +16,7 @@ from vmware_aiops.connection import ConnectionManager
 from vmware_aiops.notify.logger import ScanLogger
 from vmware_aiops.notify.webhook import WebhookNotifier
 from vmware_aiops.ops.ttl import get_expired_entries, remove_entry
-from vmware_aiops.ops.vm_lifecycle import delete_vm
+from vmware_aiops.ops.vm_lifecycle import VMNotFoundError, delete_vm
 from vmware_aiops.scanner.alarm_scanner import scan_alarms
 from vmware_aiops.scanner.log_scanner import scan_host_logs, scan_logs
 
@@ -95,10 +95,18 @@ def _run_ttl_check(conn_mgr: ConnectionManager) -> None:
             si = conn_mgr.connect(target)
             result = delete_vm(si, vm_name)
             logger.info("TTL expired: %s", result)
+        except VMNotFoundError:
+            # VM already gone — entry is stale, safe to drop.
+            logger.info("TTL VM '%s' no longer exists; removing entry", vm_name)
         except Exception as e:
-            logger.error("TTL deletion failed for VM '%s': %s", vm_name, e)
-        finally:
-            remove_entry(vm_name)
+            # Transient failure (connection, task error): keep the entry so
+            # the next cycle retries instead of silently orphaning the VM.
+            logger.warning(
+                "TTL deletion failed for VM '%s'; keeping entry for retry: %s",
+                vm_name, e,
+            )
+            continue
+        remove_entry(vm_name)
 
 
 def start_scheduler(config_path: Path | None = None) -> None:

@@ -18,6 +18,7 @@ from vmware_aiops.cli._common import (
     _resolve_target,
     _show_state_preview,
     _validate_vm_params,
+    cli_errors,
     console,
 )
 
@@ -28,6 +29,7 @@ vm_app = typer.Typer(help="VM lifecycle: power, snapshot, clone, migrate.")
 
 
 @vm_app.command("power-on")
+@cli_errors
 def vm_power_on(
     name: str,
     target: TargetOption = None,
@@ -60,6 +62,7 @@ def vm_power_on(
 
 
 @vm_app.command("power-off")
+@cli_errors
 def vm_power_off(
     name: str,
     force: Annotated[bool, typer.Option(help="Force power off")] = False,
@@ -97,6 +100,7 @@ def vm_power_off(
 
 
 @vm_app.command("create")
+@cli_errors
 def vm_create(
     name: str,
     cpu: Annotated[int, typer.Option(help="Number of CPUs")] = 2,
@@ -143,6 +147,7 @@ def vm_create(
 
 
 @vm_app.command("delete")
+@cli_errors
 def vm_delete(
     name: str,
     target: TargetOption = None,
@@ -185,6 +190,7 @@ def vm_delete(
 
 
 @vm_app.command("reconfigure")
+@cli_errors
 def vm_reconfigure(
     name: str,
     cpu: Annotated[int | None, typer.Option(help="New CPU count")] = None,
@@ -246,6 +252,7 @@ def vm_reconfigure(
 
 
 @vm_app.command("snapshot-create")
+@cli_errors
 def vm_snapshot_create(
     vm_name: str,
     snap_name: Annotated[str, typer.Option("--name", help="Snapshot name")] = "snapshot",
@@ -278,6 +285,7 @@ def vm_snapshot_create(
 
 
 @vm_app.command("snapshot-list")
+@cli_errors
 def vm_snapshot_list(
     vm_name: str,
     target: TargetOption = None,
@@ -297,6 +305,7 @@ def vm_snapshot_list(
 
 
 @vm_app.command("snapshot-revert")
+@cli_errors
 def vm_snapshot_revert(
     vm_name: str,
     snap_name: Annotated[str, typer.Option("--name", help="Snapshot name to revert to")],
@@ -333,6 +342,7 @@ def vm_snapshot_revert(
 
 
 @vm_app.command("snapshot-delete")
+@cli_errors
 def vm_snapshot_delete(
     vm_name: str,
     snap_name: Annotated[str, typer.Option("--name", help="Snapshot name to delete")],
@@ -368,6 +378,7 @@ def vm_snapshot_delete(
 
 
 @vm_app.command("clone")
+@cli_errors
 def vm_clone(
     name: str,
     new_name: Annotated[str, typer.Option("--new-name", help="Name for the clone")],
@@ -425,6 +436,7 @@ def vm_clone(
 
 
 @vm_app.command("migrate")
+@cli_errors
 def vm_migrate(
     name: str,
     to_host: Annotated[str, typer.Option("--to-host", help="Target ESXi host name")],
@@ -476,6 +488,7 @@ def vm_migrate(
 
 
 @vm_app.command("set-ttl")
+@cli_errors
 def vm_set_ttl(
     vm_name: str,
     minutes: Annotated[int, typer.Option("--minutes", "-m", help="Minutes until auto-deletion")],
@@ -497,6 +510,7 @@ def vm_set_ttl(
 
 
 @vm_app.command("cancel-ttl")
+@cli_errors
 def vm_cancel_ttl(vm_name: str) -> None:
     """Cancel an existing TTL for a VM."""
     from vmware_aiops.ops.ttl import cancel_ttl
@@ -506,6 +520,7 @@ def vm_cancel_ttl(vm_name: str) -> None:
 
 
 @vm_app.command("list-ttl")
+@cli_errors
 def vm_list_ttl() -> None:
     """List all VMs with TTLs registered."""
     from vmware_aiops.ops.ttl import list_ttl
@@ -533,6 +548,7 @@ def vm_list_ttl() -> None:
 
 
 @vm_app.command("clean-slate")
+@cli_errors
 def vm_clean_slate(
     vm_name: str,
     snapshot: Annotated[str, typer.Option("--snapshot", "-s", help="Snapshot name")] = "baseline",
@@ -571,6 +587,7 @@ def vm_clean_slate(
 
 
 @vm_app.command("guest-exec")
+@cli_errors
 def vm_guest_exec_cmd(
     vm_name: Annotated[str, typer.Argument(help="VM name")],
     command: Annotated[str, typer.Option("--cmd", help="Full path to program (e.g. /bin/bash)")],
@@ -603,6 +620,7 @@ def vm_guest_exec_cmd(
 
 
 @vm_app.command("guest-upload")
+@cli_errors
 def vm_guest_upload_cmd(
     vm_name: Annotated[str, typer.Argument(help="VM name")],
     local_path: Annotated[str, typer.Option("--local", help="Local file path")],
@@ -627,6 +645,7 @@ def vm_guest_upload_cmd(
 
 
 @vm_app.command("guest-download")
+@cli_errors
 def vm_guest_download_cmd(
     vm_name: Annotated[str, typer.Argument(help="VM name")],
     guest_path: Annotated[str, typer.Option("--guest", help="File path inside VM")],

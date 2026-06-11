@@ -15,6 +15,7 @@ from vmware_aiops.cli._common import (
     _dry_run_print,
     _get_connection,
     _resolve_target,
+    cli_errors,
     console,
 )
 
@@ -22,6 +23,7 @@ cluster_app = typer.Typer(help="Cluster management: create, delete, configure HA
 
 
 @cluster_app.command("info")
+@cli_errors
 def cluster_info_cmd(
     name: str,
     target: TargetOption = None,
@@ -47,6 +49,7 @@ def cluster_info_cmd(
 
 
 @cluster_app.command("create")
+@cli_errors
 def cluster_create_cmd(
     name: str,
     ha: Annotated[bool, typer.Option("--ha", help="Enable HA")] = False,
@@ -84,6 +87,7 @@ def cluster_create_cmd(
 
 
 @cluster_app.command("delete")
+@cli_errors
 def cluster_delete_cmd(
     name: str,
     target: TargetOption = None,
@@ -113,6 +117,7 @@ def cluster_delete_cmd(
 
 
 @cluster_app.command("add-host")
+@cli_errors
 def cluster_add_host_cmd(
     name: str,
     host: Annotated[str, typer.Option("--host", help="Host name to add")],
@@ -142,6 +147,7 @@ def cluster_add_host_cmd(
 
 
 @cluster_app.command("remove-host")
+@cli_errors
 def cluster_remove_host_cmd(
     name: str,
     host: Annotated[str, typer.Option("--host", help="Host name to remove")],
@@ -171,6 +177,7 @@ def cluster_remove_host_cmd(
 
 
 @cluster_app.command("configure")
+@cli_errors
 def cluster_configure_cmd(
     name: str,
     ha: Annotated[bool | None, typer.Option("--ha/--no-ha", help="Enable/disable HA")] = None,

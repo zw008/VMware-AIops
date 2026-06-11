@@ -49,15 +49,18 @@ def _dispatch(si: ServiceInstance, action: str, params: dict[str, Any]) -> str:
         "power_off": lambda: power_off_vm(si, params["vm_name"], force=params.get("force", False)),
         "reset": lambda: reset_vm(si, params["vm_name"]),
         "suspend": lambda: suspend_vm(si, params["vm_name"]),
+        # Omitted/None optional params are dropped so create_vm's own
+        # defaults apply (e.g. network_name="VM Network").
         "create_vm": lambda: create_vm(
             si, params["vm_name"],
-            cpu=params.get("cpu", 2),
-            memory_mb=params.get("memory_mb", 4096),
-            disk_gb=params.get("disk_gb", 40),
-            network_name=params.get("network_name"),
-            datastore_name=params.get("datastore_name"),
-            folder_path=params.get("folder_path"),
-            guest_id=params.get("guest_id", "otherGuest64"),
+            **{
+                key: params[key]
+                for key in (
+                    "cpu", "memory_mb", "disk_gb", "network_name",
+                    "datastore_name", "folder_path", "guest_id",
+                )
+                if params.get(key) is not None
+            },
         ),
         "delete_vm": lambda: delete_vm(si, params["vm_name"]),
         "reconfigure": lambda: reconfigure_vm(

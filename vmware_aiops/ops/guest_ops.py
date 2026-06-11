@@ -30,6 +30,7 @@ logger = logging.getLogger(__name__)
 
 _POLL_INTERVAL = 2  # seconds
 _EXEC_TIMEOUT = 300  # seconds
+_HTTP_TIMEOUT = 300  # seconds — file-transfer urlopen must never hang the MCP server
 
 # Guest OS family constants (vm.guest.guestFamily)
 _FAMILY_WINDOWS = "windowsGuest"
@@ -435,7 +436,10 @@ def guest_upload(
     req.add_header("Content-Type", "application/octet-stream")
     req.add_header("Content-Length", str(file_size))
 
-    urllib.request.urlopen(req, context=ctx)  # nosec B310 — URL from vSphere API
+    with urllib.request.urlopen(  # nosec B310 — URL from vSphere API
+        req, context=ctx, timeout=_HTTP_TIMEOUT
+    ):
+        pass
 
     logger.info(
         "Uploaded %d bytes to '%s:%s'", file_size, vm_name, guest_path
@@ -485,8 +489,10 @@ def guest_download(
         ctx.check_hostname = False
         ctx.verify_mode = ssl.CERT_NONE  # nosec B501 — only when target.verify_ssl=false
 
-    resp = urllib.request.urlopen(transfer_info.url, context=ctx)  # nosec B310
-    file_data = resp.read()
+    with urllib.request.urlopen(  # nosec B310 — URL from vSphere API
+        transfer_info.url, context=ctx, timeout=_HTTP_TIMEOUT
+    ) as resp:
+        file_data = resp.read()
 
     # Write to local file. Refuse to follow a symlink at the destination so the
     # download can't be redirected to clobber a file elsewhere; create the

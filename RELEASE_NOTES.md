@@ -1,3 +1,21 @@
+## v1.5.36 (2026-06-12) — code-quality fix pack: teaching errors reach agents, TTL safety, CLI error translation
+
+### Fixed
+- **MCP `_safe_error` now passes domain teaching exceptions through** (VMNotFoundError,
+  GuestOpsError, TaskFailedError, ClusterNotFoundError, ClusterError, TimeoutError) — agents
+  previously got a generic "operation failed" instead of "VM 'web-99' not found…".
+- **Scheduled TTL auto-delete no longer drops the entry on a transient failure** — the VM is
+  retried instead of silently never being deleted (entry removed only on success / VMNotFound).
+- **Active-alarm listing deduplicated** — alarms propagated to ancestor objects were counted up to 4×.
+- **Guest file transfer / OVA upload `urlopen` calls now time out** (300s) and close cleanly, so a
+  stalled connection can't hang the MCP stdio server.
+- **`create_vm` plan action** no longer overrides the default network with `None`.
+- **Alarm container-view double-Destroy** fixed (try/finally).
+
+### Added
+- CLI error-translation decorator: bad VM name / missing password env / unreachable vCenter now
+  print one teaching line + exit 1 instead of a raw traceback.
+
 ## v1.5.35 (2026-06-10) — security hardening: safe errors, path validation, tighter file perms
 
 ### Fixed
