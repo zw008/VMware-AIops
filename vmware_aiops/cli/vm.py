@@ -258,6 +258,9 @@ def vm_snapshot_create(
     snap_name: Annotated[str, typer.Option("--name", help="Snapshot name")] = "snapshot",
     description: Annotated[str, typer.Option(help="Snapshot description")] = "",
     memory: Annotated[bool, typer.Option(help="Include memory")] = True,
+    quiesce: Annotated[
+        bool, typer.Option(help="Quiesce guest filesystem (requires running VMware Tools)")
+    ] = False,
     target: TargetOption = None,
     config: ConfigOption = None,
     dry_run: DryRunOption = False,
@@ -269,17 +272,23 @@ def vm_snapshot_create(
         _dry_run_print(
             target=_resolve_target(target), vm_name=vm_name, operation="snapshot_create",
             api_call="vim.VirtualMachine.CreateSnapshot_Task()",
-            parameters={"snap_name": snap_name, "description": description, "memory": memory},
+            parameters={
+                "snap_name": snap_name, "description": description,
+                "memory": memory, "quiesce": quiesce,
+            },
         )
         return
     si, _ = _get_connection(target, config)
-    result = create_snapshot(si, vm_name, snap_name, description, memory)
+    result = create_snapshot(si, vm_name, snap_name, description, memory, quiesce)
     console.print(f"[green]{result}[/]")
     _audit.log(
         target=_resolve_target(target),
         operation="snapshot_create",
         resource=vm_name,
-        parameters={"snap_name": snap_name, "description": description, "memory": memory},
+        parameters={
+            "snap_name": snap_name, "description": description,
+            "memory": memory, "quiesce": quiesce,
+        },
         result=result,
     )
 
@@ -494,10 +503,19 @@ def vm_set_ttl(
     minutes: Annotated[int, typer.Option("--minutes", "-m", help="Minutes until auto-deletion")],
     target: TargetOption = None,
     config: ConfigOption = None,
+    dry_run: DryRunOption = False,
 ) -> None:
-    """Set a TTL for a VM. The daemon will auto-delete it when time expires."""
-    from vmware_aiops.ops.ttl import set_ttl
+    """Set a TTL for a VM. The daemon will auto-delete it when time expires (destructive!)."""
+    from vmware_aiops.ops.ttl import preview_ttl, set_ttl
 
+    if dry_run:
+        _dry_run_print(
+            target=_resolve_target(target), vm_name=vm_name, operation="vm_set_ttl",
+            api_call="scheduler.delete_vm() on TTL expiry",
+            parameters={"minutes": minutes, "preview": preview_ttl(vm_name, minutes, target=target)},
+        )
+        return
+    _double_confirm(f"设置 TTL ({minutes} 分钟后自动删除)", vm_name, _resolve_target(target))
     result = set_ttl(vm_name, minutes, target=target)
     console.print(f"[green]{result}[/]")
     _audit.log(

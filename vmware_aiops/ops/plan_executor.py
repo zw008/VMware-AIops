@@ -72,6 +72,7 @@ def _dispatch(si: ServiceInstance, action: str, params: dict[str, Any]) -> str:
             si, params["vm_name"], params["snapshot_name"],
             description=params.get("description", ""),
             memory=params.get("memory", True),
+            quiesce=params.get("quiesce", False),
         ),
         "delete_snapshot": lambda: delete_snapshot(
             si, params["vm_name"], params["snapshot_name"],

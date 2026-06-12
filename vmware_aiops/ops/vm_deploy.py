@@ -26,8 +26,11 @@ from pyVmomi import vim
 
 from vmware_aiops.connection import get_verify_ssl
 from vmware_aiops.ops.inventory import (
+    InventoryError,
+    find_compute_resource,
     find_datastore_by_name,
     find_vm_by_name,
+    resolve_datacenter,
 )
 from vmware_aiops.ops.vm_lifecycle import (
     _wait_for_task,
@@ -44,6 +47,11 @@ if TYPE_CHECKING:
 _log = logging.getLogger("vmware-aiops.deploy")
 
 _HTTP_TIMEOUT = 300  # seconds — VMDK upload urlopen must never hang the MCP server
+
+# Upload VMDKs in fixed-size chunks rather than slurping the whole disk into
+# RAM, and report lease progress as bytes flow so vCenter does not abort the
+# HttpNfcLease (~5 min idle timeout) on large/slow uploads.
+_UPLOAD_CHUNK_SIZE = 8 * 1024 * 1024  # 8 MiB
 
 
 # ─── OVA Deploy ──────────────────────────────────────────────────────────────
@@ -149,7 +157,16 @@ def _upload_disk(
     disk_size: int,
     verify_ssl: bool = True,
 ) -> None:
-    """Upload a VMDK from an OVA to the vSphere HTTP NFC lease URL."""
+    """Upload a VMDK from an OVA to the vSphere HTTP NFC lease URL.
+
+    Streams the tar member in fixed-size chunks (never loading the whole disk
+    into RAM) and periodically reports HttpNfcLeaseProgress based on bytes
+    uploaded so vCenter keeps the lease alive during large/slow uploads.
+    """
+    # Validate upload URL scheme — only HTTPS allowed (B310)
+    if not upload_url.lower().startswith("https://"):
+        raise ValueError(f"Refusing non-HTTPS upload URL: {upload_url}")
+
     with tarfile.open(ova_path, "r") as tar:
         member = tar.getmember(disk_name)
         if not _safe_tar_member(member):
@@ -159,34 +176,68 @@ def _upload_disk(
         if f is None:
             raise ValueError(f"Cannot extract {disk_name} from OVA")
 
-        data = f.read()
+        total = member.size
 
-    # Validate upload URL scheme — only HTTPS allowed (B310)
-    if not upload_url.lower().startswith("https://"):
-        raise ValueError(f"Refusing non-HTTPS upload URL: {upload_url}")
+        def _chunked_body():
+            uploaded = 0
+            last_percent = -1
+            while True:
+                chunk = f.read(_UPLOAD_CHUNK_SIZE)
+                if not chunk:
+                    break
+                uploaded += len(chunk)
+                if total > 0:
+                    percent = min(99, uploaded * 100 // total)
+                    if percent != last_percent:
+                        last_percent = percent
+                        _report_lease_progress(lease, percent)
+                yield chunk
 
-    req = Request(
-        upload_url,
-        data=data,
-        method="PUT",
-        headers={
-            "Content-Type": "application/x-vnd.vmware-streamVmdk",
-            "Content-Length": str(len(data)),
-        },
+        req = Request(
+            upload_url,
+            data=_chunked_body(),
+            method="PUT",
+            headers={
+                "Content-Type": "application/x-vnd.vmware-streamVmdk",
+                "Content-Length": str(total),
+            },
+        )
+
+        # SSL context: respect verify_ssl passed from the ServiceInstance.
+        # Only disable verification when the target uses self-signed certs.
+        import ssl
+        if verify_ssl:
+            ctx = ssl.create_default_context()
+        else:
+            ctx = ssl.create_default_context()
+            ctx.check_hostname = False
+            ctx.verify_mode = ssl.CERT_NONE  # nosec B501 — ESXi self-signed certs
+
+        with urlopen(req, context=ctx, timeout=_HTTP_TIMEOUT):  # nosec B310 — scheme validated above
+            pass
+
+    if lease is not None:
+        _report_lease_progress(lease, 100)
+
+
+def _report_lease_progress(lease: vim.HttpNfcLease, percent: int) -> None:
+    """Report upload progress to the HttpNfcLease, tolerating SDK naming.
+
+    pyVmomi exposes this as HttpNfcLeaseProgress on some versions and Progress
+    on others; a progress-report failure must never abort an otherwise-healthy
+    upload.
+    """
+    if lease is None:
+        return
+    report = getattr(lease, "HttpNfcLeaseProgress", None) or getattr(
+        lease, "Progress", None
     )
-
-    # SSL context: respect verify_ssl passed from the ServiceInstance.
-    # Only disable verification when the target uses self-signed certs.
-    import ssl
-    if verify_ssl:
-        ctx = ssl.create_default_context()
-    else:
-        ctx = ssl.create_default_context()
-        ctx.check_hostname = False
-        ctx.verify_mode = ssl.CERT_NONE  # nosec B501 — ESXi self-signed certs
-
-    with urlopen(req, context=ctx, timeout=_HTTP_TIMEOUT):  # nosec B310 — scheme validated above
-        pass
+    if report is None:
+        return
+    try:
+        report(percent)
+    except Exception as e:  # progress is best-effort — never fail the upload
+        _log.debug("Lease progress report failed at %d%%: %s", percent, e)
 
 
 def deploy_ova(
@@ -198,6 +249,8 @@ def deploy_ova(
     folder_path: str | None = None,
     power_on: bool = False,
     snapshot_name: str | None = None,
+    datacenter_name: str | None = None,
+    cluster: str | None = None,
 ) -> str:
     """Deploy a VM from a local OVA file.
 
@@ -229,7 +282,11 @@ def deploy_ova(
         return f"Datastore '{datastore_name}' not found."
 
     # Find datacenter, folder, resource pool
-    datacenter = content.rootFolder.childEntity[0]
+    try:
+        datacenter = resolve_datacenter(si, datacenter_name)
+        compute_resource = find_compute_resource(datacenter, cluster)
+    except InventoryError as e:
+        return str(e)
     vm_folder = datacenter.vmFolder
     if folder_path:
         for part in folder_path.split("/"):
@@ -242,7 +299,7 @@ def deploy_ova(
             if not found:
                 return f"Folder '{folder_path}' not found."
 
-    resource_pool = datacenter.hostFolder.childEntity[0].resourcePool
+    resource_pool = compute_resource.resourcePool
 
     # Parse OVA
     ovf_content, disks = _read_ovf_from_ova(ova_path)
@@ -289,21 +346,37 @@ def deploy_ova(
 
     _ova_verify_ssl = get_verify_ssl(si)
 
+    # Map each device URL to its source file by importKey, not pop-order.
+    # import_spec_result.fileItem links the OVF deviceId (== deviceUrl.importKey)
+    # to the file path inside the OVA. Pop-ordering writes multi-disk OVAs whose
+    # device URLs arrive out of order to the wrong device.
+    file_by_device = {
+        fi.deviceId: fi.path for fi in (import_spec_result.fileItem or [])
+    }
+
     # Upload disks
     try:
         device_urls = lease.info.deviceUrl
         for device_url in device_urls:
             target_url = device_url.url
 
-            # Find the corresponding disk in OVA by order
-            disk_items = list(disks.items())
-            if disk_items:
-                disk_name, disk_size = disk_items.pop(0)
-                _log.info("Uploading %s (%d MB)...", disk_name,
-                          disk_size // (1024 * 1024))
-                _upload_disk(lease, ova_path, disk_name, target_url, disk_size,
-                             verify_ssl=_ova_verify_ssl)
-                del disks[disk_name]
+            disk_name = file_by_device.get(device_url.importKey)
+            if disk_name is None:
+                # Fall back to deviceUrl.targetId (file path) when no fileItem
+                # mapping is available.
+                disk_name = getattr(device_url, "targetId", None)
+            if disk_name is None or disk_name not in disks:
+                _log.warning(
+                    "No OVA disk maps to device %r (importKey=%r) — skipping",
+                    target_url, device_url.importKey,
+                )
+                continue
+
+            disk_size = disks[disk_name]
+            _log.info("Uploading %s (%d MB)...", disk_name,
+                      disk_size // (1024 * 1024))
+            _upload_disk(lease, ova_path, disk_name, target_url, disk_size,
+                         verify_ssl=_ova_verify_ssl)
 
         lease.Complete()
     except Exception as e:
@@ -603,15 +676,17 @@ def convert_to_vm(
         return f"'{template_name}' is already a VM, not a template."
 
     # Need a resource pool — find from host or use first available
-    content = si.RetrieveContent()
     if host_name:
         host = find_host_by_name(si, host_name)
         if host is None:
             return f"Host '{host_name}' not found."
         pool = host.parent.resourcePool
     else:
-        datacenter = content.rootFolder.childEntity[0]
-        pool = datacenter.hostFolder.childEntity[0].resourcePool
+        try:
+            datacenter = resolve_datacenter(si)
+            pool = find_compute_resource(datacenter).resourcePool
+        except InventoryError as e:
+            return str(e)
 
     vm.MarkAsVirtualMachine(pool=pool)
     return f"Template '{template_name}' converted back to VM."

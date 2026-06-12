@@ -11,6 +11,10 @@ if TYPE_CHECKING:
     from pyVmomi.vim import ServiceInstance
 
 
+class InventoryError(Exception):
+    """Raised when a required inventory object cannot be resolved."""
+
+
 def _get_objects(si: ServiceInstance, obj_type: list, recursive: bool = True) -> list:
     """Generic container view helper."""
     content = si.RetrieveContent()
@@ -234,3 +238,63 @@ def find_datacenter_by_name(
         if dc.name == dc_name:
             return dc
     return None
+
+
+def resolve_datacenter(
+    si: ServiceInstance, datacenter_name: str | None = None
+) -> vim.Datacenter:
+    """Resolve a datacenter by name, or return the first one in inventory.
+
+    Searches explicitly for vim.Datacenter objects rather than assuming
+    ``rootFolder.childEntity[0]`` is a datacenter — that assumption breaks on
+    multi-DC inventories (wrong DC), top-level folders (wrong type), and empty
+    inventories (IndexError). Raises InventoryError instead.
+    """
+    if datacenter_name:
+        dc = find_datacenter_by_name(si, datacenter_name)
+        if dc is None:
+            raise InventoryError(
+                f"Datacenter '{datacenter_name}' not found. "
+                f"Run inventory listing to see available datacenters."
+            )
+        return dc
+    content = si.RetrieveContent()
+    for child in content.rootFolder.childEntity:
+        if isinstance(child, vim.Datacenter):
+            return child
+    raise InventoryError("No datacenter found in inventory.")
+
+
+def find_compute_resource(
+    dc: vim.Datacenter, cluster_name: str | None = None
+) -> vim.ComputeResource:
+    """Find a ComputeResource (cluster or standalone host) in a datacenter.
+
+    Searches the datacenter's host folder explicitly for a ComputeResource
+    rather than assuming ``hostFolder.childEntity[0]`` is one — nested folders
+    and empty host folders break that assumption. When ``cluster_name`` is
+    given, matches by name; otherwise returns the first ComputeResource found.
+    """
+    def _walk(folder) -> vim.ComputeResource | None:
+        for child in getattr(folder, "childEntity", []) or []:
+            if isinstance(child, vim.ComputeResource):
+                if cluster_name is None or child.name == cluster_name:
+                    return child
+            elif isinstance(child, vim.Folder):
+                found = _walk(child)
+                if found is not None:
+                    return found
+        return None
+
+    cr = _walk(dc.hostFolder)
+    if cr is None:
+        if cluster_name:
+            raise InventoryError(
+                f"Compute resource '{cluster_name}' not found in datacenter "
+                f"'{dc.name}'."
+            )
+        raise InventoryError(
+            f"No compute resource (cluster or host) found in datacenter "
+            f"'{dc.name}'."
+        )
+    return cr

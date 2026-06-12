@@ -1,3 +1,18 @@
+## v1.5.37 (2026-06-12) — backlog: OVA deploy robustness, multi-DC, snapshot/TTL safety
+
+### Fixed
+- **OVA upload** now streams the VMDK in 8 MiB chunks (no whole-disk read into RAM) and posts
+  `HttpNfcLeaseProgress` periodically, so large/slow uploads no longer hit the ~5-min lease abort. (#18)
+- **Multi-disk OVA** disks are mapped to device URLs by `importKey`/OVF File identity, not pop-order,
+  so contents can't land on the wrong device. (#19)
+- **`create_snapshot`** no longer forces `quiesce` for memory-less snapshots (failed on Tools-less /
+  freshly-deployed VMs); `quiesce` is now an explicit param defaulting to False. (#20)
+- **Datacenter/compute resolution** searches explicitly for `vim.Datacenter`/`vim.ComputeResource`
+  instead of `childEntity[0]`, fixing wrong-DC selection and crashes on multi-DC / foldered inventories. (#21)
+- **`vm set-ttl`** (schedules an unattended auto-delete) now requires confirmation and supports
+  `--dry-run`, and is listed in the destructive-ops docs. (#25)
+- MCP `_safe_error` now passes `ConnectionError` through so dropped connections show their hint. (#24)
+
 ## v1.5.36 (2026-06-12) — code-quality fix pack: teaching errors reach agents, TTL safety, CLI error translation
 
 ### Fixed

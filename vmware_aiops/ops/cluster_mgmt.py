@@ -7,9 +7,10 @@ from typing import TYPE_CHECKING
 from pyVmomi import vim
 
 from vmware_aiops.ops.inventory import (
+    InventoryError,
     find_cluster_by_name,
-    find_datacenter_by_name,
     find_host_by_name,
+    resolve_datacenter,
 )
 from vmware_aiops.ops.vm_lifecycle import _wait_for_task
 
@@ -40,16 +41,10 @@ def _require_cluster(
 
 def _get_datacenter(si: ServiceInstance, datacenter_name: str | None = None) -> vim.Datacenter:
     """Find a datacenter by name, or return the first one."""
-    if datacenter_name:
-        dc = find_datacenter_by_name(si, datacenter_name)
-        if dc is None:
-            raise ClusterError(f"Datacenter '{datacenter_name}' not found")
-        return dc
-    content = si.RetrieveContent()
-    for child in content.rootFolder.childEntity:
-        if isinstance(child, vim.Datacenter):
-            return child
-    raise ClusterError("No datacenter found in inventory")
+    try:
+        return resolve_datacenter(si, datacenter_name)
+    except InventoryError as e:
+        raise ClusterError(str(e)) from e
 
 
 # ─── Info ─────────────────────────────────────────────────────────────────────

@@ -80,7 +80,9 @@ def _safe_error(exc: Exception, tool: str) -> str:
     a control-char-stripped, length-capped message. Intentional validation
     errors and domain exceptions carrying teaching messages (VMNotFoundError,
     GuestOpsError, TaskFailedError, ClusterNotFoundError, ClusterError,
-    TimeoutError) pass through sanitized.
+    TimeoutError, ConnectionError) pass through sanitized — a dropped
+    connection should surface its teaching hint, matching the CLE path
+    (which catches OSError) rather than being masked as "operation failed".
     """
     logger.error("Tool %s failed", tool, exc_info=True)
     _passthrough = (
@@ -89,6 +91,7 @@ def _safe_error(exc: Exception, tool: str) -> str:
         KeyError,
         PermissionError,
         TimeoutError,
+        ConnectionError,
         VMNotFoundError,
         GuestOpsError,
         TaskFailedError,
@@ -263,6 +266,7 @@ def vm_create_snapshot(
     snapshot_name: str,
     description: str = "",
     memory: bool = False,
+    quiesce: bool = False,
     target: Optional[str] = None,
 ) -> str:
     """[WRITE] Create a snapshot of a VM.
@@ -272,11 +276,15 @@ def vm_create_snapshot(
         snapshot_name: Snapshot name.
         description: Optional description.
         memory: Include memory state (heavier, allows resume).
+        quiesce: Quiesce guest filesystem (requires running VMware Tools).
         target: vCenter/ESXi target name from config.
     """
     try:
         si = _get_connection(target)
-        return create_snapshot(si, vm_name, snapshot_name, description=description, memory=memory)
+        return create_snapshot(
+            si, vm_name, snapshot_name,
+            description=description, memory=memory, quiesce=quiesce,
+        )
     except Exception as e:
         return f"Error: {_safe_error(e, 'vm_create_snapshot')} Run 'vmware-aiops doctor' to verify connectivity and credentials."
 

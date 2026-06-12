@@ -43,6 +43,18 @@ def test_safe_error_passes_domain_exception_messages() -> None:
     assert "took too long" in _safe_error(TimeoutError("took too long"), "tool")
 
 
+def test_safe_error_passes_connection_error_through() -> None:
+    # issue #24: a dropped connection must surface its teaching hint through
+    # MCP, matching the CLI path (which catches OSError). Before the fix it
+    # was masked to a generic "operation failed".
+    from mcp_server.server import _safe_error
+
+    hint = "Connection to vcenter-prod dropped. Run 'vmware-aiops doctor'."
+    out = _safe_error(ConnectionError(hint), "vm_power_on")
+    assert hint in out
+    assert "operation failed" not in out
+
+
 def test_safe_error_still_masks_unknown_exceptions() -> None:
     from mcp_server.server import _safe_error
 

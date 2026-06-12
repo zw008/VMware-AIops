@@ -10,9 +10,12 @@ from pyVmomi import vim
 from vmware_policy import sanitize
 
 from vmware_aiops.ops.inventory import (
+    InventoryError,
+    find_compute_resource,
     find_datastore_by_name,
     find_host_by_name,
     find_vm_by_name,
+    resolve_datacenter,
 )
 
 if TYPE_CHECKING:
@@ -207,12 +210,16 @@ def create_vm(
     datastore_name: str | None = None,
     folder_path: str | None = None,
     guest_id: str = "otherGuest64",
+    datacenter_name: str | None = None,
+    cluster: str | None = None,
 ) -> str:
     """Create a new VM with basic configuration."""
-    content = si.RetrieveContent()
-
     # Find datacenter and folder
-    datacenter = content.rootFolder.childEntity[0]
+    try:
+        datacenter = resolve_datacenter(si, datacenter_name)
+        compute_resource = find_compute_resource(datacenter, cluster)
+    except InventoryError as e:
+        return str(e)
     vm_folder = datacenter.vmFolder
     if folder_path:
         for part in folder_path.split("/"):
@@ -226,7 +233,7 @@ def create_vm(
                 return f"Folder '{folder_path}' not found."
 
     # Find resource pool
-    resource_pool = datacenter.hostFolder.childEntity[0].resourcePool
+    resource_pool = compute_resource.resourcePool
 
     # Find datastore
     if datastore_name:
@@ -349,14 +356,19 @@ def create_snapshot(
     snap_name: str,
     description: str = "",
     memory: bool = True,
+    quiesce: bool = False,
 ) -> str:
-    """Create a VM snapshot."""
+    """Create a VM snapshot.
+
+    quiesce requires running VMware Tools — leave it False for freshly
+    deployed VMs (the default) to avoid ApplicationQuiesceFault.
+    """
     vm = _require_vm(si, vm_name)
     task = vm.CreateSnapshot_Task(
         name=snap_name,
         description=description,
         memory=memory,
-        quiesce=not memory,  # Can't quiesce with memory snapshot
+        quiesce=quiesce,
     )
     _wait_for_task(task)
     return f"Snapshot '{snap_name}' created for VM '{vm_name}'."
