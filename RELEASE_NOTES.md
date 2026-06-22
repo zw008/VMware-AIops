@@ -1,3 +1,16 @@
+## v1.6.0 (2026-06-22) — trust architecture: undo tokens + governed harness
+
+### Added
+- **Undo-token recording** on reversible write tools (via vmware-policy 1.6.0 `@vmware_tool(undo=...)`):
+  `vm_power_on`↔`vm_power_off`, `vm_create`→`vm_delete`, `vm_clone`→`vm_delete`,
+  `vm_create_snapshot`→`vm_delete_snapshot`, `vm_set_ttl`→`vm_cancel_ttl`. Each successful write
+  records an inverse descriptor (`_undo_id`); query/replay via the audit/undo tooling.
+- Inherits the harness trust-architecture upgrades: token/runaway budget guard, audit accountability
+  fields (rationale/approved_by/risk_tier), and graduated-autonomy risk tiers.
+
+### Changed
+- Requires **vmware-policy >= 1.6.0** (the `undo=` parameter lives there). Dependency pinned accordingly.
+
 ## v1.5.39 (2026-06-22) — snapshot delete: async + honest timeout (token-burn fix)
 
 ### Fixed

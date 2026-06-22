@@ -64,6 +64,34 @@ pip install vmware-aiops -i https://pypi.tuna.tsinghua.edu.cn/simple
 
 ---
 
+## Why this over other VMware MCP servers
+
+Most open-source VMware MCP servers (e.g. `bright8192/esxi-mcp-server`,
+`giuliolibrando/vmware-vsphere-mcp-server`) are **single-vCenter VM wrappers**:
+list/power/snapshot a VM, basic monitoring, a `confirm=True` flag. They explicitly
+do not cover networking, storage, Kubernetes, ops analytics, load balancing, or
+compliance — and "logging is documented" is not an audit trail.
+
+This is one skill in an **11-package family** that covers the whole estate and runs
+every tool through a governed harness:
+
+| | Other VMware MCP servers | This family |
+|---|:---:|:---:|
+| VM lifecycle + monitoring | ✅ | ✅ |
+| NSX networking (segments/gateways/NAT/routing/IPAM) | ❌ | ✅ vmware-nsx |
+| NSX security (DFW/groups/IDS-IPS/traceflow) | ❌ | ✅ vmware-nsx-security |
+| Storage (datastore/iSCSI/vSAN) | ❌ | ✅ vmware-storage |
+| Tanzu Kubernetes (Supervisor/Namespace/TKC) | ❌ | ✅ vmware-vks |
+| Aria Operations (metrics/alerts/capacity) | ❌ | ✅ vmware-aria |
+| AVI / NSX ALB load balancing + AKO | ❌ | ✅ vmware-avi |
+| Compliance baselines + drift (CIS/SCG/等保/PCI) | ❌ | ✅ vmware-harden |
+| **Governed harness** (unified audit, policy engine, token budget + runaway breaker, graduated risk tiers, undo-token, prompt-injection sanitize) | ❌ | ✅ vmware-policy on every tool |
+
+If you only ever power-cycle VMs in one vCenter, a single-file server is fine. If you
+run a real (regulated, NSX-segmented, multi-domain) VMware estate and need an AI
+operator an auditor can sign off on, that's what this family is for — see
+[docs/compliance-ready.md](../docs/compliance-ready.md).
+
 ## Capabilities Overview
 
 ### What This Skill Does

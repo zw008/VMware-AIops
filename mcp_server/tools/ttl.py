@@ -8,7 +8,15 @@ from mcp_server._shared import _get_connection, mcp, tool_errors
 
 
 @mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": True})
-@vmware_tool(risk_level="medium")
+@vmware_tool(
+    risk_level="medium",
+    undo=lambda params, result: {
+        "tool": "vm_cancel_ttl",
+        "params": {"vm_name": params.get("vm_name"), "target": params.get("target")},
+        "skill": "aiops",
+        "note": "Inverse of vm_set_ttl: cancel the scheduled auto-delete.",
+    },
+)
 @tool_errors("str")
 def vm_set_ttl(
     vm_name: str,

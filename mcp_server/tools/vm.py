@@ -22,7 +22,15 @@ from vmware_aiops.ops.vm_lifecycle import (
 
 
 @mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True})
-@vmware_tool(risk_level="medium")
+@vmware_tool(
+    risk_level="medium",
+    undo=lambda params, result: {
+        "tool": "vm_power_off",
+        "params": {"vm_name": params.get("vm_name"), "target": params.get("target")},
+        "skill": "aiops",
+        "note": "Inverse of vm_power_on: power the VM back off.",
+    },
+)
 @tool_errors("str")
 def vm_power_on(vm_name: str, target: Optional[str] = None) -> str:
     """[WRITE] Power on a virtual machine.
@@ -36,7 +44,15 @@ def vm_power_on(vm_name: str, target: Optional[str] = None) -> str:
 
 
 @mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": True, "idempotentHint": False, "openWorldHint": True})
-@vmware_tool(risk_level="medium")
+@vmware_tool(
+    risk_level="medium",
+    undo=lambda params, result: {
+        "tool": "vm_power_on",
+        "params": {"vm_name": params.get("vm_name"), "target": params.get("target")},
+        "skill": "aiops",
+        "note": "Inverse of vm_power_off: power the VM back on.",
+    },
+)
 @tool_errors("str")
 def vm_power_off(
     vm_name: str,
@@ -64,7 +80,15 @@ def vm_power_off(
 
 
 @mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": True})
-@vmware_tool(risk_level="medium")
+@vmware_tool(
+    risk_level="medium",
+    undo=lambda params, result: {
+        "tool": "vm_delete",
+        "params": {"vm_name": params.get("vm_name"), "target": params.get("target")},
+        "skill": "aiops",
+        "note": "Inverse of vm_create: delete the VM just created (it is powered off).",
+    },
+)
 @tool_errors("str")
 def vm_create(
     vm_name: str,
@@ -133,7 +157,15 @@ def vm_reconfigure(
 
 
 @mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": True})
-@vmware_tool(risk_level="high")
+@vmware_tool(
+    risk_level="high",
+    undo=lambda params, result: {
+        "tool": "vm_delete",
+        "params": {"vm_name": params.get("new_name"), "target": params.get("target")},
+        "skill": "aiops",
+        "note": "Inverse of vm_clone: delete the clone (power it off first if running).",
+    },
+)
 @tool_errors("str")
 def vm_clone(
     vm_name: str,
@@ -201,7 +233,19 @@ def vm_delete(vm_name: str, target: Optional[str] = None) -> str:
 
 
 @mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True})
-@vmware_tool(risk_level="medium")
+@vmware_tool(
+    risk_level="medium",
+    undo=lambda params, result: {
+        "tool": "vm_delete_snapshot",
+        "params": {
+            "vm_name": params.get("vm_name"),
+            "snapshot_name": params.get("snapshot_name"),
+            "target": params.get("target"),
+        },
+        "skill": "aiops",
+        "note": "Inverse of vm_create_snapshot: delete the snapshot just created.",
+    },
+)
 @tool_errors("str")
 def vm_create_snapshot(
     vm_name: str,
