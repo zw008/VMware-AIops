@@ -12,7 +12,6 @@ import importlib
 import os
 import stat
 
-import pytest
 from dotenv import dotenv_values
 
 config = importlib.import_module("vmware_aiops.config")
