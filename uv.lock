@@ -671,16 +671,16 @@ wheels = [
 
 [[package]]
 name = "pydantic-settings"
-version = "2.13.1"
+version = "2.14.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "pydantic" },
     { name = "python-dotenv" },
     { name = "typing-inspection" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/52/6d/fffca34caecc4a3f97bda81b2098da5e8ab7efc9a66e819074a11955d87e/pydantic_settings-2.13.1.tar.gz", hash = "sha256:b4c11847b15237fb0171e1462bf540e294affb9b86db4d9aa5c01730bdbe4025", size = 223826, upload-time = "2026-02-19T13:45:08.055Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/5c/b5/8f48e906c3e0205276e8bd8cb7512217a87b2685304d64be27cad5b3019f/pydantic_settings-2.14.2.tar.gz", hash = "sha256:c19dd64b19097f1de80184f0cc7b0272a13ae6e170cbf240a3e27e381ed14a5f", size = 237700, upload-time = "2026-06-19T13:44:56.324Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/00/4b/ccc026168948fec4f7555b9164c724cf4125eac006e176541483d2c959be/pydantic_settings-2.13.1-py3-none-any.whl", hash = "sha256:d56fd801823dbeae7f0975e1f8c8e25c258eb75d278ea7abb5d9cebb01b56237", size = 58929, upload-time = "2026-02-19T13:45:06.034Z" },
+    { url = "https://files.pythonhosted.org/packages/77/c1/6e422f34e569cf8e18df68d1939c81c099d2b61e4f7d9621c8a77560799c/pydantic_settings-2.14.2-py3-none-any.whl", hash = "sha256:a20c97b37910b6550d5ea50fbcc2d4187defe58cd57070b73863d069419c9440", size = 61715, upload-time = "2026-06-19T13:44:55.02Z" },
 ]
 
 [[package]]
@@ -1189,7 +1189,7 @@ wheels = [
 
 [[package]]
 name = "vmware-aiops"
-version = "1.5.38"
+version = "1.6.1"
 source = { editable = "." }
 dependencies = [
     { name = "apscheduler" },
@@ -1220,7 +1220,7 @@ requires-dist = [
     { name = "pyvmomi", specifier = ">=8.0.3.0,<10.0" },
     { name = "rich", specifier = ">=13.0,<16.0" },
     { name = "typer", specifier = ">=0.12,<1.0" },
-    { name = "vmware-policy", specifier = ">=1.0.0,<2.0" },
+    { name = "vmware-policy", specifier = ">=1.6.0,<2.0" },
 ]
 
 [package.metadata.requires-dev]
@@ -1232,13 +1232,13 @@ dev = [
 
 [[package]]
 name = "vmware-policy"
-version = "1.4.3"
+version = "1.6.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "rich" },
     { name = "typer" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/3b/d0/851242075ed870eac22c6f4fe8483d43391714446ae8e170ed78a41acf72/vmware_policy-1.4.3.tar.gz", hash = "sha256:ba15f1942f90fa6e3957ddf22001fd0fc2cbdebda89755b3ee5ebc60ff4f73df", size = 15208, upload-time = "2026-03-30T11:47:05.349Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/13/d2/0a2ecd60dd888cba5d0e77f7cf8cb12bdc17a020abc297017cca1d0a09e4/vmware_policy-1.6.1.tar.gz", hash = "sha256:ff23e98c40fb2bd9ab9c43be14c8914c191b94db17d2531d278206a192e6d67f", size = 88007, upload-time = "2026-06-23T23:57:13.23Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/b0/f6/2962cacf95d0d9aa38a63a80deac812a4b81a49ff700642d4a709e76c4e8/vmware_policy-1.4.3-py3-none-any.whl", hash = "sha256:34fcbd014f6579e732eb6a4c070ee7f3ca0ade0941d05fce0b756e777e2f94a4", size = 12359, upload-time = "2026-03-30T11:47:04.354Z" },
+    { url = "https://files.pythonhosted.org/packages/2a/37/0092e0f46275b47c79f618214df3fd9b1eabc8cb2311ef85a23814e1a99d/vmware_policy-1.6.1-py3-none-any.whl", hash = "sha256:3747433760a981d1116a9b93b768d4cfbbef0dad2609df81750bcc626854b583", size = 32970, upload-time = "2026-06-23T23:57:14.317Z" },
 ]
