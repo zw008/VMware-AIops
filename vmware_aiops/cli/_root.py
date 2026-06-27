@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Annotated
+
 import typer
 
 from vmware_aiops.cli._common import cli_errors
@@ -35,6 +37,21 @@ app.add_typer(hub_app, name="hub")
 
 # Register top-level commands
 app.command("doctor")(doctor_cmd)
+
+
+@app.command("init")
+def init_cmd(
+    force: Annotated[
+        bool, typer.Option("--force", help="Overwrite an existing config without asking")
+    ] = False,
+    skip_test: Annotated[
+        bool, typer.Option("--skip-test", help="Don't run a connection test after writing config")
+    ] = False,
+) -> None:
+    """Interactive first-run setup: write config.yaml + .env, then verify."""
+    from vmware_aiops.init_wizard import run_init
+
+    raise typer.Exit(run_init(force=force, skip_test=skip_test))
 
 
 @app.command("mcp")

@@ -42,15 +42,24 @@ def _check(label: str, fn: Callable[[], tuple[bool, str]]) -> tuple[bool, str, s
 def _check_config_file() -> tuple[bool, str]:
     if CONFIG_FILE.exists():
         return True, f"Config found: {CONFIG_FILE}"
-    return False, f"Config not found: {CONFIG_FILE}  →  Run: vmware-aiops init"
+    return False, (
+        f"Config not found: {CONFIG_FILE}  →  Run: vmware-aiops init  "
+        f"(or manually: mkdir -p {CONFIG_DIR} && cp config.example.yaml {CONFIG_FILE})"
+    )
 
 
 def _check_env_file() -> tuple[bool, str]:
     if not ENV_FILE.exists():
-        return False, f".env not found: {ENV_FILE}  →  Run: vmware-aiops init"
+        return False, (
+            f".env not found: {ENV_FILE}  →  Run: vmware-aiops init  "
+            f"(or manually: cp .env.example {ENV_FILE} && chmod 600 {ENV_FILE})"
+        )
     mode = ENV_FILE.stat().st_mode
     if mode & (stat.S_IRWXG | stat.S_IRWXO):
-        return False, f".env permissions too open ({oct(stat.S_IMODE(mode))})  →  Run: chmod 600 {ENV_FILE}"
+        return (
+            False,
+            f".env permissions too open ({oct(stat.S_IMODE(mode))})  →  Run: chmod 600 {ENV_FILE}",
+        )
     return True, f".env found with correct permissions (600): {ENV_FILE}"
 
 
@@ -58,6 +67,7 @@ def _check_targets() -> tuple[bool, str]:
     if not CONFIG_FILE.exists():
         return False, "Config file missing — skipping target check"
     import yaml
+
     with open(CONFIG_FILE) as f:
         raw = yaml.safe_load(f) or {}
     targets = raw.get("targets", [])
@@ -71,6 +81,7 @@ def _check_connectivity() -> tuple[bool, str]:
     if not CONFIG_FILE.exists():
         return False, "Config file missing — skipping connectivity check"
     import yaml
+
     with open(CONFIG_FILE) as f:
         raw = yaml.safe_load(f) or {}
     targets = raw.get("targets", [])
@@ -99,6 +110,7 @@ def _check_auth() -> tuple[bool, str]:
     try:
         from vmware_aiops.config import load_config
         from vmware_aiops.connection import ConnectionManager
+
         config = load_config()
         if not config.targets:
             return False, "No targets configured"
@@ -120,6 +132,7 @@ def _check_daemon() -> tuple[bool, str]:
     pid = pid_file.read_text().strip()
     try:
         import os as _os
+
         _os.kill(int(pid), 0)
         return True, f"Daemon running (PID: {pid})"
     except ProcessLookupError:
@@ -144,6 +157,7 @@ def _check_mcp_server() -> tuple[bool, str]:
     """Check that the MCP server module loads without error."""
     try:
         import importlib
+
         importlib.import_module("mcp_server.server")
         return True, "MCP server module loads OK"
     except ImportError as e:
