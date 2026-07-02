@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from pyVmomi import vim
+from pyVmomi import vim, vmodl
 from vmware_policy import sanitize
 
 if TYPE_CHECKING:
@@ -15,20 +15,83 @@ class InventoryError(Exception):
     """Raised when a required inventory object cannot be resolved."""
 
 
-def _get_objects(si: ServiceInstance, obj_type: list, recursive: bool = True) -> list:
-    """Generic container view helper."""
+# Server-side page size for PropertyCollector. Large inventories are streamed in
+# batches of this many objects; the helper transparently follows continuation
+# tokens, so the caller always gets the full result set.
+_PC_PAGE_SIZE = 1000
+
+
+def _collect(
+    si: ServiceInstance, obj_type: list, paths: list[str]
+) -> list[tuple[object, dict]]:
+    """Batch-retrieve ``paths`` for every ``obj_type`` object in one operation.
+
+    Uses ``PropertyCollector.RetrievePropertiesEx`` so all requested properties
+    for all matching objects are fetched in a single server-side call (paged via
+    continuation tokens), instead of one lazy SOAP round-trip per property per
+    object. This is the difference between seconds and minutes on inventories
+    with thousands of VMs/hosts (GitHub issue #31).
+
+    Args:
+        si: vSphere ServiceInstance.
+        obj_type: Single-element list with the managed-object type to collect,
+            e.g. ``[vim.VirtualMachine]``.
+        paths: Property paths to fetch, e.g. ``["name", "runtime.powerState"]``.
+            Array properties (e.g. ``vm``) come back as lists; unset properties
+            are simply absent from the returned dict.
+
+    Returns:
+        List of ``(managed_object, {path: value})`` tuples in server order.
+    """
     content = si.RetrieveContent()
-    container = content.viewManager.CreateContainerView(
-        content.rootFolder, obj_type, recursive
+    view = content.viewManager.CreateContainerView(
+        content.rootFolder, obj_type, True
     )
     try:
-        return list(container.view)
+        traversal = vmodl.query.PropertyCollector.TraversalSpec(
+            name="traverseView", type=vim.view.ContainerView, path="view", skip=False
+        )
+        obj_spec = vmodl.query.PropertyCollector.ObjectSpec(
+            obj=view, skip=True, selectSet=[traversal]
+        )
+        prop_spec = vmodl.query.PropertyCollector.PropertySpec(
+            type=obj_type[0], pathSet=list(paths), all=False
+        )
+        filter_spec = vmodl.query.PropertyCollector.FilterSpec(
+            objectSet=[obj_spec], propSet=[prop_spec]
+        )
+        options = vmodl.query.PropertyCollector.RetrieveOptions(
+            maxObjects=_PC_PAGE_SIZE
+        )
+        pc = content.propertyCollector
+        results: list[tuple[object, dict]] = []
+        batch = pc.RetrievePropertiesEx([filter_spec], options)
+        while batch is not None:
+            for obj_content in batch.objects:
+                props = {p.name: p.val for p in (obj_content.propSet or [])}
+                results.append((obj_content.obj, props))
+            token = getattr(batch, "token", None)
+            if not token:
+                break
+            batch = pc.ContinueRetrievePropertiesEx(token)
+        return results
     finally:
-        container.Destroy()
+        view.Destroy()
 
 
 _VM_SORT_KEYS = {"name", "cpu", "memory_mb", "power_state"}
 _COMPACT_FIELDS = ("name", "power_state", "cpu", "memory_mb")
+_VM_PROPS = [
+    "name",
+    "runtime.powerState",
+    "runtime.host",
+    "config.hardware.numCPU",
+    "config.hardware.memoryMB",
+    "config.guestFullName",
+    "config.uuid",
+    "guest.ipAddress",
+    "guest.toolsRunningStatus",
+]
 
 
 def list_vms(
@@ -61,20 +124,25 @@ def list_vms(
                        host, uuid, tools_status.
         compact_threshold: Auto-compact when VM count exceeds this (default 50).
     """
-    vms = _get_objects(si, [vim.VirtualMachine])
+    # Resolve host moRef -> name in one batched call so per-VM host lookups
+    # don't each trigger a round-trip.
+    host_names = {obj: p.get("name") for obj, p in _collect(si, [vim.HostSystem], ["name"])}
+
     results = []
-    for vm in vms:
-        config = vm.config
+    for _obj, p in _collect(si, [vim.VirtualMachine], _VM_PROPS):
+        host_ref = p.get("runtime.host")
+        guest_os = p.get("config.guestFullName")
+        tools = p.get("guest.toolsRunningStatus")
         entry = {
-            "name": sanitize(vm.name),
-            "power_state": str(vm.runtime.powerState),
-            "cpu": config.hardware.numCPU if config else 0,
-            "memory_mb": config.hardware.memoryMB if config else 0,
-            "guest_os": sanitize(config.guestFullName) if config else "N/A",
-            "ip_address": vm.guest.ipAddress if vm.guest else None,
-            "host": sanitize(vm.runtime.host.name) if vm.runtime.host else "N/A",
-            "uuid": config.uuid if config else "N/A",
-            "tools_status": str(vm.guest.toolsRunningStatus) if vm.guest else "N/A",
+            "name": sanitize(p.get("name", "")),
+            "power_state": str(p.get("runtime.powerState", "N/A")),
+            "cpu": p.get("config.hardware.numCPU") or 0,
+            "memory_mb": p.get("config.hardware.memoryMB") or 0,
+            "guest_os": sanitize(guest_os) if guest_os else "N/A",
+            "ip_address": p.get("guest.ipAddress"),
+            "host": sanitize(host_names.get(host_ref) or "N/A") if host_ref else "N/A",
+            "uuid": p.get("config.uuid") or "N/A",
+            "tools_status": str(tools) if tools else "N/A",
         }
         results.append(entry)
 
@@ -117,127 +185,149 @@ def list_vms(
     return {"total": total, "mode": mode, "vms": results, "hint": hint}
 
 
+_HOST_PROPS = [
+    "name",
+    "runtime.connectionState",
+    "runtime.powerState",
+    "hardware.cpuInfo.numCpuCores",
+    "hardware.cpuInfo.numCpuThreads",
+    "hardware.memorySize",
+    "config.product.version",
+    "config.product.build",
+    "vm",
+    "summary.quickStats.uptime",
+]
+_DS_PROPS = [
+    "name",
+    "summary.type",
+    "summary.freeSpace",
+    "summary.capacity",
+    "summary.accessible",
+    "summary.url",
+    "vm",
+]
+_CLUSTER_PROPS = [
+    "name",
+    "host",
+    "configuration.drsConfig.enabled",
+    "configuration.drsConfig.defaultVmBehavior",
+    "configuration.dasConfig.enabled",
+    "summary.totalCpu",
+    "summary.totalMemory",
+]
+_NET_PROPS = ["name", "vm", "summary.accessible"]
+
+
 def list_hosts(si: ServiceInstance) -> list[dict]:
     """List all ESXi hosts with basic info."""
-    hosts = _get_objects(si, [vim.HostSystem])
     results = []
-    for host in hosts:
-        hw = host.hardware
+    for _obj, p in _collect(si, [vim.HostSystem], _HOST_PROPS):
+        mem = p.get("hardware.memorySize")
         results.append({
-            "name": host.name,
-            "connection_state": str(host.runtime.connectionState),
-            "power_state": str(host.runtime.powerState),
-            "cpu_cores": hw.cpuInfo.numCpuCores if hw else 0,
-            "cpu_threads": hw.cpuInfo.numCpuThreads if hw else 0,
-            "memory_gb": round(hw.memorySize / (1024**3)) if hw else 0,
-            "esxi_version": host.config.product.version if host.config else "N/A",
-            "esxi_build": host.config.product.build if host.config else "N/A",
-            "vm_count": len(host.vm) if host.vm else 0,
-            "uptime_seconds": host.summary.quickStats.uptime or 0,
+            "name": p.get("name", ""),
+            "connection_state": str(p.get("runtime.connectionState", "N/A")),
+            "power_state": str(p.get("runtime.powerState", "N/A")),
+            "cpu_cores": p.get("hardware.cpuInfo.numCpuCores") or 0,
+            "cpu_threads": p.get("hardware.cpuInfo.numCpuThreads") or 0,
+            "memory_gb": round(mem / (1024**3)) if mem else 0,
+            "esxi_version": p.get("config.product.version") or "N/A",
+            "esxi_build": p.get("config.product.build") or "N/A",
+            "vm_count": len(p.get("vm") or []),
+            "uptime_seconds": p.get("summary.quickStats.uptime") or 0,
         })
     return sorted(results, key=lambda x: x["name"])
 
 
 def list_datastores(si: ServiceInstance) -> list[dict]:
     """List all datastores with capacity info."""
-    datastores = _get_objects(si, [vim.Datastore])
     results = []
-    for ds in datastores:
-        summary = ds.summary
+    for _obj, p in _collect(si, [vim.Datastore], _DS_PROPS):
+        free = p.get("summary.freeSpace")
+        cap = p.get("summary.capacity")
         results.append({
-            "name": ds.name,
-            "type": summary.type,
-            "free_gb": round(summary.freeSpace / (1024**3), 1) if summary.freeSpace else 0,
-            "total_gb": round(summary.capacity / (1024**3), 1) if summary.capacity else 0,
-            "accessible": summary.accessible,
-            "url": summary.url,
-            "vm_count": len(ds.vm) if ds.vm else 0,
+            "name": p.get("name", ""),
+            "type": p.get("summary.type"),
+            "free_gb": round(free / (1024**3), 1) if free else 0,
+            "total_gb": round(cap / (1024**3), 1) if cap else 0,
+            "accessible": p.get("summary.accessible"),
+            "url": p.get("summary.url"),
+            "vm_count": len(p.get("vm") or []),
         })
     return sorted(results, key=lambda x: x["name"])
 
 
 def list_clusters(si: ServiceInstance) -> list[dict]:
     """List all clusters with configuration info."""
-    clusters = _get_objects(si, [vim.ClusterComputeResource])
     results = []
-    for cluster in clusters:
-        cfg = cluster.configuration
+    for _obj, p in _collect(si, [vim.ClusterComputeResource], _CLUSTER_PROPS):
+        total_mem = p.get("summary.totalMemory")
+        drs_behavior = p.get("configuration.drsConfig.defaultVmBehavior")
         results.append({
-            "name": cluster.name,
-            "host_count": len(cluster.host) if cluster.host else 0,
-            "drs_enabled": cfg.drsConfig.enabled if cfg.drsConfig else False,
-            "drs_behavior": str(cfg.drsConfig.defaultVmBehavior) if cfg.drsConfig else "N/A",
-            "ha_enabled": cfg.dasConfig.enabled if cfg.dasConfig else False,
-            "total_cpu_mhz": cluster.summary.totalCpu if cluster.summary else 0,
-            "total_memory_gb": round(
-                cluster.summary.totalMemory / (1024**3)
-            ) if cluster.summary and cluster.summary.totalMemory else 0,
+            "name": p.get("name", ""),
+            "host_count": len(p.get("host") or []),
+            "drs_enabled": bool(p.get("configuration.drsConfig.enabled")),
+            "drs_behavior": str(drs_behavior) if drs_behavior else "N/A",
+            "ha_enabled": bool(p.get("configuration.dasConfig.enabled")),
+            "total_cpu_mhz": p.get("summary.totalCpu") or 0,
+            "total_memory_gb": round(total_mem / (1024**3)) if total_mem else 0,
         })
     return sorted(results, key=lambda x: x["name"])
 
 
 def list_networks(si: ServiceInstance) -> list[dict]:
     """List all networks."""
-    networks = _get_objects(si, [vim.Network])
     results = []
-    for net in networks:
+    for _obj, p in _collect(si, [vim.Network], _NET_PROPS):
+        accessible = p.get("summary.accessible")
         results.append({
-            "name": net.name,
-            "vm_count": len(net.vm) if net.vm else 0,
-            "accessible": net.summary.accessible if net.summary else True,
+            "name": p.get("name", ""),
+            "vm_count": len(p.get("vm") or []),
+            "accessible": accessible if accessible is not None else True,
         })
     return sorted(results, key=lambda x: x["name"])
 
 
+def _find_by_name(si: ServiceInstance, obj_type: list, name: str):
+    """Return the first managed object of ``obj_type`` whose name matches.
+
+    Fetches every object's ``name`` in one batched call rather than touching
+    ``obj.name`` per object (each of which would be a round-trip).
+    """
+    for obj, p in _collect(si, obj_type, ["name"]):
+        if p.get("name") == name:
+            return obj
+    return None
+
+
 def find_vm_by_name(si: ServiceInstance, vm_name: str) -> vim.VirtualMachine | None:
     """Find a VM by exact name. Returns None if not found."""
-    vms = _get_objects(si, [vim.VirtualMachine])
-    for vm in vms:
-        if vm.name == vm_name:
-            return vm
-    return None
+    return _find_by_name(si, [vim.VirtualMachine], vm_name)
 
 
 def find_host_by_name(si: ServiceInstance, host_name: str) -> vim.HostSystem | None:
     """Find a host by name. Returns None if not found."""
-    hosts = _get_objects(si, [vim.HostSystem])
-    for host in hosts:
-        if host.name == host_name:
-            return host
-    return None
+    return _find_by_name(si, [vim.HostSystem], host_name)
 
 
 def find_datastore_by_name(
     si: ServiceInstance, ds_name: str
 ) -> vim.Datastore | None:
     """Find a datastore by name. Returns None if not found."""
-    datastores = _get_objects(si, [vim.Datastore])
-    for ds in datastores:
-        if ds.name == ds_name:
-            return ds
-    return None
+    return _find_by_name(si, [vim.Datastore], ds_name)
 
 
 def find_cluster_by_name(
     si: ServiceInstance, cluster_name: str
 ) -> vim.ClusterComputeResource | None:
     """Find a cluster by exact name. Returns None if not found."""
-    clusters = _get_objects(si, [vim.ClusterComputeResource])
-    for cluster in clusters:
-        if cluster.name == cluster_name:
-            return cluster
-    return None
+    return _find_by_name(si, [vim.ClusterComputeResource], cluster_name)
 
 
 def find_datacenter_by_name(
     si: ServiceInstance, dc_name: str
 ) -> vim.Datacenter | None:
     """Find a datacenter by exact name. Returns None if not found."""
-    datacenters = _get_objects(si, [vim.Datacenter])
-    for dc in datacenters:
-        if dc.name == dc_name:
-            return dc
-    return None
+    return _find_by_name(si, [vim.Datacenter], dc_name)
 
 
 def resolve_datacenter(

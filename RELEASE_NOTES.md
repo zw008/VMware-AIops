@@ -1,3 +1,17 @@
+## Unreleased
+
+### Fixed
+- **Large-inventory scale (GitHub issue #31).** Inventory list/find operations
+  (`list_vms`, `list_hosts`, `list_datastores`, `list_clusters`, `list_networks`,
+  and the `find_*_by_name` helpers) walked a container view and then read pyVmomi
+  *lazy* properties per object (`vm.config.hardware.numCPU`,
+  `vm.runtime.host.name`, `len(host.vm)` …) — each a separate SOAP round-trip. On
+  large vCenters (thousands of VMs / hundreds of hosts) this meant tens of
+  thousands of round-trips, so even `limit=20` queries timed out. All of these
+  now fetch every needed property in a single `PropertyCollector.RetrievePropertiesEx`
+  call (paged via continuation tokens). Output shape is unchanged. Reported by
+  juanpf-ha against an ~8,000-VM / ~340-host environment.
+
 ## v1.7.0 (2026-06-27) — guided onboarding + teaching auth errors
 
 ### Added
