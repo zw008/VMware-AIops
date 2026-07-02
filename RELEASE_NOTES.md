@@ -1,3 +1,15 @@
+## v1.7.2 (2026-07-02) — alarm & health scale (issue #31 follow-up)
+
+### Fixed
+- **Alarm & health read paths at scale.** The v1.7.1 PropertyCollector fix
+  covered inventory only. `list_alarms` / `acknowledge_alarm` / `reset_alarm`
+  still walked every VM + host + cluster + datacenter + datastore reading lazy
+  `.name` / `.triggeredAlarmState` per object, and host hardware status, host
+  services, and host-log scan swept all hosts with per-host lazy reads — each a
+  separate SOAP round-trip that timed out on large vCenters. All now batch the
+  needed properties in a single `PropertyCollector.RetrievePropertiesEx` call.
+  Output shape unchanged.
+
 ## v1.7.1 (2026-07-02) — large-inventory scale fix (PropertyCollector, issue #31)
 
 ### Fixed

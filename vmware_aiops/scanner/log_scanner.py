@@ -18,6 +18,7 @@ from vmware_policy import sanitize
 
 from vmware_aiops.config import ScannerConfig
 from vmware_aiops.ops.health import CRITICAL_EVENTS, WARNING_EVENTS
+from vmware_aiops.ops.inventory import _collect
 
 if TYPE_CHECKING:
     from pyVmomi.vim import ServiceInstance
@@ -90,22 +91,22 @@ def scan_host_logs(
 
     This connects to host diagnostic systems to read recent log lines.
     """
-    content = si.RetrieveContent()
-    container = content.viewManager.CreateContainerView(
-        content.rootFolder, [vim.HostSystem], True
-    )
-
     error_patterns = [
         "error", "fail", "critical", "panic", "lost access",
         "cannot", "timeout", "refused", "corrupt",
     ]
 
+    # Enumerate hosts + name + diagnosticSystem in one batched call, then narrow
+    # to host_name before issuing the (inherent) BrowseDiagnosticLog RPCs.
     issues: list[dict] = []
-    for host in container.view:
-        if host_name and host.name != host_name:
+    for _obj, props in _collect(
+        si, [vim.HostSystem], ["name", "configManager.diagnosticSystem"]
+    ):
+        host_name_cur = props.get("name", "")
+        if host_name and host_name_cur != host_name:
             continue
 
-        diag_mgr = host.configManager.diagnosticSystem
+        diag_mgr = props.get("configManager.diagnosticSystem")
         if not diag_mgr:
             continue
 
@@ -119,7 +120,10 @@ def scan_host_logs(
                     key=log_key, start=start_line
                 )
             except Exception:
-                _log.debug("Failed to browse %s log on %s", log_key, host.name, exc_info=True)
+                _log.debug(
+                    "Failed to browse %s log on %s", log_key, host_name_cur,
+                    exc_info=True,
+                )
                 continue
 
             if not log_data or not log_data.lineText:
@@ -141,14 +145,13 @@ def scan_host_logs(
                         "severity": severity,
                         "source": f"host_log:{log_key}",
                         "message": (
-                            f"[VSPHERE_HOST_LOG]{host.name}: "
+                            f"[VSPHERE_HOST_LOG]{host_name_cur}: "
                             f"{safe_line}[/VSPHERE_HOST_LOG]"
                         ),
                         "time": str(datetime.now(tz=timezone.utc)),
-                        "entity": host.name,
+                        "entity": host_name_cur,
                     })
 
-    container.Destroy()
     return issues
 
 

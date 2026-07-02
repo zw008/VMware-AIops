@@ -15,6 +15,7 @@ from pyVmomi import vim
 from vmware_policy import sanitize
 
 from vmware_aiops.ops.health import get_active_alarms
+from vmware_aiops.ops.inventory import _collect
 
 if TYPE_CHECKING:
     from pyVmomi.vim import ServiceInstance
@@ -57,7 +58,6 @@ def _find_triggered_alarm(
     Raises:
         ValueError: If no matching alarm is found.
     """
-    content = si.RetrieveContent()
     search_types = [
         vim.VirtualMachine,
         vim.HostSystem,
@@ -65,21 +65,16 @@ def _find_triggered_alarm(
         vim.Datacenter,
         vim.Datastore,
     ]
+    # Fetch name + triggeredAlarmState for every entity of each type in one
+    # batched PropertyCollector call per type, instead of touching those lazy
+    # properties per object (N+1 SOAP round-trips on large inventories).
     for obj_type in search_types:
-        container = content.viewManager.CreateContainerView(
-            content.rootFolder, [obj_type], True
-        )
-        try:
-            for entity in container.view:
-                if entity.name != entity_name:
-                    continue
-                if not hasattr(entity, "triggeredAlarmState"):
-                    continue
-                for alarm_state in entity.triggeredAlarmState:
-                    if alarm_state.alarm.info.name == alarm_name:
-                        return entity, alarm_state
-        finally:
-            container.Destroy()
+        for entity, props in _collect(si, [obj_type], ["name", "triggeredAlarmState"]):
+            if props.get("name") != entity_name:
+                continue
+            for alarm_state in props.get("triggeredAlarmState") or []:
+                if alarm_state.alarm.info.name == alarm_name:
+                    return entity, alarm_state
 
     raise ValueError(
         f"Triggered alarm '{alarm_name}' on entity '{entity_name}' not found. "

@@ -8,6 +8,8 @@ from typing import TYPE_CHECKING
 from pyVmomi import vim
 from vmware_policy import sanitize
 
+from vmware_aiops.ops.inventory import _collect, _collect_object
+
 if TYPE_CHECKING:
     from pyVmomi.vim import ServiceInstance
 
@@ -52,10 +54,8 @@ def get_active_alarms(si: ServiceInstance) -> list[dict]:
     content = si.RetrieveContent()
     results = []
 
-    def _collect_alarms(entity: vim.ManagedEntity) -> None:
-        if not hasattr(entity, "triggeredAlarmState"):
-            return
-        for alarm_state in entity.triggeredAlarmState:
+    def _emit(alarm_states) -> None:
+        for alarm_state in alarm_states or []:
             severity = str(alarm_state.overallStatus)
             severity_map = {"red": "critical", "yellow": "warning", "green": "info"}
             results.append({
@@ -67,16 +67,19 @@ def get_active_alarms(si: ServiceInstance) -> list[dict]:
                 "acknowledged": getattr(alarm_state, "acknowledged", False),
             })
 
-    _collect_alarms(content.rootFolder)
-    # Also check datacenters, clusters, hosts
+    # Root folder's triggeredAlarmState aggregates every descendant alarm;
+    # fetched in one call rather than a lazy read.
+    root_props = _collect_object(
+        si, content.rootFolder, vim.Folder, ["triggeredAlarmState"]
+    )
+    _emit(root_props.get("triggeredAlarmState"))
+
+    # Also check datacenters, clusters, hosts — one batched PropertyCollector
+    # call per type instead of touching triggeredAlarmState per entity.
     container_types = [vim.Datacenter, vim.ClusterComputeResource, vim.HostSystem]
     for obj_type in container_types:
-        container = content.viewManager.CreateContainerView(
-            content.rootFolder, [obj_type], True
-        )
-        for entity in container.view:
-            _collect_alarms(entity)
-        container.Destroy()
+        for _obj, props in _collect(si, [obj_type], ["triggeredAlarmState"]):
+            _emit(props.get("triggeredAlarmState"))
 
     # Deduplicate by alarm + entity
     seen = set()
@@ -137,52 +140,48 @@ def get_recent_events(
 
 def get_host_hardware_status(si: ServiceInstance) -> list[dict]:
     """Get hardware sensor status for all hosts."""
-    content = si.RetrieveContent()
-    container = content.viewManager.CreateContainerView(
-        content.rootFolder, [vim.HostSystem], True
-    )
     results = []
-    for host in container.view:
-        runtime_health = host.runtime.healthSystemRuntime
+    for _obj, props in _collect(
+        si, [vim.HostSystem], ["name", "runtime.healthSystemRuntime"]
+    ):
+        runtime_health = props.get("runtime.healthSystemRuntime")
         if not runtime_health or not runtime_health.systemHealthInfo:
             continue
+        host_name = props.get("name", "")
         for sensor in runtime_health.systemHealthInfo.numericSensorInfo:
             # Health (green/yellow/red) lives in healthState.key;
             # sensorType is the category (temperature/voltage/fan...).
             health = getattr(sensor, "healthState", None)
             status = str(health.key) if health is not None else "unknown"
             results.append({
-                "host": sanitize(host.name),
+                "host": sanitize(host_name),
                 "sensor_name": sanitize(sensor.name),
                 "type": str(getattr(sensor, "sensorType", "unknown")),
                 "reading": sensor.currentReading,
                 "unit": sensor.baseUnits,
                 "status": status,
             })
-    container.Destroy()
     return results
 
 
 def get_host_services(si: ServiceInstance, host_name: str | None = None) -> list[dict]:
     """Get service status for hosts."""
-    content = si.RetrieveContent()
-    container = content.viewManager.CreateContainerView(
-        content.rootFolder, [vim.HostSystem], True
-    )
     results = []
-    for host in container.view:
-        if host_name and host.name != host_name:
+    for _obj, props in _collect(
+        si, [vim.HostSystem], ["name", "configManager.serviceSystem"]
+    ):
+        name = props.get("name", "")
+        if host_name and name != host_name:
             continue
-        svc_system = host.configManager.serviceSystem
+        svc_system = props.get("configManager.serviceSystem")
         if not svc_system:
             continue
         for svc in svc_system.serviceInfo.service:
             results.append({
-                "host": sanitize(host.name),
+                "host": sanitize(name),
                 "service": svc.key,
                 "label": sanitize(svc.label),
                 "running": svc.running,
                 "policy": svc.policy,
             })
-    container.Destroy()
     return results

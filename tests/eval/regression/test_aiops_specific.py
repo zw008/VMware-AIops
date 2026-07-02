@@ -181,6 +181,9 @@ def test_migrate_vm_recognizes_shared_storage_via_hostmount_key() -> None:
 def test_hardware_status_reads_healthstate_not_sensortype() -> None:
     """sensor.sensorType is the category (temperature/voltage/fan...), not the
     health. The green/yellow/red status lives in sensor.healthState.key."""
+    from pyVmomi import vim
+
+    from tests.eval.regression._pc_fakes import NoLazyMO, make_si
     from vmware_aiops.ops.health import get_host_hardware_status
 
     sensor = MagicMock()
@@ -190,13 +193,18 @@ def test_hardware_status_reads_healthstate_not_sensortype() -> None:
     sensor.currentReading = 4500
     sensor.baseUnits = "C"
 
-    host = MagicMock()
-    host.name = "esxi-1"
-    host.runtime.healthSystemRuntime.systemHealthInfo.numericSensorInfo = [sensor]
+    runtime_health = MagicMock()
+    runtime_health.systemHealthInfo.numericSensorInfo = [sensor]
 
-    si = MagicMock()
-    container = si.RetrieveContent.return_value.viewManager.CreateContainerView.return_value
-    container.view = [host]
+    # Hardware status is fetched via batched PropertyCollector, not a lazy walk.
+    si = make_si({
+        vim.HostSystem: [
+            (
+                NoLazyMO("host:esxi-1"),
+                {"name": "esxi-1", "runtime.healthSystemRuntime": runtime_health},
+            )
+        ]
+    })
 
     rows = get_host_hardware_status(si)
 

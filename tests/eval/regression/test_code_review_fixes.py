@@ -165,43 +165,31 @@ def test_ttl_entry_removed_on_success(monkeypatch: pytest.MonkeyPatch) -> None:
 # ── R4: get_active_alarms returns each triggered alarm exactly once ──
 
 
-class _FakeHost:
-    """Entity carrying the triggered alarm (also visible on ancestors)."""
-
-    def __init__(self, name: str, alarm_states: list) -> None:
-        self.name = name
-        self.triggeredAlarmState = alarm_states
-
-
-class _FakeContainer:
-    def __init__(self, view: list) -> None:
-        self.view = view
-        self.destroy_count = 0
-
-    def Destroy(self) -> None:  # noqa: N802 — pyVmomi API name
-        self.destroy_count += 1
-
-
 def test_get_active_alarms_no_duplicates_from_propagation() -> None:
+    from pyVmomi import vim
+
+    from tests.eval.regression._pc_fakes import NoLazyMO, make_si
     from vmware_aiops.ops.health import get_active_alarms
 
+    host = SimpleNamespace(name="esxi-1")
     alarm_state = SimpleNamespace(
         overallStatus="red",
         alarm=SimpleNamespace(info=SimpleNamespace(name="Host CPU usage")),
-        entity=None,  # set below
+        entity=host,
         time="2026-06-11 00:00:00",
         acknowledged=False,
     )
-    host = _FakeHost("esxi-1", [alarm_state])
-    alarm_state.entity = host
 
-    # The same alarm state propagates to rootFolder AND every container view.
-    root = SimpleNamespace(triggeredAlarmState=[alarm_state])
-    viewmgr = MagicMock()
-    viewmgr.CreateContainerView.side_effect = lambda *a, **k: _FakeContainer([host])
-    content = SimpleNamespace(rootFolder=root, viewManager=viewmgr)
-    si = MagicMock()
-    si.RetrieveContent.return_value = content
+    # The same alarm state is aggregated by rootFolder AND propagated to the host
+    # container view — both fetched via batched PropertyCollector.
+    si = make_si({
+        vim.Folder: [(NoLazyMO("root"), {"triggeredAlarmState": [alarm_state]})],
+        vim.Datacenter: [],
+        vim.ClusterComputeResource: [],
+        vim.HostSystem: [
+            (NoLazyMO("host:esxi-1"), {"triggeredAlarmState": [alarm_state]}),
+        ],
+    })
 
     alarms = get_active_alarms(si)
 
@@ -249,38 +237,33 @@ def test_plan_create_vm_drops_none_optional_params(monkeypatch: pytest.MonkeyPat
 # ── R6: _find_triggered_alarm destroys each container view exactly once ──
 
 
-class _NoAlarmEntity:
-    """Matches by name but has no triggeredAlarmState attribute."""
-
-    def __init__(self, name: str) -> None:
-        self.name = name
-
-
 def test_find_triggered_alarm_destroys_container_exactly_once() -> None:
+    from pyVmomi import vim
+
+    from tests.eval.regression._pc_fakes import NoLazyMO, make_si
     from vmware_aiops.ops.alarm_mgmt import _find_triggered_alarm
 
-    containers: list[_FakeContainer] = []
-
-    def _make_view(*args, **kwargs) -> _FakeContainer:
-        # Entity matches the searched name but lacks triggeredAlarmState —
-        # the old code Destroy()ed once before `continue` and again after the loop.
-        container = _FakeContainer([_NoAlarmEntity("vm-1")])
-        containers.append(container)
-        return container
-
-    viewmgr = MagicMock()
-    viewmgr.CreateContainerView.side_effect = _make_view
-    content = SimpleNamespace(rootFolder=object(), viewManager=viewmgr)
-    si = MagicMock()
-    si.RetrieveContent.return_value = content
+    # Entity matches the searched name but carries no matching alarm — the search
+    # exhausts all types; each per-type container view must be destroyed once.
+    fixtures = {
+        t: [(NoLazyMO(f"{t.__name__}:vm-1"), {"name": "vm-1", "triggeredAlarmState": []})]
+        for t in (
+            vim.VirtualMachine,
+            vim.HostSystem,
+            vim.ClusterComputeResource,
+            vim.Datacenter,
+            vim.Datastore,
+        )
+    }
+    si = make_si(fixtures)
 
     with pytest.raises(ValueError, match="not found"):
         _find_triggered_alarm(si, "vm-1", "Some Alarm")
 
-    assert containers, "expected container views to be created"
-    for container in containers:
-        assert container.destroy_count == 1, (
-            f"container view destroyed {container.destroy_count}x, expected exactly 1"
+    assert si.views, "expected container views to be created"
+    for stub in si.views:
+        assert stub.calls == 1, (
+            f"container view destroyed {stub.calls}x, expected exactly 1"
         )
 
 

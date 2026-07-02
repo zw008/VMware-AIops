@@ -79,6 +79,42 @@ def _collect(
         view.Destroy()
 
 
+def _collect_object(
+    si: ServiceInstance, obj: object, obj_type: type, paths: list[str]
+) -> dict:
+    """Batch-retrieve ``paths`` for a single already-known managed object.
+
+    Unlike :func:`_collect` (which walks a container view), this targets one
+    specific object via a direct ``ObjectSpec``. Used when the object is already
+    in hand — e.g. the inventory root folder, whose ``triggeredAlarmState``
+    aggregates every alarm in the inventory — so its properties are fetched in a
+    single ``RetrievePropertiesEx`` call instead of a lazy per-property
+    round-trip.
+
+    Args:
+        si: vSphere ServiceInstance.
+        obj: The managed object to inspect.
+        obj_type: The managed-object type of ``obj`` (e.g. ``vim.Folder``).
+        paths: Property paths to fetch.
+
+    Returns:
+        ``{path: value}`` for the object (empty dict if nothing came back).
+    """
+    content = si.RetrieveContent()
+    obj_spec = vmodl.query.PropertyCollector.ObjectSpec(obj=obj, skip=False)
+    prop_spec = vmodl.query.PropertyCollector.PropertySpec(
+        type=obj_type, pathSet=list(paths), all=False
+    )
+    filter_spec = vmodl.query.PropertyCollector.FilterSpec(
+        objectSet=[obj_spec], propSet=[prop_spec]
+    )
+    options = vmodl.query.PropertyCollector.RetrieveOptions()
+    batch = content.propertyCollector.RetrievePropertiesEx([filter_spec], options)
+    if batch is None or not batch.objects:
+        return {}
+    return {p.name: p.val for p in (batch.objects[0].propSet or [])}
+
+
 _VM_SORT_KEYS = {"name", "cpu", "memory_mb", "power_state"}
 _COMPACT_FIELDS = ("name", "power_state", "cpu", "memory_mb")
 _VM_PROPS = [
