@@ -1,3 +1,5 @@
+## v1.7.3 (2026-07-03) — family version alignment
+
 ## v1.7.2 (2026-07-02) — alarm & health scale (issue #31 follow-up)
 
 ### Fixed
