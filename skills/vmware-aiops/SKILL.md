@@ -2,9 +2,9 @@
 name: vmware-aiops
 description: >
   Use this skill whenever the user needs to manage VMs in VMware/vSphere/ESXi — it's the entry point for all VM operations.
-  Directly handles: power on/off, clone, snapshot, migrate, deploy from OVA or templates, run commands inside VMs, batch operations, cluster management, and vCenter alarm acknowledgment.
-  Always use this skill for any "power on", "clone", "deploy", "migrate", "batch", "guest exec", "alarm", or VM lifecycle task when the context is explicitly VMware, vSphere, or ESXi.
-  Do NOT use for read-only queries (use vmware-monitor), NSX networking (use vmware-nsx), storage/iSCSI/vSAN (use vmware-storage), or Kubernetes cluster lifecycle (use vmware-vks).
+  Directly handles: power on/off, clone, snapshot, migrate, deploy from OVA or templates, run commands inside VMs, batch operations, cluster management, vCenter alarm acknowledgment, and a one-glance cluster-health triage ("is anything on fire?").
+  Always use this skill for any "power on", "clone", "deploy", "migrate", "batch", "guest exec", "alarm", or VM lifecycle task, and for a quick "what's wrong in my environment" / "cluster health" / "is anything on fire" triage, when the context is explicitly VMware, vSphere, or ESXi.
+  Do NOT use for general read-only queries (inventory/events/VM details — use vmware-monitor), NSX networking (use vmware-nsx), storage/iSCSI/vSAN (use vmware-storage), or Kubernetes cluster lifecycle (use vmware-vks).
   For multi-step workflows use vmware-pilot. For load balancing/AVI/AKO use vmware-avi.
 installer:
   kind: uv
@@ -27,7 +27,7 @@ compatibility: >
 
 > **Disclaimer**: This is a community-maintained open-source project and is **not affiliated with, endorsed by, or sponsored by VMware, Inc. or Broadcom Inc.** "VMware" and "vSphere" are trademarks of Broadcom. Source code is publicly auditable at [github.com/zw008/VMware-AIops](https://github.com/zw008/VMware-AIops) under the MIT license.
 
-VMware family entry point — AI-powered VM lifecycle, deployment, and alarm management — 44 MCP tools.
+VMware family entry point — AI-powered VM lifecycle, deployment, and alarm management — 45 MCP tools.
 
 > **Start here**: install vmware-aiops first, then add modules as needed.
 > Run `vmware-aiops hub status` to see which family members are installed.
@@ -106,6 +106,15 @@ vmware-aiops is the entry point. Add modules for additional capabilities:
 
 > **Diagnostic investigations**: Before remediating any "why is X slow / failing / down" issue, follow [`references/investigation-protocol.md`](references/investigation-protocol.md). It enforces the four root-cause completeness criteria (falsifiability / sufficiency / necessity / mechanism) and the up-to-three-rounds deepening loop. Only invoke L3+ write tools after the four criteria are satisfied AND the user has approved a remediation plan.
 
+### Cluster Health Triage ("what's wrong right now?")
+
+Start here when the ask is "is anything on fire?" before diving into a specific VM. This is a read-only rollup delegated to vmware-monitor, exposed here so triage-then-act stays in one conversation.
+
+1. One glance --> `cluster_health_summary` (MCP) or `vmware-aiops summary` (CLI). Read `top_issues` first — ranked anomalies (disconnected hosts, red/yellow alarms, capacity pressure), each with a drill-down hint; the per-cluster table is context
+2. Act on what it surfaces --> a `host_down` row → investigate the host; an alarm → `acknowledge_vcenter_alarm` / `reset_vcenter_alarm`; a hot VM implicated → `vm_migrate` or `vm_reconfigure` (after the investigation protocol)
+3. Save/share a snapshot --> `vmware-aiops summary --html` writes an offline, timestamped HTML file (identical to `vmware-monitor summary --html` — same shared renderer)
+4. **If vmware-monitor is not installed** --> this command/tool is unavailable (AIops delegates to it); install `vmware-monitor`, or use the deeper per-object read tools in that skill
+
 ### Deploy a Lab Environment
 
 **Pre-flight (judgment, not blind sequence)**:
@@ -159,7 +168,7 @@ vmware-aiops is the entry point. Add modules for additional capabilities:
 | Cloud models (Claude, GPT-4o) | Either | MCP gives structured JSON I/O |
 | Automated pipelines | **MCP** | Type-safe parameters, structured output |
 
-## MCP Tools (44 — 9 read, 35 write)
+## MCP Tools (45 — 10 read, 35 write)
 
 | Category | Tools | R/W |
 |----------|-------|:---:|
@@ -175,8 +184,9 @@ vmware-aiops is the entry point. Add modules for additional capabilities:
 | | `cluster_create`, `cluster_delete`, `cluster_add_host`, `cluster_remove_host`, `cluster_configure` | Write |
 | Alarm Management (3) | `list_vcenter_alarms` | Read |
 | | `acknowledge_vcenter_alarm`, `reset_vcenter_alarm` | Write |
+| Cluster Triage (1) | `cluster_health_summary` (delegates to vmware-monitor) | Read |
 
-**Read/write split**: 9 tools are read-only (per `[READ]` docstring marker), 35 modify state. All write tools require explicit parameters and are audit-logged. Destructive operations (`vm_delete`, `vm_revert_snapshot`, `vm_delete_snapshot`, `vm_set_ttl` (schedules an unattended auto-delete), force power-off, cluster delete/remove-host, alarm reset) require double confirmation at the CLI layer and support `--dry-run`.
+**Read/write split**: 10 tools are read-only (per `[READ]` docstring marker), 35 modify state. All write tools require explicit parameters and are audit-logged. Destructive operations (`vm_delete`, `vm_revert_snapshot`, `vm_delete_snapshot`, `vm_set_ttl` (schedules an unattended auto-delete), force power-off, cluster delete/remove-host, alarm reset) require double confirmation at the CLI layer and support `--dry-run`.
 
 **Alarm reset blast radius**: vSphere has no per-alarm clear API. `reset_vcenter_alarm` uses `AlarmManager.ClearTriggeredAlarms`, which clears **all** triggered alarms matching the named alarm's entity type (host/VM/all) and current status (red/yellow) — not just the one named. The response's `scope` field states exactly what was cleared. The named alarm is looked up first, so a typo fails fast without clearing anything.
 

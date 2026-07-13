@@ -141,8 +141,6 @@ def mcp_config_install(
         vmware-aiops mcp-config install --agent cursor
         vmware-aiops mcp-config install --agent claude-code --yes
     """
-    import json
-
     agent_lower = agent.lower()
     if agent_lower not in _AGENT_TEMPLATES:
         available = ", ".join(sorted(_AGENT_TEMPLATES.keys()))

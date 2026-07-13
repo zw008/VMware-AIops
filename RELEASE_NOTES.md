@@ -1,3 +1,16 @@
+## v1.7.5 (2026-07-13) — cluster-health triage from the AIops entry point
+
+### Added
+- **`cluster_health_summary` MCP tool** (read-only; surface 44 → 45) and
+  **`vmware-aiops summary` CLI** — the one-glance cross-cluster triage
+  (ranked top-N issues + per-cluster status + offline HTML snapshot) is now
+  reachable from an AIops conversation. Both delegate to the vmware-monitor
+  library using AIops's own vCenter connection; no logic is duplicated.
+- New dependency: `vmware-monitor>=1.7.5`.
+
+### Fixed
+- Removed a leftover duplicate `import json` in `cli/mcp_config.py` (dead code).
+
 ## v1.7.4 (2026-07-13) — family version alignment
 
 ## v1.7.3 (2026-07-03) — family version alignment

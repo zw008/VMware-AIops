@@ -15,6 +15,7 @@ from vmware_aiops.cli.hub import hub_app
 from vmware_aiops.cli.mcp_config import mcp_config_app
 from vmware_aiops.cli.plan import plan_app
 from vmware_aiops.cli.scan import daemon_app, scan_app
+from vmware_aiops.cli.summary import cluster_summary_cmd
 from vmware_aiops.cli.vm import vm_app
 
 app = typer.Typer(
@@ -36,6 +37,7 @@ app.add_typer(alarm_app, name="alarm")
 app.add_typer(hub_app, name="hub")
 
 # Register top-level commands
+app.command("summary")(cluster_summary_cmd)
 app.command("doctor")(doctor_cmd)
 
 

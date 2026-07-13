@@ -54,6 +54,7 @@ from mcp_server.tools import (  # noqa: F401 — imported for registration side 
     deploy,
     guest,
     plan,
+    summary,
     ttl,
     vm,
 )
