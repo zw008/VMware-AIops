@@ -121,12 +121,17 @@ mcp = FastMCP(
 _conn_mgr: Optional[ConnectionManager] = None
 
 
-def _get_connection(target: Optional[str] = None) -> Any:
-    """Return a pyVmomi ServiceInstance, lazily initialising the manager."""
+def _ensure_conn_mgr() -> ConnectionManager:
+    """Lazily build the shared ConnectionManager (does not connect anything)."""
     global _conn_mgr  # noqa: PLW0603
     if _conn_mgr is None:
         config_path_str = os.environ.get("VMWARE_AIOPS_CONFIG")
         config_path = Path(config_path_str) if config_path_str else None
         config = load_config(config_path)
         _conn_mgr = ConnectionManager(config)
-    return _conn_mgr.connect(target)
+    return _conn_mgr
+
+
+def _get_connection(target: Optional[str] = None) -> Any:
+    """Return a pyVmomi ServiceInstance, lazily initialising the manager."""
+    return _ensure_conn_mgr().connect(target)

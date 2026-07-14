@@ -89,6 +89,124 @@ def test_mcp_tool_delegates_to_monitor() -> None:
     assert agg.call_args.kwargs["include_vms"] is True
 
 
+def test_investigation_tools_registered() -> None:
+    """AIops re-exposes the object-investigation family + cross-vCenter attention."""
+    from mcp_server.server import mcp
+
+    tools = {t.name for t in asyncio.run(mcp.list_tools())}
+    for name in (
+        "vm_investigation_bundle",
+        "host_investigation_bundle",
+        "datastore_investigation_bundle",
+        "cross_vcenter_attention",
+    ):
+        assert name in tools, f"AIops must re-expose {name}"
+
+
+def test_vm_bundle_delegates_to_monitor() -> None:
+    """vm_investigation_bundle calls the monitor aggregation with AIops's connection."""
+    from mcp_server.tools import summary as tool_mod
+
+    sentinel = {"object": {"name": "web-01"}}
+    with (
+        patch.object(tool_mod, "_get_connection", return_value=object()) as conn,
+        patch.object(tool_mod, "get_vm_investigation_bundle", return_value=sentinel) as agg,
+    ):
+        out = tool_mod.vm_investigation_bundle(vm_name="web-01", hours=48)
+    assert out is sentinel
+    conn.assert_called_once()
+    assert agg.call_args.kwargs["hours"] == 48
+
+
+def test_attention_delegates_via_connect_all() -> None:
+    """cross_vcenter_attention resolves all targets and delegates to monitor."""
+    from mcp_server.tools import summary as tool_mod
+
+    mgr = type("_Mgr", (), {"connect_all": lambda self: ([("prod", object())], [("dr", "TimeoutError")])})()
+    sentinel = {"targets": [], "top_issues": []}
+    with (
+        patch.object(tool_mod, "_ensure_conn_mgr", return_value=mgr),
+        patch.object(tool_mod, "get_cross_vcenter_attention", return_value=sentinel) as agg,
+    ):
+        out = tool_mod.cross_vcenter_attention(top_n=5)
+    assert out is sentinel
+    # sessions + unreachable from connect_all threaded through to the aggregator.
+    assert agg.call_args.kwargs["unreachable"] == [("dr", "TimeoutError")]
+    assert agg.call_args.kwargs["top_n"] == 5
+
+
+def test_cli_investigate_vm_delegates(tmp_path) -> None:
+    """`vmware-aiops investigate vm` renders a monitor bundle; --html writes offline."""
+    bundle = {
+        "object": {"name": "web-01", "status": "yellow"},
+        "host": {"name": "esxi-9", "connection": "connected", "cpu_pct": 40, "mem_pct": 55},
+        "cluster": None,
+        "datastores": [],
+        "snapshots": [],
+        "alarms": [],
+        "performance": {"note": "off"},
+        "timeline": [],
+        "stats": [{"k": "Power", "v": "poweredOn"}],
+        "hours": 24,
+        "snapshot": "point-in-time",
+        "customization_hint": "hint",
+    }
+    out = tmp_path / "vm.html"
+    with (
+        patch("vmware_aiops.cli.investigate._get_connection", return_value=(object(), _Cfg())),
+        patch(
+            "vmware_monitor.ops.investigate_vm.get_vm_investigation_bundle", return_value=bundle
+        ),
+        patch("vmware_aiops.cli.investigate._audit"),
+    ):
+        term = CliRunner().invoke(app, ["investigate", "vm", "web-01"])
+        assert term.exit_code == 0, term.output
+        assert "web-01" in term.output
+        html = CliRunner().invoke(app, ["investigate", "vm", "web-01", "--html-path", str(out)])
+        assert html.exit_code == 0, html.output
+    assert out.read_text().startswith("<!doctype html>")
+
+
+def test_cli_attention_delegates(tmp_path) -> None:
+    """`vmware-aiops attention` connects to all targets and renders the merged view."""
+    data = {
+        "targets": [
+            {
+                "vcenter": "prod",
+                "worst_status": "ok",
+                "clusters": 1,
+                "hosts_connected": 1,
+                "hosts_total": 1,
+                "alarms": {"critical": 0, "warning": 0},
+            }
+        ],
+        "top_issues": [],
+        "issues_total": 0,
+        "totals": {
+            "vcenters": 1,
+            "clusters": 1,
+            "hosts_total": 1,
+            "hosts_connected": 1,
+            "alarms": {"critical": 0, "warning": 0},
+            "worst_status": "ok",
+        },
+        "unreachable": [],
+        "snapshot": "point-in-time",
+        "customization_hint": "hint",
+    }
+    with (
+        patch(
+            "vmware_aiops.cli.investigate._get_all_connections",
+            return_value=([("prod", object())], []),
+        ),
+        patch("vmware_monitor.ops.attention.get_cross_vcenter_attention", return_value=data),
+        patch("vmware_aiops.cli.investigate._audit"),
+    ):
+        term = CliRunner().invoke(app, ["attention"])
+        assert term.exit_code == 0, term.output
+        assert "prod" in term.output
+
+
 def test_cli_summary_terminal_and_html(tmp_path) -> None:
     """`vmware-aiops summary` renders via monitor; --html writes an offline file."""
     out = tmp_path / "snap.html"

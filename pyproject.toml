@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "vmware-aiops"
-version = "1.7.5"
+version = "1.7.6"
 description = "VMware vCenter/ESXi AI-powered VM lifecycle and deployment tool"
 readme = "README.md"
 license = "MIT"
@@ -23,7 +23,7 @@ dependencies = [
     # Read-only cluster-health triage (summary + HTML snapshot) is owned by
     # vmware-monitor; AIops delegates to it so a conversation with the AIops
     # entry point can produce the same report without duplicating the code.
-    "vmware-monitor>=1.7.5,<2.0",
+    "vmware-monitor>=1.7.6,<2.0",
 ]
 
 [dependency-groups]
@@ -42,7 +42,7 @@ packages = ["vmware_aiops", "mcp_server"]
 
 # Dev-only: resolve vmware-monitor from the local workspace so the delegated
 # cluster-health summary uses the in-progress version. uv-specific and stripped
-# from the published wheel — the real requirement stays `vmware-monitor>=1.7.4`
+# from the published wheel — the real requirement stays `vmware-monitor>=1.7.6`
 # in [project.dependencies]. Released together at the same family version.
 [tool.uv.sources]
 vmware-monitor = { path = "../VMware-Monitor", editable = true }

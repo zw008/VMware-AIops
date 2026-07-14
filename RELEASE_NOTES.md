@@ -1,3 +1,25 @@
+## v1.7.6 (2026-07-14) — object investigation bundles + cross-vCenter attention (from the AIops entry point)
+
+The object-centered drill-down from issue #31 — "what is happening around this
+VM / host / datastore?" — plus a cross-vCenter "what needs attention now?" view,
+reachable from an AIops conversation so triage → investigate → act stays in one place.
+
+### Added
+- **Object investigation bundles** (read-only; surface 45 → 49). Four new MCP tools —
+  `vm_investigation_bundle`, `host_investigation_bundle`, `datastore_investigation_bundle`,
+  and `cross_vcenter_attention` — each correlates an object (or the whole estate) with
+  its surrounding infrastructure and recent event history and returns one high-signal,
+  aggregated result. All four delegate to the vmware-monitor library using AIops's own
+  vCenter connection; no logic is duplicated.
+- **CLI**: `vmware-aiops investigate vm|host|datastore <name>` and
+  `vmware-aiops attention`, each with `--hours` and `--html` / `--html-path` (offline,
+  self-contained snapshot; drill-down sections collapse with zero JavaScript).
+
+### Changed
+- New dependency floor: `vmware-monitor>=1.7.6` (the delegated bundle functions live there).
+
+### Notes
+- Read-only; point-in-time snapshots. Requires `vmware-monitor` installed (delegation).
 ## v1.7.5 (2026-07-13) — cluster-health triage from the AIops entry point
 
 ### Added

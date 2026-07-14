@@ -144,6 +144,19 @@ def _get_connection(target: str | None, config_path: Path | None = None):
     return mgr.connect(target), cfg
 
 
+def _get_all_connections(config_path: Path | None = None):
+    """Connect to every configured target, tolerating per-target failures.
+
+    Returns ``(sessions, unreachable)`` — see ``ConnectionManager.connect_all`` —
+    for the cross-vCenter attention view. One dead vCenter never fails the command.
+    """
+    from vmware_aiops.config import load_config
+    from vmware_aiops.connection import ConnectionManager
+
+    cfg = load_config(config_path)
+    return ConnectionManager(cfg).connect_all()
+
+
 def _resolve_target(target: str | None) -> str:
     """Return a display name for the target (used in audit logs)."""
     return target or "default"

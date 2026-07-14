@@ -7,7 +7,7 @@
 
 English | [中文](README-CN.md)
 
-AI-powered VMware vCenter/ESXi VM lifecycle and deployment tool — 31 tools across 6 categories.
+AI-powered VMware vCenter/ESXi VM lifecycle and deployment tool — 49 tools.
 
 > **Companion skills** handle everything else:
 >
@@ -23,6 +23,26 @@ AI-powered VMware vCenter/ESXi VM lifecycle and deployment tool — 31 tools acr
 [![Skills.sh](https://img.shields.io/badge/Skills.sh-Install-blue)](https://skills.sh/zw008/VMware-AIops)
 [![Claude Code Marketplace](https://img.shields.io/badge/Claude_Code-Marketplace-blueviolet)](https://github.com/zw008/VMware-AIops)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+
+## ⚡ Quick Investigation Reports (read-only)
+
+Triage → investigate → act, all in one conversation. Five opinionated read-only reports **aggregate and correlate server-side** and hand back a high-signal result (never raw inventory), so you can decide *where to look* before changing anything. Each renders a **self-contained offline HTML snapshot** with `--html` (no external assets; drill-down detail collapses in native `<details>`, zero JavaScript). All delegate to the [vmware-monitor](https://github.com/zw008/VMware-Monitor) library using AIops's own vCenter connection.
+
+| Question | Command | What it correlates |
+|----------|---------|--------------------|
+| **"What needs attention now?"** across all vCenters | `vmware-aiops attention` | Every vCenter merged into one globally-ranked issue list; unreachable targets degrade gracefully |
+| **"Is anything on fire?"** across all clusters | `vmware-aiops summary` | Every cluster's hosts + VM power + live CPU/mem + alarms → ranked top-N issues + per-cluster status |
+| **"What's happening around this VM?"** | `vmware-aiops investigate vm <name>` | VM state + host + cluster + backing datastores + snapshots + alarms + performance + a merged event timeline |
+| **"What's happening around this host?"** | `vmware-aiops investigate host <name>` | Host state + cluster + the VMs it runs + mounted datastores + alarms + performance + correlated timeline |
+| **"What's happening around this datastore?"** | `vmware-aiops investigate datastore <name>` | Capacity/free + mounting hosts + VMs it backs + alarms + correlated timeline |
+
+```bash
+vmware-aiops attention                            # what needs attention now, all vCenters
+vmware-aiops investigate vm web-01 --hours 72     # everything around a VM, then act on it
+vmware-aiops investigate vm web-01 --html         # → offline snapshot in ~/vmware-health/
+```
+
+Via MCP these are the tools `cluster_health_summary`, `cross_vcenter_attention`, `vm_investigation_bundle`, `host_investigation_bundle`, `datastore_investigation_bundle`. (Requires `vmware-monitor` installed.)
 
 ### Quick Install (Recommended)
 

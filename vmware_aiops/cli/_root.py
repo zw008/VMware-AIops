@@ -12,6 +12,7 @@ from vmware_aiops.cli.cluster import cluster_app
 from vmware_aiops.cli.deploy import datastore_app, deploy_app
 from vmware_aiops.cli.doctor import doctor_cmd
 from vmware_aiops.cli.hub import hub_app
+from vmware_aiops.cli.investigate import attention_cmd, investigate_app
 from vmware_aiops.cli.mcp_config import mcp_config_app
 from vmware_aiops.cli.plan import plan_app
 from vmware_aiops.cli.scan import daemon_app, scan_app
@@ -38,6 +39,8 @@ app.add_typer(hub_app, name="hub")
 
 # Register top-level commands
 app.command("summary")(cluster_summary_cmd)
+app.command("attention")(attention_cmd)
+app.add_typer(investigate_app, name="investigate")
 app.command("doctor")(doctor_cmd)
 
 
