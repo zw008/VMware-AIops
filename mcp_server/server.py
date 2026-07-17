@@ -53,6 +53,7 @@ from mcp_server.tools import (  # noqa: F401 — imported for registration side 
     datastore,
     deploy,
     guest,
+    network,
     plan,
     summary,
     ttl,
