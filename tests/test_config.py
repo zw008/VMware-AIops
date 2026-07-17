@@ -115,3 +115,20 @@ def test_immutability() -> None:
     t = TargetConfig(name="x", host="h", username="u")
     with pytest.raises(AttributeError):
         t.name = "y"  # type: ignore[misc]
+
+
+@pytest.mark.unit
+def test_username_env_override(sample_config_file: Path, monkeypatch) -> None:
+    """Env VMWARE_<NAME>_USERNAME (same normalization as the password key)
+    overrides config.yaml so wrapper-resolved credential PAIRS stay atomic."""
+    monkeypatch.setenv("VMWARE_TEST_VC_USERNAME", "svc-elevated@vsphere.local")
+    cfg = load_config(sample_config_file)
+    assert cfg.targets[0].username == "svc-elevated@vsphere.local"
+    assert cfg.targets[1].username == "root"  # untouched target keeps config.yaml value
+
+
+@pytest.mark.unit
+def test_username_falls_back_to_config(sample_config_file: Path, monkeypatch) -> None:
+    monkeypatch.delenv("VMWARE_TEST_VC_USERNAME", raising=False)
+    cfg = load_config(sample_config_file)
+    assert cfg.targets[0].username == "admin@vsphere.local"

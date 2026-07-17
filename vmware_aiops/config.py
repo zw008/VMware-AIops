@@ -196,11 +196,19 @@ def load_config(config_path: Path | None = None) -> AppConfig:
     with open(path) as f:
         raw = yaml.safe_load(f) or {}
 
+    # Username resolves env-first (VMWARE_<NAME>_USERNAME, same normalization
+    # as the password key) so a wrapper that pulls a credential pair from a
+    # secret store can supply BOTH halves - a config.yaml username paired with
+    # an env password from a different account logs in as nobody. config.yaml
+    # remains the fallback for local/dev use.
     targets = tuple(
         TargetConfig(
             name=t["name"],
             host=t["host"],
-            username=t.get("username", "administrator@vsphere.local"),
+            username=os.environ.get(
+                f"VMWARE_{t['name'].upper().replace('-', '_')}_USERNAME",
+                t.get("username", "administrator@vsphere.local"),
+            ),
             type=t.get("type", "vcenter"),
             port=t.get("port", 443),
             verify_ssl=t.get("verify_ssl", True),
