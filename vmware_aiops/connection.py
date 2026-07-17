@@ -9,7 +9,7 @@ import atexit
 import ssl
 from typing import TYPE_CHECKING
 
-from pyVmomi import vim, vmodl
+from pyVmomi import vim
 from pyVmomi.VmomiSupport import VmomiJSONEncoder  # noqa: F401
 
 if TYPE_CHECKING:
@@ -57,11 +57,21 @@ class ConnectionManager:
         if target.name in self._connections:
             si = self._connections[target.name]
             try:
-                # Test if session is still alive
-                _ = si.content.sessionManager.currentSession
+                # Probe liveness; expired tokens can surface as a None
+                # currentSession instead of raising.
+                alive = si.content.sessionManager.currentSession is not None
+            except Exception:
+                # Any failure (NotAuthenticated, socket error, …) means the
+                # cached session is unusable — drop it and reconnect below.
+                alive = False
+            if alive:
                 return si
-            except (vmodl.fault.NotAuthenticated, Exception):
-                del self._connections[target.name]
+            # Evict the id(si)-keyed side store NOW rather than waiting for
+            # atexit: once the old si is GC'd, a new si for a DIFFERENT
+            # target can reuse the same id() value and read stale verify_ssl
+            # (id-reuse hazard).
+            _SI_VERIFY_SSL.pop(id(si), None)
+            del self._connections[target.name]
 
         si = self._create_connection(target)
         self._connections[target.name] = si
