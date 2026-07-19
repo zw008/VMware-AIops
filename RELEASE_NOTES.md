@@ -1,3 +1,37 @@
+## v1.8.1 (2026-07-19) — read-only mode reaches the surfaces that teach it
+
+v1.8.0 put read-only mode in the code and documented it in the README only.
+Every other layer was empty, and each serves a different reader: SKILL.md is what
+the agent loads, setup-guide is what an operator reads while configuring, `doctor`
+is where they verify it took. The gap had two concrete costs.
+
+An agent read SKILL.md, called a write tool the gate had withheld, and got nothing
+back — with no way to learn that the absence was a deliberate lockdown rather than
+a fault. It reads as a broken tool, so the model retries or hunts for a workaround.
+
+An operator who set the switch had no way to confirm it. The only signal was a line
+in the MCP server's start-up log.
+
+### Added — the feature is now documented where each reader looks
+
+- **SKILL.md** — a short section telling the agent that a missing write tool is a
+  lockdown, not a fault: name the blocked operation, do not retry, do not route
+  around it.
+- **references/setup-guide.md** — the operator's view: how to enable it, the
+  precedence chain, and how to verify.
+- **references/capabilities.md** — which tools the gate withholds.
+
+### Added — `doctor` reports the read-only state
+
+`vmware-aiops doctor` now shows whether read-only mode is on, **which** of the three
+switches decided it, and the value as written. A typo'd value (`ture`) is called
+out as a typo rather than reported as a confident ON — it resolves to on, which is
+fail-closed but almost never what was meant.
+
+The resolution runs through `vmware_policy.read_only_status()` rather than a local
+copy of the precedence chain: a doctor that disagrees with the gate it reports on is
+worse than no doctor. Requires `vmware-policy>=1.8.1`.
+
 ## v1.8.0 (2026-07-18) — read-only mode, working policy defaults, declared environments
 
 Family release driven by [VMware-AIops#31](https://github.com/zw008/VMware-AIops/issues/31),

@@ -100,6 +100,31 @@ whitespace are handled correctly).
 - **Prompt Injection Protection**: All vSphere-sourced content (event messages, host logs) is truncated, stripped of control characters, and wrapped in boundary markers (`[VSPHERE_EVENT]`/`[VSPHERE_HOST_LOG]`) before output to prevent prompt injection when consumed by LLM agents.
 - **Least Privilege**: Use a dedicated vCenter service account with minimal permissions. For monitoring-only use cases, prefer the read-only [VMware-Monitor](https://github.com/zw008/VMware-Monitor) skill which has zero destructive code paths.
 
+### Read-only mode
+
+Read-only mode removes all 36 write-effecting tools from the MCP registry before the server accepts a request, so `list_tools()` never offers them. The model cannot call what it cannot see — no prompt discipline required. **Off by default.**
+
+Three ways to enable it, highest precedence first:
+
+| Precedence | Setting | Scope |
+|:-:|---|---|
+| 1 | `VMWARE_AIOPS_READ_ONLY=true` | This skill only |
+| 2 | `VMWARE_READ_ONLY=true` | **Every installed VMware skill** — one setting puts the whole estate in audit posture |
+| 3 | `read_only: true` in `~/.vmware-aiops/config.yaml` | This skill only |
+| 4 | *(unset)* | Off — write tools exposed |
+
+The env vars come first so a deployment can be locked down from the MCP client's `env` block without editing any config file.
+
+**Fail-closed.** If read-only mode is requested but cannot be *proven* — the tool registry cannot be enumerated, or a removal does not take effect — the server refuses to start rather than serving write tools it promised to withhold. One case does *not* abort: an unrecognised value (`VMWARE_READ_ONLY=ture`) resolves to **on** with a warning, so a typo locks the deployment down instead of leaving it open.
+
+**Verifying it took**:
+
+```bash
+vmware-aiops doctor        # reports ON/off, and which of the four sources decided it
+```
+
+The MCP server also logs a warning at start-up naming every tool it withheld. The 13 read tools are unaffected in all cases.
+
 ## Supported AI Platforms
 
 | Platform | Status | Config File |

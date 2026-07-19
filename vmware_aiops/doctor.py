@@ -164,6 +164,50 @@ def _check_mcp_server() -> tuple[bool, str]:
         return False, f"MCP server import failed: {e}"
 
 
+def _config_read_only() -> bool | None:
+    """Read ``read_only`` from config, mirroring ``mcp_server.server``.
+
+    Duplicated rather than imported because importing the server module would
+    register every tool and run the gate as a side effect of ``doctor``. The
+    precedence chain around this value is *not* duplicated — see below.
+    """
+    try:
+        from vmware_aiops.config import load_config
+
+        _cfg_path = os.environ.get("VMWARE_AIOPS_CONFIG")
+        return load_config(Path(_cfg_path) if _cfg_path else None).read_only
+    except Exception:  # noqa: BLE001 — absent/unreadable config is not an error here
+        return None
+
+
+def _check_read_only() -> tuple[bool, str]:
+    """Report the resolved read-only state and where it came from.
+
+    Never fails — read-only being on is a posture, not a fault. It is here
+    because an operator who set the switch had no way to confirm it took: the
+    only signal was a line in the MCP server's start-up log.
+
+    The precedence chain lives in vmware-policy so this check and the gate that
+    actually enforces it cannot drift apart (a doctor that disagrees with the
+    gate is worse than no doctor).
+    """
+    from vmware_policy.readonly import read_only_status
+
+    status = read_only_status("vmware-aiops", _config_read_only())
+    if not status.recognised:
+        return True, (
+            f"{status.source}={status.raw!r} is not a recognised value. It resolves "
+            f"to ON (fail-closed), so every write tool is withheld — probably not "
+            f"what was intended. Use true or false."
+        )
+    if status.enabled:
+        return True, (
+            f"ON (from {status.source}) — write tools are withheld from the MCP "
+            f"registry. Clear that switch and restart the server to expose them."
+        )
+    return True, f"off (from {status.source}) — write tools are exposed"
+
+
 # ---------------------------------------------------------------------------
 # Runner
 # ---------------------------------------------------------------------------
@@ -178,6 +222,7 @@ _CHECKS: list[tuple[str, Callable[[], tuple[bool, str]]]] = [
     ("Scanner daemon", _check_daemon),
     ("TTL store", _check_ttl_store),
     ("MCP server", _check_mcp_server),
+    ("Read-only mode", _check_read_only),
 ]
 
 
