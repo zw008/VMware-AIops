@@ -1,3 +1,72 @@
+## v1.8.4 (2026-07-20) — errors that teach, and tool descriptions a small model can route from
+
+A capability eval was rolled out across the family and asked two open questions:
+when a call fails, is the model told enough to fix it, and can it pick the right
+tool from the description alone? Both answers were worse than anyone thought, and
+in several places the reason was that the measurement was looking somewhere other
+than where the model reads.
+
+### Fixed — teaching messages were being discarded on the way to the agent
+
+`_safe_error` reduces unrecognised exceptions to `"<Class>: operation failed."`
+so raw API text, credentials in URLs and internal paths cannot reach an agent.
+Its allowlist held only the builtin validation errors — so this skill's **own**
+domain exceptions, the ones that exist precisely to carry a corrected next step,
+had their messages replaced by their class names.
+
+The effect was invisible from the CLI, which prints those messages in full.
+
+The worst case was shared by nine skills: `config.py` raises exactly one
+`OSError`, the missing-password error, whose entire remedy is the environment
+variable name it names. An agent hitting an unconfigured target received
+`OSError: operation failed.` and had nothing to act on. That is the family's most
+common first-run failure, and it landed one release after the documented variable
+names were corrected — so the message that would have unstuck the operator was
+the one being thrown away.
+
+The rule is now the property it always meant: **every exception this skill raises
+on purpose passes through**, and only genuinely unplanned ones are reduced.
+`RuntimeError` stays reduced — it is the generic catch-all and in several skills
+carries raw upstream text.
+
+### Fixed — error messages now carry the correction
+
+Every message that reported a failure without saying how to recover was
+rewritten: it names the offending value, gives an imperative remedy, and names
+something concrete to act on — a tool that exists, a real CLI command, a config
+file, an environment variable. Recovery becomes an instruction-following problem
+rather than an inference one, which is what a weak model can still do.
+
+Three classes of defect surfaced while doing it:
+
+- **Remedies that were never delivered.** `_safe_error` truncates with no
+  ellipsis, so a message longer than the cap loses its closing sentence
+  silently. One message had been shipping at 396 characters against a 300-char
+  cap — its remedy had never once reached an agent. Messages now lead with the
+  remedy so a long interpolated value truncates the expendable detail instead.
+- **Commands that do not exist.** One skill's error hints named a `doctor`
+  subcommand it does not have.
+- **Tools that do not exist.** A tool description pointed at two sibling-skill
+  tools that had been renamed, and another named a tool that had moved to a
+  different skill entirely.
+
+### Improved — tool descriptions state when to use them and what to call next
+
+The description is the API for a small model: an unstated routing rule is a
+routing rule that does not exist, and a tool with no stated next hop is one the
+model stops at. Descriptions now say when to prefer this tool over a sibling,
+what shape comes back, the caveat that bites, and which tool to call after.
+
+**Manifest size did not grow.** Descriptions load into every session, so the
+routing clauses were paid for by cutting duplicated reference material —
+repeated boilerplate, examples that restated the parameter list, and prose
+copies of the pagination contract.
+
+### Note
+
+Every tool and CLI command named anywhere in this release was verified against
+the live MCP registry and the live command tree, not against documentation.
+
 ## v1.8.3 (2026-07-20) — credentials resolve as a pair; documented env vars now exist
 
 ### Added — the per-target username can come from the environment
