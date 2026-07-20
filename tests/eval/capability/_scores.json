@@ -76,6 +76,7 @@
     },
     "error_actionability": {
       "detail": {
+        "composed_hint_sites": [],
         "dead_end_count": 2,
         "dead_end_errors": [
           {
@@ -209,6 +210,28 @@
       "unit": "points",
       "value": 49
     },
+    "remedy_survives_truncation": {
+      "detail": {
+        "budget_chars": 300,
+        "over_budget": [],
+        "remedy_after_interpolation": [
+          "_common.py:204",
+          "_common.py:206",
+          "_common.py:211",
+          "_common.py:193",
+          "_common.py:198",
+          "config.py:213",
+          "config.py:247",
+          "config.py:165",
+          "config.py:236",
+          "alarm_mgmt.py:88"
+        ]
+      },
+      "maximum": 47,
+      "pct": 100.0,
+      "unit": "messages",
+      "value": 47
+    },
     "teaching_error_rate": {
       "detail": {},
       "maximum": 49,
@@ -286,7 +309,7 @@
     "tool_failure_payload_quality": {
       "detail": {
         "bare_string_error_lines": [
-          108
+          117
         ],
         "carries_hint": 1,
         "dict_shaped": 1,

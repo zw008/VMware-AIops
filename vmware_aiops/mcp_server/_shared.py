@@ -25,7 +25,7 @@ from vmware_aiops.ops.cluster_mgmt import ClusterError, ClusterNotFoundError
 from vmware_aiops.ops.guest_ops import GuestOpsError
 from vmware_aiops.ops.inventory import InventoryError
 from vmware_aiops.ops.iscsi_config import HostNotFoundError, ISCSIError
-from vmware_aiops.ops.vm_lifecycle import TaskFailedError, VMNotFoundError
+from vmware_aiops.ops.vm_lifecycle import TaskFailedError, TaskStillRunning, VMNotFoundError
 
 logger = logging.getLogger(__name__)
 
@@ -37,18 +37,25 @@ def _safe_error(exc: Exception, tool: str) -> str:
 
     Raw exception text can carry vSphere response bodies, internal paths, or
     host:port pairs. Full traceback goes to the server log; the agent sees only
-    a control-char-stripped, length-capped message. Intentional validation
-    errors and domain exceptions carrying teaching messages (VMNotFoundError,
-    GuestOpsError, TaskFailedError, ClusterNotFoundError, ClusterError,
-    InventoryError, HostNotFoundError, ISCSIError, TimeoutError,
-    ConnectionError) pass through sanitized — a dropped connection should
-    surface its teaching hint, matching the CLE path (which catches OSError)
-    rather than being masked as "operation failed".
+    a control-char-stripped, length-capped message.
 
-    Every domain exception defined under ``vmware_aiops.ops`` belongs in
-    ``_passthrough``: each one carries a rewritten teaching message, and
-    omitting it replaces that message with "operation failed", which is the
-    exact dead end those rewrites exist to remove.
+    The rule is a property, not a list: every exception this skill raises on
+    purpose passes through, and only genuinely unplanned ones are reduced. The
+    enumeration below is the mechanical expression of that rule, and it drifts —
+    each domain exception added under ``vmware_aiops.ops`` without a matching
+    entry here loses its teaching message on the way to the agent, which is the
+    exact dead end those messages exist to remove.
+
+    ``OSError`` is allowed because ``config.py`` raises exactly one — the
+    missing-password error, this family's most common first-run failure, whose
+    entire remedy is the env var name it carries. Its subclasses
+    ``FileNotFoundError``, ``PermissionError``, ``TimeoutError`` and
+    ``ConnectionError`` were already allowed, so admitting the base class
+    widens exposure only to the remaining OS-level subtypes.
+
+    Anything else is reduced to its type — an unplanned exception's text was
+    written for a developer reading a traceback, not for an agent choosing what
+    to do next, and it is the one that can carry credentials.
     """
     logger.error("Tool %s failed", tool, exc_info=True)
     _passthrough = (
@@ -58,9 +65,11 @@ def _safe_error(exc: Exception, tool: str) -> str:
         PermissionError,
         TimeoutError,
         ConnectionError,
+        OSError,
         VMNotFoundError,
         GuestOpsError,
         TaskFailedError,
+        TaskStillRunning,
         ClusterNotFoundError,
         ClusterError,
         InventoryError,

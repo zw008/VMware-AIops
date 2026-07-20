@@ -113,18 +113,93 @@ REMEDY_MARKERS = (
 #: cross-skill errors by ~14 points in vmware-aiops alone.
 STATIC_ARTIFACT_MARKERS = (
     CLI_NAME,
-    *COMPANION_SKILLS,
     "config.yaml",
     "config.example.yaml",
     ".env",
-    "doctor",
     "_mcp",
     "environment variable",
-    "--",
 )
 
+#: Companion CLI names, matched so that one cannot swallow another. Plain
+#: substring matching credited ``vmware-nsx`` inside ``vmware-nsx-security``, so
+#: that skill scored a documented hand-off for every mention of *itself* — and
+#: its own CLI citations were never checked against its own command tree.
+#: The lookahead is what keeps a prefix from claiming a longer name.
+COMPANION_PATTERN = re.compile(
+    r"\b(?:" + "|".join(re.escape(c) for c in sorted(COMPANION_SKILLS, key=len, reverse=True))
+    + r")(?![\w-])"
+)
 
-def _artifact_matcher(tools) -> Callable[[str], bool]:
+#: A real long flag, not any pair of hyphens. ``"--"`` used to be a static
+#: marker, which credited every em-dash-adjacent construction and every ``--``
+#: appearing for any reason — two skills reported banking ``names_artifact`` on
+#: it without naming a flag at all. Requiring a flag-shaped token is the whole
+#: fix; it costs nothing on messages that really do cite ``--target``.
+FLAG_PATTERN = re.compile(r"--[a-z][a-z0-9-]{2,}")
+
+#: Env var references: ``VMWARE_FOO_PASSWORD``. Previously only reachable via
+#: the prose phrase "environment variable", so a message naming the variable
+#: precisely — the more useful form — scored lower than one describing it
+#: vaguely.
+ENV_VAR_PATTERN = re.compile(r"\b[A-Z][A-Z0-9]*(?:_[A-Z0-9]+){2,}\b")
+
+
+def _cli_commands() -> frozenset[str] | None:
+    """Every runnable command *path* the CLI registers, or None if unresolvable.
+
+    Tool names are checked against the live registry, but CLI invocations were
+    taken on faith — and one skill shipped thirteen error hints telling the model
+    to run ``<cli> doctor``, a command that does not exist (it is ``check``).
+    The rubric scored every one of them full marks, so the fix and the phantom
+    were worth exactly the same. A cited command is an artifact only if it can be
+    run.
+
+    Full paths, not just first tokens. Checking only the first token accepted
+    ``<cli> pool list`` because ``pool`` is a real *group* — while ``pool list``
+    does not exist. An agent writing that message caught itself by hand; the
+    check did not, which made this function's own name a promise it was not
+    keeping.
+
+    Walked through click rather than Typer's registration lists, because that is
+    the tree the user's shell actually dispatches against.
+
+    Returns None rather than an empty set when the app cannot be located, so the
+    caller can report the check as unavailable instead of silently refuting every
+    CLI reference — an unverifiable claim is not a refuted one.
+    """
+    import click
+    import typer
+
+    for dotted, attr in ((f"{PACKAGE}.cli", "app"), (f"{PACKAGE}.cli._root", "app")):
+        try:
+            app = getattr(importlib.import_module(dotted), attr, None)
+        except Exception:  # noqa: BLE001 — absence is the answer, not an error
+            continue
+        if app is None:
+            continue
+        try:
+            root = typer.main.get_command(app)
+        except Exception:  # noqa: BLE001
+            continue
+        paths: set[str] = set()
+
+        def walk(cmd, prefix: list[str]) -> None:
+            if isinstance(cmd, click.Group):
+                for name, sub in cmd.commands.items():
+                    walk(sub, [*prefix, name])
+            elif prefix:
+                paths.add(" ".join(prefix))
+
+        walk(root, [])
+        if paths:
+            return frozenset(paths)
+    return None
+
+
+_UNSET = object()
+
+
+def _artifact_matcher(tools, cli_commands=_UNSET) -> Callable[[str], bool]:
     """Predicate: does this text name something the operator can actually act on?
 
     Static markers plus the tool names the registry actually exposes. This
@@ -154,42 +229,160 @@ def _artifact_matcher(tools) -> Callable[[str], bool]:
     pattern = (
         re.compile(r"\b(?:" + "|".join(re.escape(n) for n in names) + r")\b") if names else None
     )
+    commands = _cli_commands() if cli_commands is _UNSET else cli_commands
+    #: An *invocation* — quoted, backticked, or introduced by a run-ish verb —
+    #: claims a specific subcommand and can therefore be wrong. A passing
+    #: mention ("install vmware-monitor") only names the executable and claims
+    #: nothing to verify, so it is credited as-is.
+    #: The captured token deliberately admits ``_`` so that "vmware-monitor
+    #: get_alarms" is seen whole. Family CLI subcommands are kebab-case and MCP
+    #: tools are snake_case, so a token containing ``_`` is a tool reference,
+    #: not a subcommand claim — it is checked against the registry below rather
+    #: than being mistaken for a phantom command named "get".
+    cli_call = re.compile(
+        r"(?:['\"`]|\b(?:run|re-run|rerun|via|using|with)\s+['\"`]?)"
+        + re.escape(CLI_NAME.lower())
+        + r"((?:\s+[a-z][a-z0-9_-]*){1,3})"
+    )
+    cli_mention = re.compile(re.escape(CLI_NAME.lower()))
+
+    def _valid(tokens: list[str]) -> bool:
+        """True if some prefix of the cited tokens is a runnable command path.
+
+        A prefix, because real messages trail prose — "run 'vmware-nsx init' to
+        rebuild it" cites `init` followed by words that are not arguments. A
+        *group* on its own is not a prefix that runs, so `pool` alone never
+        satisfies this even though `pool members` does.
+        """
+        return any(" ".join(tokens[: i + 1]) in commands for i in range(len(tokens)))
+
+    def _cites_this_cli(low: str) -> bool:
+        if not cli_mention.search(low):
+            return False
+        claims = [
+            [t for t in m.group(1).split() if "_" not in t] for m in cli_call.finditer(low)
+        ]
+        claims = [c for c in claims if c]
+        if not claims:
+            return True  # names the executable, or a tool the registry check reads
+        if commands is None:
+            return True  # app not introspectable: unverifiable, not refuted
+        return any(_valid(c) for c in claims)
 
     def names_artifact(text: str) -> bool:
         low = text.lower()
-        if any(m in low for m in STATIC_ARTIFACT_MARKERS):
+        if any(m in low for m in STATIC_ARTIFACT_MARKERS if m != CLI_NAME):
+            return True
+        # A companion hand-off counts, but not when the "companion" is this
+        # skill's own name wearing a shorter prefix.
+        if any(m.group(0) != CLI_NAME.lower() for m in COMPANION_PATTERN.finditer(low)):
+            return True
+        if _cites_this_cli(low):
+            return True
+        if FLAG_PATTERN.search(low) or ENV_VAR_PATTERN.search(text):
             return True
         return bool(pattern and pattern.search(low))
 
     return names_artifact
 
 
-def _iter_raise_messages():
-    """Yield ``(file, lineno, template, interpolates)`` for every literal raise.
+def _file_symbols(tree: ast.AST) -> tuple[dict[str, str], dict[str, str]]:
+    """Module-level string constants, and the strings each function can return.
 
-    ``template`` renders f-string holes as ``{}`` so the static text can be
-    scored; ``interpolates`` records whether any hole existed at all, which is
-    the structural form of "names the offending input".
+    Both are needed to read a message the way the agent receives it rather than
+    the way it appears at the raise site.
+    """
+    consts: dict[str, str] = {}
+    returns: dict[str, str] = {}
+    for stmt in getattr(tree, "body", []):
+        if isinstance(stmt, ast.Assign) and isinstance(stmt.value, ast.Constant):
+            if isinstance(stmt.value.value, str):
+                for tgt in stmt.targets:
+                    if isinstance(tgt, ast.Name):
+                        consts[tgt.id] = stmt.value.value
+        elif isinstance(stmt, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            parts = [
+                n.value.value
+                for n in ast.walk(stmt)
+                if isinstance(n, ast.Return)
+                and isinstance(n.value, ast.Constant)
+                and isinstance(n.value.value, str)
+            ]
+            parts += [
+                "".join(v.value for v in n.value.values if isinstance(v, ast.Constant))
+                for n in ast.walk(stmt)
+                if isinstance(n, ast.Return) and isinstance(n.value, ast.JoinedStr)
+            ]
+            if parts:
+                returns[stmt.name] = " ".join(parts)
+    return consts, returns
+
+
+def _iter_raise_messages():
+    """Yield ``(file, lineno, message, interpolates, composed)`` per literal raise.
+
+    Holes are no longer blanked out. Rendering every f-string hole as ``{}`` made
+    the rubric blind to any guidance the code composes at runtime — a hint
+    hoisted into a module constant, or produced by a ``_hint_for_status()``
+    helper, scored as though the message named nothing. Four skills independently
+    reported the same consequence: the *better* engineering pattern measured as
+    the worse one, and rewriting a shared hint as a duplicated inline literal
+    would have raised the score without helping anyone.
+
+    So a hole is resolved when it can be: a name bound to a module-level string,
+    or a call to a function in the same file, whose returnable strings are all
+    folded in. ``composed`` marks the second case, because folding in every
+    branch is an approximation — the message credits an artifact that only some
+    branches name. Reporting the count keeps that visible instead of burying it
+    in the aggregate.
     """
     for path in sorted(PACKAGE_ROOT.rglob("*.py")):
         try:
             tree = ast.parse(path.read_text(encoding="utf-8"))
         except (OSError, SyntaxError):  # pragma: no cover - unreadable source
             continue
-        for node in ast.walk(tree):
-            if not (isinstance(node, ast.Raise) and isinstance(node.exc, ast.Call)):
-                continue
-            if not node.exc.args:
-                continue
-            arg = node.exc.args[0]
-            if isinstance(arg, ast.Constant) and isinstance(arg.value, str):
-                yield (path.name, node.lineno, arg.value, False)
-            elif isinstance(arg, ast.JoinedStr):
-                text = "".join(
-                    v.value if isinstance(v, ast.Constant) else "{}" for v in arg.values
-                )
-                holes = any(isinstance(v, ast.FormattedValue) for v in arg.values)
-                yield (path.name, node.lineno, text, holes)
+        yield from _messages_in_tree(tree, path.name)
+
+
+def _messages_in_tree(tree: ast.AST, filename: str):
+    """The per-file half of ``_iter_raise_messages``, split out to be testable.
+
+    Kept separate so the regression suite can feed it a source string and pin
+    the resolution rules directly, instead of only observing them through
+    whatever the package happens to contain today.
+    """
+    consts, returns = _file_symbols(tree)
+
+    def _hole(node) -> tuple[str, bool]:
+        expr = node.value
+        if isinstance(expr, ast.Name) and expr.id in consts:
+            return consts[expr.id], False
+        if isinstance(expr, ast.Call):
+            fn = expr.func
+            fname = fn.id if isinstance(fn, ast.Name) else getattr(fn, "attr", "")
+            if fname in returns:
+                return returns[fname], True
+        return "{}", False
+
+    for node in ast.walk(tree):
+        if not (isinstance(node, ast.Raise) and isinstance(node.exc, ast.Call)):
+            continue
+        if not node.exc.args:
+            continue
+        arg = node.exc.args[0]
+        if isinstance(arg, ast.Constant) and isinstance(arg.value, str):
+            yield (filename, node.lineno, arg.value, False, False)
+        elif isinstance(arg, ast.JoinedStr):
+            parts, composed = [], False
+            for v in arg.values:
+                if isinstance(v, ast.Constant):
+                    parts.append(str(v.value))
+                else:
+                    rendered, approx = _hole(v)
+                    parts.append(rendered)
+                    composed = composed or approx
+            holes = any(isinstance(v, ast.FormattedValue) for v in arg.values)
+            yield (filename, node.lineno, "".join(parts), holes, composed)
 
 
 def _grade(text: str, interpolates: bool, names_artifact: Callable[[str], bool]) -> dict[str, bool]:
@@ -211,8 +404,8 @@ def names_artifact(tools) -> Callable[[str], bool]:
 @pytest.fixture(scope="session")
 def graded_errors(names_artifact):
     return tuple(
-        (f, ln, text, _grade(text, holes, names_artifact))
-        for f, ln, text, holes in _iter_raise_messages()
+        (f, ln, text, composed, _grade(text, holes, names_artifact))
+        for f, ln, text, holes, composed in _iter_raise_messages()
     )
 
 
@@ -230,9 +423,10 @@ def test_error_actionability_index(board, graded_errors):
 
     dead_ends = [
         {"where": f"{f}:{ln}", "message": text[:100], "missing": sorted(k for k, v in g.items() if not v)}
-        for f, ln, text, g in graded_errors
+        for f, ln, text, _c, g in graded_errors
         if not g["states_remedy"] and not g["names_artifact"]
     ]
+    composed = [f"{f}:{ln}" for f, ln, _t, c, _g in graded_errors if c]
 
     score = board.add(
         Score(
@@ -244,6 +438,12 @@ def test_error_actionability_index(board, graded_errors):
                 "per_dimension_pct": per_dimension,
                 "dead_end_count": len(dead_ends),
                 "dead_end_errors": dead_ends[:15],
+                # Sites whose guidance is assembled at runtime. Scored by folding
+                # in every branch the helper can return, so the credit is an
+                # upper bound: some branches may name nothing. Listed so the
+                # approximation stays visible rather than dissolving into the
+                # aggregate.
+                "composed_hint_sites": composed,
             },
         )
     )
@@ -275,6 +475,133 @@ def test_teaching_error_rate(board, graded_errors):
     )
     print(f"\n[capability] teaching_error_rate = {score.pct}%  ({len(teaching)}/{len(graded_errors)})")
     assert score.pct >= 15.0, "almost no error message tells the model how to recover"
+
+
+def _truncation_budget() -> int | None:
+    """The character cap ``_safe_error`` applies, read from the server source.
+
+    Read rather than assumed because the family does not agree on one number —
+    vmware-harden deliberately uses a wider bound because its messages carry two
+    absolute paths before the remedy. Hardcoding 300 here would have quietly
+    passed that repo while failing to describe it.
+    """
+    module = importlib.import_module(SERVER_MODULE)
+    caps = []
+    for source in sorted(pathlib.Path(module.__file__).parent.rglob("*.py")):
+        if "__pycache__" in source.parts:
+            continue
+        for m in re.finditer(
+            r"sanitize\(\s*(?:str\()?\s*exc\)?\s*,\s*(\d+)\s*\)",
+            source.read_text(encoding="utf-8", errors="replace"),
+        ):
+            caps.append(int(m.group(1)))
+    return min(caps) if caps else None
+
+
+def test_truncation_budget_matches_what_the_server_really_applies():
+    """Cross-check the parsed cap against the wrapper's actual behaviour.
+
+    ``_truncation_budget`` reads a number out of the source, and a number read
+    out of source is a claim about behaviour, not behaviour. If it drifted — or
+    if the regex matched the wrong call — every finding built on it would be
+    wrong in the safe-looking direction, reporting "nothing is truncated"
+    because the yardstick grew.
+    """
+    budget = _truncation_budget()
+    if budget is None:
+        pytest.skip("no sanitize() cap found in the MCP server")
+
+    module = importlib.import_module(SERVER_MODULE)
+    safe_error = getattr(module, "_safe_error", None)
+    if safe_error is None:  # skills that wrap errors elsewhere
+        for name in ("_shared", "server"):
+            helper = importlib.import_module(f"{module.__package__}.{name}", package=None)
+            safe_error = getattr(helper, "_safe_error", None)
+            if safe_error:
+                break
+    if safe_error is None:
+        pytest.skip("no _safe_error to cross-check against")
+
+    produced = len(safe_error(ValueError("x" * (budget * 3)), "probe"))
+    assert produced == budget, (
+        f"the cap parsed from source ({budget}) is not the cap applied at runtime "
+        f"({produced}) — every truncation finding is measured against the wrong bound"
+    )
+
+
+def _truncation_findings(graded, budget: int):
+    """Split scored messages into ones already cut and ones a long value can cut.
+
+    Pure, and separate from the test, so the regression suite can exercise it on
+    fabricated messages. Driven only by whatever the package contains today it
+    would sit at 100% and verify nothing — passing for the same reason an empty
+    check passes.
+    """
+    over, at_risk = [], []
+    for f, ln, text, composed, g in graded:
+        if not (g["states_remedy"] or g["names_artifact"]):
+            continue  # no remedy to preserve
+        # A composed message's text is every branch of its hint helper folded
+        # together — useful for asking "can this ever name a tool", useless as a
+        # length. Measuring it against the cap invented a 759-character message
+        # that is never produced at runtime, which is the same overclaim this
+        # check exists to catch, committed by the check itself.
+        if not composed and len(text) > budget:
+            over.append({"where": f"{f}:{ln}", "chars": len(text), "budget": budget})
+        low = text.lower()
+        hole = text.rfind("{}")
+        last_remedy = max((low.rfind(m) for m in REMEDY_MARKERS if m in low), default=-1)
+        if hole >= 0 and last_remedy > hole:
+            at_risk.append(f"{f}:{ln}")
+    return over, at_risk
+
+
+def test_remedies_survive_the_truncation_cap(board, graded_errors):
+    """The rubric reads the source; the agent reads what survives ``sanitize``.
+
+    Every scored message above is graded on its full text, but ``_safe_error``
+    caps what actually reaches the agent — with no ellipsis, so a cut is
+    invisible. One skill was found shipping a 396-character message whose
+    closing remedy ("re-run ``<cli> init``") had never once been delivered,
+    while this file scored it a perfectly taught error. That is the failure this
+    whole suite exists to catch, occurring inside the suite's own blind spot.
+
+    Two ways a remedy is lost, reported separately because only one is certain:
+
+    ``over_budget``      the static text alone exceeds the cap — cut today.
+    ``remedy_after_hole`` the remedy trails an interpolation, so however short
+                          the template looks, a long value can push the remedy
+                          past the cut at runtime. Reported, not asserted: it is
+                          a hazard, and whether it fires depends on real data.
+    """
+    budget = _truncation_budget()
+    if budget is None:
+        pytest.skip("no sanitize() cap found in the MCP server — nothing to measure")
+
+    over, at_risk = _truncation_findings(graded_errors, budget)
+    scored = [1 for _f, _l, _t, _c, g in graded_errors if g["states_remedy"] or g["names_artifact"]]
+    score = board.add(
+        Score(
+            name="remedy_survives_truncation",
+            value=len(scored) - len(over),
+            maximum=len(scored) or 1,
+            unit="messages",
+            detail={
+                "budget_chars": budget,
+                "over_budget": over[:10],
+                "remedy_after_interpolation": at_risk[:10],
+            },
+        )
+    )
+    print(f"\n[capability] remedy_survives_truncation = {score.pct}%  (cap {budget} chars)")
+    if at_risk:
+        print(f"             remedy trails an interpolation at: {at_risk[:5]}")
+
+    assert not over, (
+        f"{len(over)} message(s) are longer than the {budget}-char cap, so the "
+        f"remedy is cut before the agent sees it — and every rubric above still "
+        f"scores them as taught: {over[:5]}"
+    )
 
 
 def _error_returns_in_server():
@@ -329,10 +656,44 @@ def _error_returns_in_server():
     # scan of one file would silently miss those sites — reporting a clean
     # score for a surface it never looked at.
     handlers = []
+    #: Locally-defined helpers that *render* an error payload, so a handler
+    #: written as `return _as_error(...)` is not invisible. One skill's entire
+    #: error surface scored nothing at all because its handlers call a renderer
+    #: instead of inlining a literal — the scan claimed to cover the
+    #: hand-written case "exhaustively" while skipping the tidier form of it.
+    renderers: dict[str, list] = {}
     for source in sorted(server_dir.rglob("*.py")):
         if "__pycache__" in source.parts:
             continue
         tree = ast.parse(source.read_text(encoding="utf-8", errors="replace"))
+        module_strings = {
+            t.id: n.value.value
+            for n in tree.body
+            if isinstance(n, ast.Assign) and isinstance(n.value, ast.Constant)
+            and isinstance(n.value.value, str)
+            for t in n.targets if isinstance(t, ast.Name)
+        }
+        for stmt in ast.walk(tree):
+            if isinstance(stmt, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                rets = [
+                    n.value
+                    for n in ast.walk(stmt)
+                    if isinstance(n, ast.Return)
+                    and isinstance(n.value, (ast.Dict, ast.Constant, ast.JoinedStr))
+                ]
+                if not rets:
+                    continue
+                # A renderer usually builds its hint into a local before
+                # returning, so the hint is nowhere in the return expression.
+                # Fold in any module-level string the function references, or
+                # the tidier pattern reads as carrying no hint at all — which is
+                # how one skill's real, hint-carrying payload scored zero.
+                extra = " ".join(
+                    module_strings[n.id]
+                    for n in ast.walk(stmt)
+                    if isinstance(n, ast.Name) and n.id in module_strings
+                )
+                renderers[stmt.name] = (rets, extra)
         # Module-level string constants of this file, so a hint hoisted into a
         # constant resolves in the file that defines it.
         consts = {}
@@ -351,6 +712,14 @@ def _error_returns_in_server():
             if not (isinstance(node, ast.Return) and node.value is not None):
                 continue
             value = node.value
+            folded = ""
+            if isinstance(value, ast.Call):
+                fn = value.func
+                fname = fn.id if isinstance(fn, ast.Name) else getattr(fn, "attr", "")
+                rendered = renderers.get(fname)
+                if not rendered:
+                    continue
+                value, folded = rendered[0][0], rendered[1]
             if isinstance(value, ast.Dict):
                 keys = {k.value for k in value.keys if isinstance(k, ast.Constant)}
                 if "error" not in keys:
@@ -363,7 +732,9 @@ def _error_returns_in_server():
             elif isinstance(value, (ast.Constant, ast.JoinedStr)):
                 text = _resolve(value)
                 if text.lower().lstrip().startswith("error"):
-                    yield (node.lineno, False, False, text, False)
+                    # `folded` carries a hint the renderer assembles before
+                    # returning; empty for handlers that inline their payload.
+                    yield (node.lineno, False, bool(folded), f"{text} {folded}".strip(), False)
 
 
 def test_tool_failure_payloads_are_self_describing(board, names_artifact):
