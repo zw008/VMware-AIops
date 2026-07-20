@@ -18,8 +18,9 @@ either surfaces the raw error to the user as a dead end, or — the failure mode
 issue #31 actually reported — smooths it over into a confident, wrong summary.
 
 The difference between those two outcomes is entirely in the message text.
-``VM 'web-99' not found. Run list_vms (filter by name, e.g. 'web-99*') to see
-available VMs and copy an exact name.`` converts recovery from an inference
+``VM 'web-99' not found. Run vmware-monitor's list_virtual_machines (filter by
+name, e.g. 'web-99*') to see available VMs and copy an exact name.`` converts
+recovery from an inference
 problem into an instruction-following problem, which is precisely the thing weak
 models remain good at. Every point scored here moves one more failure across
 that line.
@@ -34,7 +35,11 @@ The three dimensions
 ``names_artifact`` — names the specific tool, CLI command, env var, or file to
                      act on. This is what makes the remedy executable rather
                      than aspirational; a model told to "verify connectivity"
-                     without being told *how* will invent a command.
+                     without being told *how* will invent a command. Tool names
+                     are matched against the live registry, so pointing at a
+                     tool that does not exist scores zero — a remedy the model
+                     cannot carry out is not a remedy. Naming a companion
+                     skill's CLI does count: a documented hand-off is followable.
 
 How to read the score
 ---------------------
@@ -54,18 +59,20 @@ from __future__ import annotations
 import ast
 import importlib
 import pathlib
+import re
+from collections.abc import Callable
 
 import pytest
 
 from ._scoring import Score
-from ._skill import CLI_NAME, PACKAGE, SERVER_MODULE
+from ._skill import CLI_NAME, COMPANION_SKILLS, PACKAGE, SERVER_MODULE
 
 pytestmark = pytest.mark.capability
 
 PACKAGE_ROOT = pathlib.Path(__file__).resolve().parents[3] / PACKAGE
 
 #: Imperative recovery language. Deliberately verb-led: "not found" is a
-#: diagnosis, "run list_vms" is a remedy, and only the second one helps.
+#: diagnosis, "run list_virtual_machines" is a remedy, and only the second helps.
 REMEDY_MARKERS = (
     "run ",
     "check ",
@@ -96,20 +103,65 @@ REMEDY_MARKERS = (
     "ensure ",
 )
 
-#: Concrete things a model can act on: a CLI, a tool name, a config file, an
-#: env var. Detected structurally rather than by keyword where possible.
-ARTIFACT_MARKERS = (
+#: Actionable things that are not tool names: this skill's CLI, a sibling skill
+#: to route to, a config file, an env var, a flag.
+#:
+#: Companion skills belong here for the same reason they count in
+#: ``test_entity_reachability``: "run 'vmware-storage iscsi status <host>'" is a
+#: documented hand-off, and a model can follow it. Scoring it as a dead end
+#: because the named CLI is not *this* package's understated the family's
+#: cross-skill errors by ~14 points in vmware-aiops alone.
+STATIC_ARTIFACT_MARKERS = (
     CLI_NAME,
+    *COMPANION_SKILLS,
     "config.yaml",
     "config.example.yaml",
     ".env",
     "doctor",
-    "list_",
-    "get_",
     "_mcp",
     "environment variable",
     "--",
 )
+
+
+def _artifact_matcher(tools) -> Callable[[str], bool]:
+    """Predicate: does this text name something the operator can actually act on?
+
+    Static markers plus the tool names the registry actually exposes. This
+    replaces the earlier ``list_`` / ``get_`` prefix heuristic, which was wrong
+    in both directions. It missed every tool not named that way —
+    ``cluster_info``, ``browse_datastore``, ``vm_info`` all read as "names
+    nothing concrete" while naming a real tool. And it credited *any*
+    plausible-looking name, including tools that do not exist: vmware-monitor
+    shipped an error telling the model to run ``list_vms``, a tool with no such
+    name on the surface, and this rubric scored it full marks. A remedy pointing
+    at a phantom tool is worse than no remedy, so the marker set is now the live
+    registry — the same source of truth ``family_smoke.sh`` checks error
+    messages against.
+
+    Tool names match on word boundaries rather than as substrings. Plain
+    ``in`` would credit ``cluster_infos`` because ``cluster_info`` is a prefix
+    of it, which reintroduces the phantom-tool hole this function exists to
+    close — the same defect wearing a different name. Static markers stay
+    substring-matched: ``--``, ``.env`` and ``config.yaml`` have no word
+    boundaries to speak of.
+
+    Tool names are restricted to those containing ``_``, the family's mandated
+    ``<domain>_<action>_<resource>`` form (CLAUDE.md, MCP tool design). A bare
+    word would match incidental prose rather than a deliberate reference.
+    """
+    names = sorted({t.name.lower() for t in tools if "_" in t.name})
+    pattern = (
+        re.compile(r"\b(?:" + "|".join(re.escape(n) for n in names) + r")\b") if names else None
+    )
+
+    def names_artifact(text: str) -> bool:
+        low = text.lower()
+        if any(m in low for m in STATIC_ARTIFACT_MARKERS):
+            return True
+        return bool(pattern and pattern.search(low))
+
+    return names_artifact
 
 
 def _iter_raise_messages():
@@ -140,20 +192,27 @@ def _iter_raise_messages():
                 yield (path.name, node.lineno, text, holes)
 
 
-def _grade(text: str, interpolates: bool) -> dict[str, bool]:
+def _grade(text: str, interpolates: bool, names_artifact: Callable[[str], bool]) -> dict[str, bool]:
     low = text.lower()
     states_range = any(k in low for k in ("must be", "available:", "supported:", "expected "))
     return {
         "names_input": interpolates or states_range,
         "states_remedy": any(m in low for m in REMEDY_MARKERS),
-        "names_artifact": any(m in low for m in ARTIFACT_MARKERS),
+        "names_artifact": names_artifact(text),
     }
 
 
 @pytest.fixture(scope="session")
-def graded_errors():
+def names_artifact(tools) -> Callable[[str], bool]:
+    """Built once per run, from the registry rather than from a guess."""
+    return _artifact_matcher(tools)
+
+
+@pytest.fixture(scope="session")
+def graded_errors(names_artifact):
     return tuple(
-        (f, ln, text, _grade(text, holes)) for f, ln, text, holes in _iter_raise_messages()
+        (f, ln, text, _grade(text, holes, names_artifact))
+        for f, ln, text, holes in _iter_raise_messages()
     )
 
 
@@ -309,7 +368,7 @@ def _error_returns_in_server():
                     yield (node.lineno, False, False, text, False)
 
 
-def test_tool_failure_payloads_are_self_describing(board):
+def test_tool_failure_payloads_are_self_describing(board, names_artifact):
     """Every caught-error return in the MCP server must carry a usable next step.
 
     This is the most-seen error surface in the skill: it wraps *all* tool
@@ -330,7 +389,7 @@ def test_tool_failure_payloads_are_self_describing(board):
 
     dict_shaped = [s for s in sites if s[1]]
     with_hint = [s for s in sites if s[2]]
-    actionable_hint = [s for s in sites if any(m in str(s[3]).lower() for m in ARTIFACT_MARKERS)]
+    actionable_hint = [s for s in sites if names_artifact(str(s[3]))]
     string_shaped = [s for s in sites if not s[1]]
     leaks_items = [s for s in sites if s[4]]
 

@@ -113,16 +113,16 @@
           }
         ],
         "per_dimension_pct": {
-          "names_artifact": 77.6,
+          "names_artifact": 91.8,
           "names_input": 98.0,
           "states_remedy": 95.9
         },
         "raise_sites": 49
       },
       "maximum": 147,
-      "pct": 90.5,
+      "pct": 95.2,
       "unit": "points",
-      "value": 133
+      "value": 140
     },
     "manifest_context_headroom": {
       "detail": {
@@ -229,9 +229,9 @@
     "teaching_error_rate": {
       "detail": {},
       "maximum": 49,
-      "pct": 77.6,
+      "pct": 91.8,
       "unit": "messages",
-      "value": 38
+      "value": 45
     },
     "tool_description_quality": {
       "detail": {
