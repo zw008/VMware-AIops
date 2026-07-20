@@ -18,7 +18,7 @@ from typing import Any
 import pytest
 
 from ._scoring import ScoreBoard
-from ._skill import SERVER_MODULE
+from ._skill import SERVER_MODULE, get_server
 
 #: Prefix of the modules the read-only gate affects at import time.
 _SERVER_PREFIX = SERVER_MODULE.split(".")[0] + ".mcp_server"
@@ -44,7 +44,7 @@ def load_tools(read_only: bool = False) -> tuple[Any, ...]:
         for name in list(saved):
             del sys.modules[name]
         mod = importlib.import_module(SERVER_MODULE)
-        return tuple(asyncio.run(mod.mcp.list_tools()))
+        return tuple(asyncio.run(get_server(mod).list_tools()))
     finally:
         if prior is None:
             os.environ.pop(_READ_ONLY_ENV, None)

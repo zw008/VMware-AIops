@@ -66,7 +66,10 @@ pytestmark = pytest.mark.capability
 #: Parameter names that denote an entity a model must have discovered somewhere.
 #: ``target`` is excluded: it comes from the operator's own config.yaml, not from
 #: an API listing, and every description already points at config.
-ENTITY_SUFFIXES = ("_name", "_id", "_uuid", "_key")
+#: Plural forms are included because a list-valued identifier parameter
+#: (``metric_keys``, ``symptom_definition_ids``) is the same lookup as its
+#: singular; omitting them dropped those parameters from scoring entirely.
+ENTITY_SUFFIXES = ("_name", "_id", "_uuid", "_key", "_ids", "_keys", "_names")
 
 #: Exclusions true for every skill: these end in an entity suffix but are not
 #: things a model discovers from an API. ``target`` comes from the operator's own
@@ -108,24 +111,43 @@ def _names_a_new_object(param: str, tool_name: str, entity: str) -> bool:
     return any(w in low for w in ENTITY_WORDS.get(entity, (entity,)))
 
 
+def _match(stem: str) -> str | None:
+    for entity, words in ENTITY_WORDS.items():
+        if stem in words or stem == entity:
+            return entity
+    return None
+
+
 def _entity_of(param: str, tool_name: str) -> str | None:
-    """Map a parameter name to an entity token, or None if it is not an entity."""
+    """Map a parameter name to an entity token, or None if it is not an entity.
+
+    Three shapes, because the family does not share one naming convention:
+
+    ``vm_name`` / ``segment_id``  — suffix stripped, stem matched.
+    ``namespace`` / ``pool``      — no suffix at all. Matched whole, so a skill
+        whose identifiers are bare nouns is scored rather than skipped. These are
+        opt-in through ``ENTITY_WORDS``; the coverage figure in the score detail
+        is what shows when one has been missed.
+    ``name``                      — takes its entity from the tool's own subject.
+        Every token is tried, not just the first: vmware-aiops names tools
+        subject-first (``cluster_info``) while vmware-vks names them verb-first
+        (``get_namespace``), and reading only the first token resolves the latter
+        to the verb and quietly drops the parameter.
+    """
     low = param.lower()
     if low in NOT_AN_ENTITY:
         return None
-    stem = low
+
     for suffix in ENTITY_SUFFIXES:
         if low.endswith(suffix):
-            stem = low[: -len(suffix)]
-            break
-    else:
-        # A bare ``name`` takes its entity from the tool's own subject.
-        if low != "name":
-            return None
-        stem = tool_name.split("_")[0].lower()
+            return _match(low[: -len(suffix)])
 
-    for entity, words in ENTITY_WORDS.items():
-        if stem in words or stem == entity:
+    if low != "name":
+        return _match(low)
+
+    for token in tool_name.lower().split("_"):
+        entity = _match(token)
+        if entity:
             return entity
     return None
 
@@ -149,7 +171,8 @@ def _entry_points(tools) -> tuple:
 def _enumerated_entities(tool) -> tuple[str, ...]:
     """Entity tokens this tool plausibly enumerates, judged from its name."""
     name = tool.name.lower()
-    if not any(k in name for k in ("list", "scan", "browse", "summary", "attention", "info")):
+    keywords = ("list", "scan", "browse", "summary", "attention", "info", "available", "members")
+    if not any(k in name for k in keywords):
         return ()
     return tuple(e for e, words in ENTITY_WORDS.items() if any(w in name for w in words))
 
@@ -185,6 +208,11 @@ def _producers(tools) -> dict[str, list[str]]:
     return {e: names for e, names in found.items() if names}
 
 
+def _all_required(tools) -> int:
+    """Count of every required parameter, entity-shaped or not."""
+    return sum(len((t.inputSchema or {}).get("required", []) or []) for t in tools)
+
+
 def _assess(tools) -> tuple[list[dict], list[dict]]:
     """Return ``(reachable, broken)`` records for every required entity param."""
     producers = _producers(tools)
@@ -217,15 +245,25 @@ def _record(board, tools, label: str) -> Score:
     reachable, broken = _assess(tools)
     total = len(reachable) + len(broken)
     strong = sum(1 for r in reachable if r["producer_on_surface"])
+    # A surface with no identifier parameters at all (vmware-debug has two tools
+    # and neither takes one) is navigable, not broken. Scoring it 0/1 would read
+    # as the worst possible result for the best possible case. The callers assert
+    # that the vocabulary is genuinely empty before trusting this branch, so it
+    # cannot be reached by a vocabulary that simply failed to match.
     score = board.add(
         Score(
             name=f"entity_reachability_{label}",
-            value=len(reachable),
+            value=len(reachable) if total else 1,
             maximum=max(1, total),
             unit="required entity params",
             detail={
                 "tool_count": len(tools),
                 "required_entity_params": total,
+                # Coverage sits beside the score on purpose. A parameter the
+                # vocabulary does not recognise is not scored as unreachable, it
+                # is not scored at all — so the percentage above is only as
+                # meaningful as the fraction of the surface it was computed over.
+                "required_params_classified": f"{total}/{_all_required(tools)}",
                 "reachable_on_surface": strong,
                 "reachable_only_via_description": len(reachable) - strong,
                 "broken_chains": broken,
@@ -243,9 +281,33 @@ def _record(board, tools, label: str) -> Score:
     return score
 
 
+def _assert_vocabulary_fits(score) -> bool:
+    """True when there is something to score; raises when the map does not fit.
+
+    Zero matched parameters has two very different causes. A skill can genuinely
+    have no discoverable identifiers. Or the vocabulary can be the wrong one —
+    the state a fresh port is in before anyone writes ``ENTITY_WORDS``, and the
+    state in which every number this file prints is computed over an empty set.
+    Telling them apart is exactly what the declaration is for: an empty map says
+    "no identifiers here" out loud, so a populated map that matches nothing is
+    a defect rather than a valid answer.
+    """
+    if score.detail["required_entity_params"]:
+        return True
+    assert not ENTITY_WORDS, (
+        "no required parameter matched the entity vocabulary, yet _skill.py "
+        "declares one — the map does not fit this surface, so every score in "
+        "this file was computed over an empty set. Fix ENTITY_WORDS, or empty "
+        "it to declare that this skill has no discoverable identifiers."
+    )
+    return False
+
+
 def test_entity_reachability_full_surface(board, tools):
     """Every required entity name must be obtainable on the ungated surface."""
     score = _record(board, tools, "full")
+    if not _assert_vocabulary_fits(score):
+        return
     assert score.pct >= 50.0, (
         f"only {score.pct}% of required entity names are obtainable — a model "
         "driving this skill has to invent identifiers, and invented identifiers "
@@ -260,6 +322,8 @@ def test_entity_reachability_read_only_surface(board, gated_tools):
     uncallable has traded one failure mode for a worse one.
     """
     score = _record(board, gated_tools, "read_only")
+    if not _assert_vocabulary_fits(score):
+        return
     assert score.pct >= 50.0, (
         f"read-only mode drops entity reachability to {score.pct}% — the gate is "
         "making the surface unusable rather than merely safe"

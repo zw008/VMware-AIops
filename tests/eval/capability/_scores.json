@@ -30,15 +30,16 @@
           "vm_create_snapshot",
           "vm_task_status"
         ],
-        "reachable_on_surface": 37,
+        "reachable_on_surface": 39,
         "reachable_only_via_description": 3,
-        "required_entity_params": 41,
+        "required_entity_params": 43,
+        "required_params_classified": "43/71",
         "tool_count": 49
       },
-      "maximum": 41,
-      "pct": 97.6,
+      "maximum": 43,
+      "pct": 97.7,
       "unit": "required entity params",
-      "value": 40
+      "value": 42
     },
     "entity_reachability_read_only": {
       "detail": {
@@ -55,6 +56,7 @@
         "reachable_on_surface": 5,
         "reachable_only_via_description": 1,
         "required_entity_params": 6,
+        "required_params_classified": "6/7",
         "tool_count": 13
       },
       "maximum": 6,

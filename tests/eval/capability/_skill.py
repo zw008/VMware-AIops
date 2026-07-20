@@ -70,3 +70,13 @@ NOT_AN_ENTITY = frozenset(
         "new_name",
     }
 )
+def get_server(module):
+    """Return the FastMCP instance ``SERVER_MODULE`` exposes.
+
+    The family has two shapes: a module-level ``mcp`` built at import time, and a
+    ``build_server()`` factory (vmware-harden, vmware-debug). Declared per skill
+    rather than probed with a try/except chain — a fallback would let a server
+    that stops exposing what this file says silently resolve to the other shape,
+    and the suite would go on scoring something nobody meant to measure.
+    """
+    return module.mcp
