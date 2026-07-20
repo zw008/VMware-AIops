@@ -43,8 +43,10 @@ from vmware_aiops.mcp_server._shared import _safe_error
 from vmware_aiops.ops.cluster_mgmt import ClusterError, ClusterNotFoundError
 from vmware_aiops.ops.datastore_browser import DatastoreBrowseError
 from vmware_aiops.ops.guest_ops import GuestOpsError
+from vmware_aiops.ops.host_network_mgmt import HostNetworkError
 from vmware_aiops.ops.inventory import InventoryError
 from vmware_aiops.ops.iscsi_config import HostNotFoundError, ISCSIError
+from vmware_aiops.ops.network_mgmt import NetworkError
 from vmware_aiops.ops.vm_lifecycle import (
     TaskFailedError,
     TaskStillRunning,
@@ -111,8 +113,10 @@ def test_dns_failure_does_not_hand_the_agent_the_hostname() -> None:
         ClusterError,
         InventoryError,
         HostNotFoundError,
+        HostNetworkError,
         ISCSIError,
         DatastoreBrowseError,
+        NetworkError,
     ],
 )
 def test_domain_exceptions_keep_their_message(exc_type):

@@ -60,6 +60,7 @@ from vmware_aiops.mcp_server.tools import (  # noqa: F401 — imported for regis
     datastore,
     deploy,
     guest,
+    network,
     plan,
     summary,
     ttl,

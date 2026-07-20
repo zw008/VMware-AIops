@@ -22,11 +22,13 @@ import pytest
 #: Every tool whose docstring starts with ``[WRITE]``.
 WRITE_TOOLS = {
     "acknowledge_vcenter_alarm",
+    "add_host_vmk",
     "attach_iso_to_vm",
     "batch_clone_vms",
     "batch_deploy_from_spec",
     "batch_linked_clone_vms",
     "cluster_add_host",
+    "create_dvs_portgroup",
     "cluster_configure",
     "cluster_create",
     "cluster_delete",
@@ -35,6 +37,7 @@ WRITE_TOOLS = {
     "deploy_linked_clone",
     "deploy_vm_from_ova",
     "deploy_vm_from_template",
+    "remove_host_vmk",
     "reset_vcenter_alarm",
     "vm_apply_plan",
     "vm_cancel_ttl",
