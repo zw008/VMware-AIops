@@ -72,7 +72,7 @@ def _declare(monkeypatch, environment: str) -> None:
             TargetConfig(
                 name="prod-vcenter",
                 host="vcenter.example.com",
-                username="administrator@vsphere.local",
+                config_username="administrator@vsphere.local",
                 environment=environment,
             ),
         )

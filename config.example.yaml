@@ -22,6 +22,10 @@ targets:
     port: 443
     username: administrator@vsphere.local
     # Set password via env: export VMWARE_PROD_VCENTER_PASSWORD=xxx
+    # The username below can also come from the environment:
+    #   export VMWARE_PROD_VCENTER_USERNAME=svc-account@vsphere.local
+    # Set both when a secret store supplies the pair — they resolve together,
+    # so rotating one without the other cannot happen.
     type: vcenter
     # Declare which environment this target is (production / staging / lab).
     # Policy scopes its rules by this value, so an unlabelled target matches
@@ -42,6 +46,7 @@ targets:
     port: 443
     username: root
     # Set password via env: export VMWARE_LAB_ESXI_PASSWORD=xxx
+    # Username override: export VMWARE_LAB_ESXI_USERNAME=root
     type: esxi
     # ESXi hosts typically ship with self-signed certs — uncomment if needed:
     # verify_ssl: false

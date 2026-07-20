@@ -1,3 +1,46 @@
+## v1.8.3 (2026-07-20) — credentials resolve as a pair; documented env vars now exist
+
+### Added — the per-target username can come from the environment
+
+Adapted from [VMware-AIops#33](https://github.com/zw008/VMware-AIops/pull/33) by
+@wright-bench, with thanks. The password already resolved from an env var; the
+username did not, so a deployment injecting credentials from a secret store
+(systemd `EnvironmentFile`, container secrets, a vault sidecar) could externalise
+only half of the pair — and a config-file username paired with an env password
+from a different account logs in as nobody.
+
+`<PASSWORD-KEY-PREFIX>_USERNAME` now overrides the `username:` in config.yaml,
+using that skill's own password-key convention. Absent, config.yaml still wins;
+nothing changes for anyone not setting it.
+
+**Resolved on every access, like the password.** The contributed version read the
+username once at load time while the password stayed a property, which
+reintroduces exactly the split the override exists to prevent: a sidecar rotating
+both halves mid-process moves the password and leaves the username behind. A test
+pins that both halves resolve at the same moment.
+
+### Fixed — documented credential variables that the code never read
+
+Rolling the above across the family surfaced a separate defect: four skills
+documented a password variable their own loader does not look up. An operator
+following the documentation exactly — correct file, correct place, correct-looking
+name — got "Password not found".
+
+| Skill | Documented | Actually read |
+|---|---|---|
+| vmware-nsx | `VMWARE_NSX_<TARGET>_PASSWORD` for target `nsx-prod` → `VMWARE_NSX_PROD_PASSWORD` | `VMWARE_NSX_NSX_PROD_PASSWORD` |
+| vmware-nsx-security | `VMWARE_<TARGET>_PASSWORD` | `VMWARE_NSX_SECURITY_<TARGET>_PASSWORD` |
+| vmware-aria | `VMWARE_<TARGET>_PASSWORD` | `VMWARE_ARIA_<TARGET>_PASSWORD` |
+| vmware-vks | `VMWARE_<TARGET>_PASSWORD` | `VMWARE_VKS_<TARGET>_PASSWORD` |
+| vmware-avi | three different forms across three files | `<CONTROLLER>_PASSWORD` |
+
+The prefixes genuinely differ per skill, so nothing could be fixed by
+standardising a pattern — each repo's docs were corrected against its own code.
+The code was left alone: changing a key would break every existing deployment.
+
+`family_smoke.sh` now compares the credential variables named in each repo's docs
+against the ones that repo's code builds, so the two cannot drift apart again.
+
 ## v1.8.2 (2026-07-20) — the MCP server moves into the package namespace
 
 ### Fixed — co-installing two skills broke all but the last one

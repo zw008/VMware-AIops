@@ -126,7 +126,9 @@ class TargetConfig:
 
     name: str
     host: str
-    username: str
+    config_username: str
+    """Username as written in config.yaml. Read :attr:`username` instead — the
+    env var overrides this, and the override is what actually gets used."""
     type: Literal["vcenter", "esxi"] = "vcenter"
     port: int = 443
     verify_ssl: bool = True
@@ -139,6 +141,21 @@ class TargetConfig:
     the next major release refuses it. Read-only operations are never affected.
     See :mod:`vmware_policy.environment`.
     """
+
+    @property
+    def username(self) -> str:
+        """Username for this target, env var winning over config.yaml.
+
+        Resolved on every access, exactly like :attr:`password`. Reading it
+        once at load time would split the pair the override exists to keep
+        whole: a secret sidecar that rotates both halves mid-process would
+        move the password and leave the username behind, and the login would
+        use an account/password combination that was never issued together.
+        """
+        return os.environ.get(
+            f"VMWARE_{self.name.upper().replace('-', '_')}_USERNAME",
+            self.config_username,
+        )
 
     @property
     def password(self) -> str:
@@ -236,11 +253,14 @@ def load_config(config_path: Path | None = None) -> AppConfig:
     with open(path) as f:
         raw = yaml.safe_load(f) or {}
 
+    # `username` is a property on TargetConfig, resolved env-first at access
+    # time like `password`. See TargetConfig.username for why late binding
+    # matters here.
     targets = tuple(
         TargetConfig(
             name=t["name"],
             host=t["host"],
-            username=t.get("username", "administrator@vsphere.local"),
+            config_username=t.get("username", "administrator@vsphere.local"),
             type=t.get("type", "vcenter"),
             port=t.get("port", 443),
             verify_ssl=t.get("verify_ssl", True),

@@ -22,7 +22,7 @@ from vmware_aiops.connection import ConnectionManager
 
 
 def _mgr() -> ConnectionManager:
-    target = TargetConfig(name="vc1", host="vc.example.com", username="admin@vsphere.local")
+    target = TargetConfig(name="vc1", host="vc.example.com", config_username="admin@vsphere.local")
     return ConnectionManager(AppConfig(targets=(target,)))
 
 
