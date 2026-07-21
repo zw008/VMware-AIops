@@ -208,12 +208,6 @@ class AppConfig:
     targets: tuple[TargetConfig, ...] = ()
     scanner: ScannerConfig = field(default_factory=ScannerConfig)
     notify: NotifyConfig = field(default_factory=NotifyConfig)
-    read_only: bool = False
-    """Withhold every write tool from the MCP registry.
-
-    Env vars ``VMWARE_AIOPS_READ_ONLY`` / ``VMWARE_READ_ONLY`` override this.
-    See :mod:`vmware_policy.readonly`.
-    """
 
     def get_target(self, name: str) -> TargetConfig:
         for t in self.targets:
@@ -263,6 +257,14 @@ def load_config(config_path: Path | None = None) -> AppConfig:
     with open(path) as f:
         raw = yaml.safe_load(f) or {}
 
+    if isinstance(raw, dict) and "read_only" in raw:
+        _log.warning(
+            "'read_only' in config is no longer honored (the skill-level read-only "
+            "switch was removed in v1.8.7). To run this agent read-only, point it at "
+            "a read-only vCenter/NSX service account (RBAC) — enforced at the "
+            "platform. Remove the 'read_only' key to silence this warning."
+        )
+
     # `username` is a property on TargetConfig, resolved env-first at access
     # time like `password`. See TargetConfig.username for why late binding
     # matters here.
@@ -299,5 +301,4 @@ def load_config(config_path: Path | None = None) -> AppConfig:
         targets=targets,
         scanner=scanner,
         notify=notify,
-        read_only=bool(raw.get("read_only", False)),
     )

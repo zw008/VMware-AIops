@@ -9,9 +9,6 @@ another tool on the same surface, or from a description that names the specific
 producer to call. A parameter with neither is a **broken chain**: a tool the
 model can see, wants to use, and cannot correctly invoke.
 
-It scores the full surface and the ``VMWARE_READ_ONLY=true`` surface separately,
-because gating removes tools and can turn a working chain into a broken one.
-
 Why it matters for a small model
 --------------------------------
 This is the failure the whole family's structured-output work was aimed at,
@@ -47,10 +44,6 @@ route. **100%** every demanded name is obtainable; **80–99%** a few tools invi
 a guess; **<80%** identifier hallucination should be expected in normal use. The
 ``broken_chains`` detail lists the exact parameters to fix, and the cheapest fix
 is almost always one sentence in a description rather than a new tool.
-
-Compare the two scores against each other: a large drop under read-only mode
-means the safety gate is buying its safety by making the surface unusable, which
-is worth knowing before recommending it as a default.
 """
 
 from __future__ import annotations
@@ -323,47 +316,24 @@ def test_entity_reachability_full_surface(board, tools):
     )
 
 
-def test_entity_reachability_read_only_surface(board, gated_tools):
-    """The same question after the read-only gate has removed tools.
-
-    Recorded separately because a safety control that leaves the remaining tools
-    uncallable has traded one failure mode for a worse one.
-    """
-    score = _record(board, gated_tools, "read_only")
-    if not _assert_vocabulary_fits(score):
-        return
-    assert score.pct >= 50.0, (
-        f"read-only mode drops entity reachability to {score.pct}% — the gate is "
-        "making the surface unusable rather than merely safe"
-    )
-
-
-def test_every_surface_has_an_entry_point(board, tools, gated_tools):
-    """At least one tool must be callable with nothing in hand, in both modes.
+def test_every_surface_has_an_entry_point(board, tools):
+    """At least one tool must be callable with nothing in hand.
 
     The degenerate broken surface: if every tool demands a name, there is no
     first call to make and the skill is unreachable regardless of model size.
     """
     full_entries = _entry_points(tools)
-    gated_entries = _entry_points(gated_tools)
     board.add(
         Score(
             name="entry_point_availability",
-            value=min(len(full_entries), len(gated_entries)),
-            maximum=max(1, len(gated_tools)),
+            value=len(full_entries),
+            maximum=max(1, len(tools)),
             unit="entry points",
-            detail={
-                "full_entry_points": len(full_entries),
-                "read_only_entry_points": len(gated_entries),
-            },
+            detail={"full_entry_points": len(full_entries)},
         )
     )
-    print(
-        f"\n[capability] entry points: {len(full_entries)} full / "
-        f"{len(gated_entries)} read-only"
-    )
+    print(f"\n[capability] entry points: {len(full_entries)} full")
     assert full_entries, "no tool can be called without an entity name already in hand"
-    assert gated_entries, "read-only mode left no callable entry point"
 
 
 def test_entity_vocabulary_covers_the_surface(tools):

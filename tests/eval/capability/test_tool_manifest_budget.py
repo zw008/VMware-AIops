@@ -36,9 +36,9 @@ How to read the score
 ``manifest_context_headroom`` is the percentage of the reference window still
 free after the manifest loads. **>80%** the surface is cheap; **60–80%** healthy;
 **40–60%** the surface is a significant tax and growth should be deliberate;
-**<40%** small-model use is compromised and tools should be merged, descriptions
-tightened, or the read-only gate recommended as the default. Rising tool counts
-push this down mechanically, so read it together with ``mean_tokens_per_tool``:
+**<40%** small-model use is compromised and tools should be merged or
+descriptions tightened. Rising tool counts push this down mechanically, so read
+it together with ``mean_tokens_per_tool``:
 falling headroom with flat per-tool cost is healthy growth, falling headroom with
 rising per-tool cost is bloat.
 """
@@ -129,42 +129,3 @@ def test_per_tool_token_discipline(board, tools):
     print(f"\n[capability] per_tool_token_discipline = {score.pct}%  (over ceiling: {over})")
 
     assert score.pct >= 50.0, f"most tools now exceed {PER_TOOL_CEILING} manifest tokens: {over}"
-
-
-def test_read_only_mode_shrinks_the_manifest(board, tools, gated_tools):
-    """Quantify the context that read-only mode buys back.
-
-    Read-only mode was built as a safety control — a weak model cannot call a
-    write tool that is absent from ``list_tools()``. This measures its *second*
-    effect, which was never claimed and matters just as much to the model that
-    prompted the work: withheld tools also stop costing context. For a
-    write-heavy skill this is the difference between fitting a small window and
-    not; for a read-only skill like this one the saving is correctly zero, and
-    recording that zero is what makes the family-wide comparison meaningful.
-    """
-    gated = gated_tools
-    gated_tokens = sum(_tool_tokens(t) for t in gated)
-    full_tokens = sum(_tool_tokens(t) for t in tools)
-    saved_tokens = full_tokens - gated_tokens
-
-    board.add(
-        Score(
-            name="read_only_manifest_saving",
-            value=saved_tokens,
-            maximum=max(1, full_tokens),
-            unit="tokens",
-            detail={
-                "full_manifest_tokens": full_tokens,
-                "gated_manifest_tokens": gated_tokens,
-                "full_tool_count": len(tools),
-                "gated_tool_count": len(gated),
-                "withheld_tools": sorted({t.name for t in tools} - {t.name for t in gated}),
-            },
-        )
-    )
-    print(
-        f"\n[capability] read_only_manifest_saving = {saved_tokens} tokens "
-        f"({len(tools)} -> {len(gated)} tools, {full_tokens} -> {gated_tokens})"
-    )
-
-    assert gated_tokens <= full_tokens, "read-only mode grew the manifest"

@@ -52,18 +52,18 @@
       },
       "maximum": 6,
       "pct": 100.0,
+      "stale": true,
       "unit": "required entity params",
       "value": 6
     },
     "entry_point_availability": {
       "detail": {
-        "full_entry_points": 15,
-        "read_only_entry_points": 7
+        "full_entry_points": 15
       },
-      "maximum": 13,
-      "pct": 53.8,
+      "maximum": 49,
+      "pct": 30.6,
       "unit": "entry points",
-      "value": 7
+      "value": 15
     },
     "error_actionability": {
       "detail": {
@@ -188,6 +188,7 @@
       },
       "maximum": 10891,
       "pct": 77.8,
+      "stale": true,
       "unit": "tokens",
       "value": 8471
     },
@@ -210,10 +211,10 @@
           "_common.py:211",
           "_common.py:193",
           "_common.py:198",
-          "config.py:223",
-          "config.py:257",
+          "config.py:217",
+          "config.py:251",
           "config.py:175",
-          "config.py:246",
+          "config.py:240",
           "connection.py:154"
         ]
       },

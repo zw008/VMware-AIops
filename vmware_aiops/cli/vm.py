@@ -650,6 +650,12 @@ def vm_guest_exec_cmd(
     """Execute a command inside a VM via VMware Tools."""
     from vmware_aiops.ops.guest_ops import guest_exec
 
+    # Arbitrary command execution inside a guest OS is the most powerful thing
+    # this CLI does, and it was the only destructive command without a
+    # confirmation — 25 others had one. It is also the operation a read-only
+    # deployment most needs withheld, and `_double_confirm` is where that
+    # refusal now lives.
+    _double_confirm(f"在客户机执行命令({command})", vm_name, _resolve_target(target))
     si, _ = _get_connection(target, config)
     result = guest_exec(si, vm_name, command, username, password, arguments=arguments)
     _audit.log(
@@ -683,6 +689,10 @@ def vm_guest_upload_cmd(
     """Upload a file to a VM via VMware Tools."""
     from vmware_aiops.ops.guest_ops import guest_upload
 
+    # Writes a file inside the guest OS — destructive by the same standard as
+    # the 25 commands that already confirm, and withheld by read-only for the
+    # same reason.
+    _double_confirm(f"上传文件到客户机({guest_path})", vm_name, _resolve_target(target))
     si, _ = _get_connection(target, config)
     result = guest_upload(si, vm_name, local_path, guest_path, username, password)
     _audit.log(

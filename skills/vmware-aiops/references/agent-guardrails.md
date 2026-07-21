@@ -33,52 +33,10 @@ These are structural, so it cannot.
 
 | Guardrail you would otherwise prompt for | Now enforced by |
 |---|---|
-| "Work exclusively in read-only mode and never modify anything" | **Read-only mode.** Set `VMWARE_READ_ONLY=true` and every write-effecting tool is removed from the registry at startup. `list_tools()` never offers them, so the model cannot call what it cannot see. |
-| "Never power off, delete or reconfigure a VM without asking" | Same gate. In read-only mode there is no `vm_power_off`, no `vm_delete`, no `vm_reconfigure` to call — 36 tools go, leaving 13. |
-| "Do not run commands inside guest operating systems" | The guest-ops tools are all write-classified, `vm_guest_download` included: it reads the guest but writes to an operator-supplied local path with guest credentials, so the gate withholds it too. |
 | "Use explicit limits for queries that may return large amounts of data" | **The list envelope.** `browse_datastore`, `list_vcenter_alarms`, `vm_list_plans`, `vm_list_snapshots` and `vm_list_ttl` return `{items, returned, limit, total, truncated, hint}`, so the model reads truncation instead of guessing at it. |
 | "If a listing came back empty, say so rather than claiming the call failed" | Same envelope. Empty `items` with `truncated: false` means checked-and-none — a stated result, not a silence the model has to interpret. |
 | "Log every state change you make" | **The `@vmware_tool` decorator.** Every write is recorded to `~/.vmware/audit.db` before the model sees the result, and policy rules are evaluated ahead of execution. Neither depends on the model cooperating. |
-| "Ask a human before doing something irreversible in production" | **Policy.** A target declared `environment: production` requires a named approver (`VMWARE_AUDIT_APPROVED_BY`) for irreversible work. |
-
-### Turning read-only mode on
-
-One variable covers every skill in the family:
-
-```json
-{
-  "mcpServers": {
-    "vmware-aiops": {
-      "command": "vmware-aiops",
-      "args": ["mcp"],
-      "env": { "VMWARE_READ_ONLY": "true" }
-    }
-  }
-}
-```
-
-Per-skill override — useful when this skill alone should stay writable:
-
-```bash
-VMWARE_READ_ONLY=true          # whole family read-only
-VMWARE_AIOPS_READ_ONLY=false   # …except VM lifecycle
-```
-
-Or permanently, in `~/.vmware-aiops/config.yaml`:
-
-```yaml
-read_only: true
-```
-
-Precedence is per-skill env → family env → config file → off. The startup log
-lists exactly which tools were withheld, and `vmware-aiops doctor` reports the
-resolved state and its source. An unparseable value (`VMWARE_READ_ONLY=ture`)
-enables read-only mode rather than silently ignoring the typo.
-
-A blocked tool is a lockdown, not a fault. When a write tool is missing from
-`list_tools()`, the model should name the operation it cannot perform and say
-an operator must clear the switch — not retry, and not go looking for a
-different tool that achieves the same change.
+| "Block state-changing writes against a production target" | **Policy.** An opt-in environment-scoped `deny` rule in `~/.vmware/rules.yaml` matches a target's `environment:` label and refuses matching writes before execution. |
 
 ---
 
@@ -137,8 +95,6 @@ your agent's instruction block.
 
 ## Writes in vmware-aiops
 
-- A write tool missing from the tool list means read-only mode is on. Name the
-  blocked operation and stop. Do not retry and do not substitute another tool.
 - reset_vcenter_alarm has a blast radius: vSphere has no per-alarm clear API,
   so it clears every triggered alarm matching the named alarm's entity type and
   status, not only the one named. Report the response's scope field verbatim.
@@ -164,7 +120,7 @@ checklist when evaluating any local model against these skills:
 | Adds generic recommendations unsupported by results | The "analysis discipline" rules. |
 | Drops requested fields or reorders results | State the required fields and ordering in the request itself, not only in the system prompt. |
 | Multi-tool workflows take 30–50s end to end | Prefer the aggregate tools — `cluster_health_summary`, `vm_investigation_bundle`, `host_investigation_bundle`, `datastore_investigation_bundle`, `cross_vcenter_attention` — which collapse a 3-4 call sequence into one round trip. |
-| Picks a write tool for a question that only reads | Run read-only, or route read questions to vmware-monitor. A model that can see 35 write tools will sometimes reach for one to "check" something. |
+| Picks a write tool for a question that only reads | Route read questions to vmware-monitor. A model that can see 35 write tools will sometimes reach for one to "check" something. |
 | Treats a long-running task's "still running" reply as a failure and re-issues the write | The `vm_task_status` rule above. A re-issued clone or delete is the worst outcome in this skill. |
 | Assumes an alarm reset cleared only the alarm it named | Report `scope` from the response. The clear is entity-type-wide by design. |
 

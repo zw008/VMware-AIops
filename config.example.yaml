@@ -6,15 +6,6 @@
 #   chmod 600 ~/.vmware-aiops/.env
 # See .env.example for naming convention details
 
-# Read-only mode: withhold every write-effecting tool from the MCP registry at
-# startup, leaving only the read tools. A prompt instruction is advisory — this
-# is structural: the model cannot call what list_tools() never offers. Useful
-# for audits, PoCs, and untrusted/local models. Fail-closed: if the mode is
-# requested but cannot be guaranteed, the server refuses to start.
-# Precedence: VMWARE_AIOPS_READ_ONLY -> VMWARE_READ_ONLY -> this key -> off.
-# Startup logs list exactly which tools were withheld.
-# read_only: true
-
 targets:
   # vCenter Server
   - name: prod-vcenter
@@ -27,13 +18,9 @@ targets:
     # Set both when a secret store supplies the pair — they resolve together,
     # so rotating one without the other cannot happen.
     type: vcenter
-    # Declare which environment this target is (production / staging / lab).
-    # Policy scopes its rules by this value, so an unlabelled target matches
-    # none of them. Today a write against an undeclared target still runs and
-    # logs a warning; the next major release refuses it — declaring it now
-    # makes that upgrade a no-op. Once labelled production, irreversible work
-    # needs a named approver (VMWARE_AUDIT_APPROVED_BY). Read-only operations
-    # are never affected. Run 'vmware-audit policy' to see the rules in force.
+    # Optional label for this target. An environment-scoped 'deny' rule in
+    # ~/.vmware/rules.yaml can match on it — e.g. freeze writes on 'production'.
+    # A target with no label is simply not matched by such a rule.
     environment: production
     # verify_ssl: true is the default (v1.5.15+). Set to false ONLY for
     # self-signed certs in lab/dev environments — disables SSL verification.

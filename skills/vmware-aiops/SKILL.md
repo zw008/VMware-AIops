@@ -12,7 +12,7 @@ installer:
 argument-hint: "[vm-name or describe your task]"
 allowed-tools:
   - Bash
-metadata: {"openclaw":{"requires":{"env":["VMWARE_AIOPS_CONFIG"],"bins":["vmware-aiops"],"config":["~/.vmware-aiops/config.yaml","~/.vmware-aiops/.env"]},"optional":{"env":["VMWARE_TARGET_PASSWORD","VMWARE_<TARGET>_USERNAME","SLACK_WEBHOOK_URL","DISCORD_WEBHOOK_URL","VMWARE_READ_ONLY","VMWARE_AIOPS_READ_ONLY","VMWARE_AUDIT_APPROVED_BY"],"bins":["vmware-policy"]},"primaryEnv":"VMWARE_AIOPS_CONFIG","homepage":"https://github.com/zw008/VMware-AIops","emoji":"🖥️","os":["macos","linux"]}}
+metadata: {"openclaw":{"requires":{"env":["VMWARE_AIOPS_CONFIG"],"bins":["vmware-aiops"],"config":["~/.vmware-aiops/config.yaml","~/.vmware-aiops/.env"]},"optional":{"env":["VMWARE_TARGET_PASSWORD","VMWARE_<TARGET>_USERNAME","SLACK_WEBHOOK_URL","DISCORD_WEBHOOK_URL","VMWARE_AUDIT_APPROVED_BY"],"bins":["vmware-policy"]},"primaryEnv":"VMWARE_AIOPS_CONFIG","homepage":"https://github.com/zw008/VMware-AIops","emoji":"🖥️","os":["macos","linux"]}}
 compatibility: >
   vmware-policy auto-installed as Python dependency (provides @vmware_tool decorator and audit logging). All write operations audited to ~/.vmware/audit.db.
   Credentials: Each vCenter/ESXi target requires a per-target password env var in ~/.vmware-aiops/.env following the pattern VMWARE_<TARGET_NAME_UPPER>_PASSWORD. Passwords are never logged or echoed.
@@ -206,10 +206,6 @@ Start here when the ask is "is anything on fire?" before diving into a specific 
 
 **Alarm reset blast radius**: vSphere has no per-alarm clear API. `reset_vcenter_alarm` uses `AlarmManager.ClearTriggeredAlarms`, which clears **all** triggered alarms matching the named alarm's entity type (host/VM/all) and current status (red/yellow) — not just the one named. The response's `scope` field states exactly what was cleared. The named alarm is looked up first, so a typo fails fast without clearing anything.
 
-## Read-Only Mode
-
-If a write tool described above is absent from `list_tools()`, this deployment is in read-only mode: `VMWARE_READ_ONLY=true` (or `VMWARE_AIOPS_READ_ONLY`, or `read_only: true` in config.yaml) withholds all 36 write-effecting tools at start-up — the 35 writes plus `vm_guest_download`, which writes to a local path. That is a deliberate lockdown, not a fault — do not retry, and do not look for another tool that achieves the same change. Name the operation that is blocked and say an operator must clear the switch and restart the server. The 13 read tools are unaffected. `vmware-aiops doctor` reports the current state and its source. Running with local or small models? See [`references/agent-guardrails.md`](references/agent-guardrails.md).
-
 ## CLI Quick Reference
 
 ```bash
@@ -277,18 +273,6 @@ Run `vmware-aiops plan list` to see failed plan status. Ask user if they want to
 ### Connection refused / SSL error
 1. Verify target is reachable: `vmware-aiops doctor`
 2. For self-signed certs: set `disableSslCertValidation: true` in config.yaml (lab environments only)
-
-### Warning: "ran against a target that declares no environment"
-Policy scopes its rules by each target's `environment:` declaration, not its
-name — an unlabelled target matches none of them. **Today** an undeclared
-write still runs and logs this warning; **the next major release refuses it**.
-Add `environment: production` (or `staging`, `lab`, your own label) to that
-target in `~/.vmware-aiops/config.yaml` now and the upgrade is a no-op.
-Read-only operations are never affected. Labelling a target `production`
-activates the two-person rule for irreversible work — set
-`VMWARE_AUDIT_APPROVED_BY` (and `VMWARE_AUDIT_RATIONALE`) when running those.
-Check what is in force with `vmware-audit policy`; config example and exact
-refusal text: `references/setup-guide.md`.
 
 ## Setup
 

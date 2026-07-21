@@ -9,8 +9,6 @@ English | [中文](README-CN.md)
 
 AI-powered VMware vCenter/ESXi VM lifecycle and deployment tool — 49 tools.
 
-- **Read-only mode** (v1.8.0) — one env var (`VMWARE_READ_ONLY=true`) strips all 36 write-effecting tools (35 writes **plus `vm_guest_download`**) from the MCP registry at startup, leaving the 13 read tools; ideal for audits, PoCs, and untrusted/local models. See [Read-Only Mode](#read-only-mode).
-
 > **Companion skills** handle everything else:
 >
 > | Skill | Scope | Install |
@@ -69,6 +67,34 @@ pip install vmware-aiops
 
 # China mainland mirror (faster)
 pip install vmware-aiops -i https://pypi.tuna.tsinghua.edu.cn/simple
+```
+
+### Offline / Air-Gapped Install (from source)
+
+This project uses the modern PEP 517 build system (hatchling), so there is **no
+`setup.py`** by design — that is expected, not a missing file. If you cloned the
+source and hit `ERROR: File "setup.py" or "setup.cfg" not found ... editable mode
+currently requires a setuptools-based build`, your `pip` is older than 21.3 and
+cannot do an *editable* (`-e`) install with a non-setuptools backend. Editable
+mode is a developer convenience, not needed to run the tool — do one of:
+
+```bash
+# From the source tree — a normal (non-editable) install builds a wheel:
+pip install .              # NOT  pip install -e .
+
+# ...or upgrade pip first, and editable works too:
+pip install --upgrade pip && pip install -e .
+```
+
+For a **truly air-gapped host**, build the wheels on a connected machine and copy
+them over — the target then needs no network:
+
+```bash
+# On a connected machine, collect this package + its dependencies as wheels:
+pip wheel . -w dist        # → dist/*.whl   (or: uv build, for just this package)
+
+# Copy dist/ to the air-gapped host, then install offline:
+pip install --no-index --find-links dist vmware-aiops
 ```
 
 ---
@@ -285,31 +311,6 @@ Plans stored in `~/.vmware-aiops/plans/`, auto-deleted on success, auto-cleaned 
 | Structured Log | JSONL output to `~/.vmware-aiops/scan.log` |
 | Webhook | Slack, Discord, or any HTTP endpoint |
 | Daemon Management | `daemon start/stop/status`, PID file, graceful shutdown |
-
-## Read-Only Mode
-
-A prompt instruction is advisory — a model can ignore it. Read-only mode is structural: set `VMWARE_READ_ONLY=true` and all 36 write tools (VM lifecycle and power, snapshots, clone/migrate, OVA/template/linked-clone and batch provisioning, guest operations, cluster management, plans and TTL, alarm acknowledge/reset) are removed from the MCP registry at startup, leaving the 13 read tools. `list_tools()` never offers them, so the model cannot call what it cannot see. Off by default, and fail-closed: if the mode is requested but cannot be guaranteed, the server refuses to start.
-
-`vm_guest_download` is marked `[READ]` — it changes no vCenter state — but it is deliberately classified as a write tool and withheld too, because it writes a file to an operator-supplied local path and accepts guest credentials.
-
-Three ways to enable:
-
-```json
-{
-  "mcpServers": {
-    "vmware-aiops": {
-      "command": "vmware-aiops",
-      "args": ["mcp"],
-      "env": { "VMWARE_READ_ONLY": "true" }
-    }
-  }
-}
-```
-
-- Per-skill override: `VMWARE_AIOPS_READ_ONLY=true` (takes precedence over the family-wide `VMWARE_READ_ONLY`)
-- Config alternative: `read_only: true` in `~/.vmware-aiops/config.yaml`
-
-Precedence: per-skill env → family env → config → off. Startup logs list exactly which tools were withheld.
 
 ## Safety Features
 

@@ -1,3 +1,34 @@
+## v1.8.7 (2026-07-21) — the skill-level read-only switch is removed; read/write authorization is the vCenter account's job (RBAC)
+
+### Removed: `VMWARE_READ_ONLY` / `read_only:` — give the agent a read-only service account instead
+
+The skill-level read-only switch is gone. It was enforced only on the MCP tool
+registry, and any agent with a shell (every SKILL.md grants `allowed-tools: Bash`)
+could reach the same change one CLI command away — so it withheld the *tool*, not
+the *capability*. It was never a real boundary.
+
+To run an agent read-only, give it a **read-only vCenter/NSX service account
+(RBAC)**. Writes are then refused at the platform, un-bypassably, regardless of
+surface or shell — the one place read/write control cannot be stepped around. A
+config still carrying `read_only: true` is ignored, with a one-time warning that
+names the replacement (no silent behavior change).
+
+### Removed: approval tiers and the declared-environment gate (via vmware-policy)
+
+The graduated-autonomy approval tiers (`confirm`/`dual`/`review`) and the "declare
+an environment or be refused" baseline are removed — they only ever fired on the
+rarest configuration while carrying the family's most complex machinery. Opt-in
+`deny` rules and the maintenance window remain, and apply identically wherever a
+tool runs.
+
+### Added: offline / air-gapped install docs
+
+The README now covers installing from source without editable mode (for older
+`pip`) and building wheels to carry onto an air-gapped host — the modern PEP 517
+layout has no `setup.py` by design, which is expected, not a missing file.
+
+This release also carries the accumulated fixes staged since 1.8.5.
+
 ## v1.8.5 (2026-07-20) — the two fixes v1.8.4 announced now actually work
 
 Four adversarial reviews of v1.8.4 found that both of its headline fixes were
