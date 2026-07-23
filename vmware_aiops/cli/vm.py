@@ -661,10 +661,19 @@ def vm_guest_exec_cmd(
     password: Annotated[str, typer.Option("--password", "-p", help="Guest OS password", prompt=True, hide_input=True)] = "",
     target: TargetOption = None,
     config: ConfigOption = None,
+    dry_run: DryRunOption = False,
 ) -> None:
     """Execute a command inside a VM via VMware Tools."""
     from vmware_aiops.ops.guest_ops import guest_exec
 
+    if dry_run:
+        # Never echo the password into the preview.
+        _dry_run_print(
+            target=_resolve_target(target), vm_name=vm_name, operation="guest_exec",
+            api_call="GuestProcessManager.StartProgramInGuest()",
+            parameters={"command": command, "arguments": arguments, "username": username},
+        )
+        return
     # Arbitrary command execution inside a guest OS is the most powerful thing
     # this CLI does, and it was the only destructive command without a
     # confirmation — 25 others had one. `_double_confirm` is where that
@@ -700,10 +709,18 @@ def vm_guest_upload_cmd(
     password: Annotated[str, typer.Option("--password", "-p", help="Guest OS password", prompt=True, hide_input=True)] = "",
     target: TargetOption = None,
     config: ConfigOption = None,
+    dry_run: DryRunOption = False,
 ) -> None:
     """Upload a file to a VM via VMware Tools."""
     from vmware_aiops.ops.guest_ops import guest_upload
 
+    if dry_run:
+        _dry_run_print(
+            target=_resolve_target(target), vm_name=vm_name, operation="guest_upload",
+            api_call="GuestFileManager.InitiateFileTransferToGuest()",
+            parameters={"local_path": local_path, "guest_path": guest_path, "username": username},
+        )
+        return
     # Writes a file inside the guest OS — destructive by the same standard as
     # the 25 commands that already confirm.
     _double_confirm(f"上传文件到客户机({guest_path})", vm_name, _resolve_target(target))
