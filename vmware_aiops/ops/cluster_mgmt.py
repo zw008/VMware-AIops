@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from pyVmomi import vim
+from vmware_policy import sanitize
 
 from vmware_aiops.ops.inventory import (
     InventoryError,
@@ -80,14 +81,14 @@ def get_cluster_info(si: ServiceInstance, cluster_name: str) -> dict:
     for host in host_refs:
         p = host_props.get(host, {})
         hosts.append({
-            "name": p.get("name"),
+            "name": sanitize(p.get("name", "")),
             "connection_state": str(p.get("runtime.connectionState")),
             "power_state": str(p.get("runtime.powerState")),
             "maintenance_mode": p.get("runtime.inMaintenanceMode"),
         })
 
     return {
-        "name": cluster.name,
+        "name": sanitize(cluster.name),
         "host_count": len(host_refs),
         "hosts": hosts,
         "ha_enabled": cfg.dasConfig.enabled if cfg.dasConfig else False,
